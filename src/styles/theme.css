@@ -1,0 +1,602 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  
+  /* 
+    Spatial Light Theme - Soft grey-lavender visionOS layout (Image 5 inspired)
+    Bright ambient clinic background, but smoky charcoal glass cards and panels!
+  */
+  --background: #ece9f1; 
+  --foreground: #ffffff; /* Text remains white/light for legibility on dark glass! */
+  --card: rgba(30, 26, 38, 0.58); /* Soft smoky charcoal glass (dark!) */
+  --card-foreground: #ffffff;
+  --popover: rgba(35, 30, 44, 0.76); /* Dark popovers */
+  --popover-foreground: #ffffff;
+  --primary: #d946ef; /* Bright Neon Magenta/Orchid */
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.1);
+  --secondary-foreground: #d946ef;
+  --muted: rgba(255, 255, 255, 0.08);
+  --muted-foreground: #cbc0d3; /* Soft light-grey/lavender text for labels */
+  --accent: rgba(255, 255, 255, 0.15);
+  --accent-foreground: #f472b6;
+  --destructive: #e11d48;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.12); /* White specular highlights */
+  --input: transparent;
+  --input-background: rgba(0, 0, 0, 0.25); /* Translucent dark input boxes */
+  --switch-background: rgba(255, 255, 255, 0.15);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #d946ef;
+  --chart-1: #d946ef;
+  --chart-2: #f472b6;
+  --chart-3: #a855f7;
+  --chart-4: #fbbf24;
+  --chart-5: #34d399;
+  --radius: 1.5rem;
+  
+  /* Sidebar Light floating capsule */
+  --sidebar: rgba(25, 20, 32, 0.62);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #d946ef;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.15);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: #d946ef;
+
+  /* Glass borders specular highlights */
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-overlay: rgba(255, 255, 255, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.25);
+}
+
+.dark {
+  /* Spatial Dark Theme - Deep Cosmic Anthracite Black (watermarked_img_851376909664887668.png inspired) */
+  --background: #0b0a0f; 
+  --foreground: #f5eff9;
+  --card: rgba(18, 17, 24, 0.6); /* Premium dark esmerilado glass */
+  --card-foreground: #f5eff9;
+  --popover: rgba(15, 14, 20, 0.82);
+  --popover-foreground: #f5eff9;
+  --primary: #d946ef; /* Vibrant Neon Magenta */
+  --primary-foreground: #0b0a0f;
+  --secondary: rgba(255, 255, 255, 0.04);
+  --secondary-foreground: #d946ef;
+  --muted: rgba(255, 255, 255, 0.03);
+  --muted-foreground: #a699ac;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #f472b6;
+  --destructive: #e11d48;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.05); /* Ultra-fine borders */
+  --input: transparent;
+  --input-background: rgba(0, 0, 0, 0.4);
+  --switch-background: rgba(255, 255, 255, 0.05);
+  --ring: #d946ef;
+  --chart-1: #d946ef;
+  --chart-2: #f472b6;
+  --chart-3: #a855f7;
+  --chart-4: #fbbf24;
+  --chart-5: #34d399;
+  
+  /* Sidebar Dark floating capsule */
+  --sidebar: rgba(15, 14, 20, 0.75);
+  --sidebar-foreground: #f5eff9;
+  --sidebar-primary: #d946ef;
+  --sidebar-primary-foreground: #0b0a0f;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #f5eff9;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #d946ef;
+
+  --glass-border: rgba(255, 255, 255, 0.05); /* Extremely thin Z-separation border */
+  --glass-overlay: rgba(255, 255, 255, 0.03);
+  --glass-shadow: rgba(0, 0, 0, 0.65);
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    background-color: var(--background);
+    /* Aesthetic clinic background — warm translucent lavender overlay lets the image show through */
+    background-image: linear-gradient(rgba(240, 234, 248, 0.15), rgba(240, 234, 248, 0.15)), url('./bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, background-image 0.4s ease;
+  }
+
+  .dark body {
+    background-color: #0b0a0f;
+    /* Dark mode: 65% dark overlay — lets the clinic image texture show through subtly */
+    background-image: linear-gradient(rgba(11, 10, 15, 0.65), rgba(11, 10, 15, 0.65)), url('./bg.png');
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Glassmorphism Capsule Sidebar (Narrow Vision Pro design) */
+.glass-capsule {
+  background: var(--sidebar);
+  backdrop-filter: blur(28px) saturate(130%);
+  -webkit-backdrop-filter: blur(28px) saturate(130%);
+  border: 1.5px solid var(--sidebar-border); /* Specular highlight border */
+  box-shadow: 0 16px 40px 0 var(--glass-shadow), inset 0 1px 0 var(--glass-overlay);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Glassmorphism Panel (Main Window Plate) */
+.glass-panel {
+  background: var(--card);
+  backdrop-filter: blur(32px) saturate(125%);
+  -webkit-backdrop-filter: blur(32px) saturate(125%);
+  border: 1.5px solid var(--glass-border); /* Specular highlight border */
+  box-shadow: 0 20px 48px 0 var(--glass-shadow), inset 0 1px 0 var(--glass-overlay);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.4s ease;
+}
+
+/* Automatic shadcn overrides to make them glassmorphic by default */
+.bg-card {
+  background: var(--card) !important;
+  backdrop-filter: blur(24px) saturate(110%);
+  -webkit-backdrop-filter: blur(24px) saturate(110%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 16px 40px 0 var(--glass-shadow), inset 0 1px 0 var(--glass-overlay);
+  transition: background-color 0.4s ease;
+}
+
+.bg-popover {
+  background: var(--popover) !important;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 50px 0 var(--glass-shadow);
+  transition: background-color 0.4s ease;
+}
+
+/* Tactile Spring Animations (Emil Kowalski inspired) */
+.spring-hover {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.spring-hover:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 24px -10px rgba(192, 38, 211, 0.2);
+  border-color: var(--primary);
+}
+.spring-hover:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Subtle highlights for Spatial UI elements */
+.glowing-border:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(192, 38, 211, 0.15), 0 8px 20px -8px rgba(192, 38, 211, 0.2);
+}
+
+/* Global Radix Dialog, Sheet, and Overlay overrides for Spatial UI */
+[data-slot="dialog-content"], [data-slot="sheet-content"] {
+  backdrop-filter: blur(28px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(120%) !important;
+  background: var(--popover) !important;
+  border: 1.5px solid var(--glass-border) !important;
+  box-shadow: 0 24px 80px var(--glass-shadow), inset 0 1px 0 var(--glass-overlay) !important;
+}
+
+[data-slot="dialog-overlay"], [data-slot="sheet-overlay"] {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: rgba(5, 3, 8, 0.35) !important;
+}
+
+/* 
+  ⚡ GLOBAL OVERRIDES TO GLASS-IFY SOLID WHITE/SLATE INPUTS & SELECTORS
+  Forces all legacy white inputs to blend into light/dark frosted glass themes.
+*/
+.glass-panel input,
+.glass-panel select,
+.glass-panel textarea,
+[data-slot="dialog-content"] input,
+[data-slot="dialog-content"] select,
+[data-slot="dialog-content"] textarea,
+[data-slot="sheet-content"] input,
+[data-slot="sheet-content"] select,
+[data-slot="sheet-content"] textarea {
+  background-color: var(--input-background) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.glass-panel input:focus,
+.glass-panel select:focus,
+.glass-panel textarea:focus,
+[data-slot="dialog-content"] input:focus,
+[data-slot="dialog-content"] select:focus,
+[data-slot="dialog-content"] textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(192, 38, 211, 0.15) !important;
+  outline: none !important;
+}
+
+/* Override solid white/slate helper panels (POS sidebar forms, calendar hour headers) */
+.glass-panel .bg-white,
+.glass-panel .bg-slate-50,
+.glass-panel .bg-slate-50\/50,
+.glass-panel .bg-slate-50\/80,
+.glass-panel .bg-slate-100,
+.glass-panel [class*="bg-white/"],
+.glass-panel [class*="bg-slate-50"],
+.glass-panel [class*="bg-slate-100"],
+[data-slot="dialog-content"] [class*="bg-slate-50"],
+[data-slot="sheet-content"] [class*="bg-slate-50"] {
+  background-color: var(--card) !important;
+  border-color: var(--border) !important;
+}
+
+.glass-panel .border-slate-200,
+.glass-panel .border-slate-300,
+.glass-panel .border-slate-400 {
+  border-color: var(--border) !important;
+}
+
+/* Specific buttons styled as solid white or grey should become glass buttons */
+.glass-panel button.bg-white,
+.glass-panel button.bg-slate-100,
+.glass-panel button.bg-slate-50 {
+  background-color: var(--input-background) !important;
+  border: 1.5px solid var(--glass-border) !important;
+  color: var(--foreground) !important;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.glass-panel button.bg-white:hover,
+.glass-panel button.bg-slate-100:hover,
+.glass-panel button.bg-slate-50:hover {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px);
+}
+
+.glass-panel select option,
+[data-slot="dialog-content"] select option,
+[data-slot="sheet-content"] select option,
+select option {
+  background-color: #231e2d !important;
+  color: #ffffff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🌑 CRITICAL DARK-MODE GLASS FIXES
+   Prevents bg-background from rendering as opaque solid black inside panels.
+   Converts all inner containers to translucent glass in dark mode.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Any container using bg-background inside a glass-panel becomes transparent dark glass */
+.dark .glass-panel .bg-background,
+.dark .glass-panel [class*="bg-background"] {
+  background-color: rgba(0, 0, 0, 0.0) !important;
+}
+
+/* Calendar grid: force the full-height relative container to be transparent */
+.dark #tour-calendar-grid,
+.dark #tour-calendar-grid > div {
+  background-color: transparent !important;
+}
+
+/* Calendar: the absolute inset background-grid (time rows) must be transparent */
+.dark #tour-calendar-grid .absolute.inset-0.grid {
+  background-color: transparent !important;
+}
+
+/* Calendar: header row (sticky day-name bar) */
+.dark .glass-panel .grid.sticky.top-0 {
+  background-color: rgba(18, 17, 24, 0.85) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Calendar: individual day/cabin cells – ensure they have a visible very subtle dark fill */
+.dark #tour-calendar-grid .border-r.border-b {
+  background-color: rgba(255, 255, 255, 0.01) !important;
+}
+
+/* ─── Patient Screen fixes ─────────────────────────────────────────────── */
+
+/* Outer patient wrapper: bg-background → transparent so glass-panel shows through */
+.dark #tour-patients-list {
+  background-color: rgba(18, 17, 24, 0.55) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Patient list search bar border */
+.dark #tour-patients-list .border-b {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Patient list footer count bar */
+.dark #tour-patients-list .border-t {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Patient history sub-panels that use bg-slate-50 */
+.dark .glass-panel [class*="bg-slate-50"],
+.dark .glass-panel .bg-slate-50,
+.dark [data-slot="sheet-content"] [class*="bg-slate-50"] {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Patient photo/doc thumbnails that use bg-white */
+.dark .glass-panel .bg-white {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Patient canvas / drawing boards */
+.dark .glass-panel canvas.bg-white,
+.dark .glass-panel .rounded-xl.bg-white {
+  background-color: rgba(20, 18, 30, 0.85) !important;
+}
+
+/* ─── Text color fixes: slate text in glass panels & cards ─────────────────── */
+.glass-panel .text-slate-600,
+.glass-panel .text-slate-700,
+.glass-panel .text-slate-500,
+.bg-card .text-slate-600,
+.bg-card .text-slate-700,
+.bg-card .text-slate-500,
+.dark .glass-panel .text-slate-600,
+.dark .glass-panel .text-slate-700,
+.dark .glass-panel .text-slate-500 {
+  color: var(--muted-foreground) !important;
+}
+
+.glass-panel .text-slate-900,
+.glass-panel .text-slate-800,
+.bg-card .text-slate-900,
+.bg-card .text-slate-800,
+.dark .glass-panel .text-slate-900,
+.dark .glass-panel .text-slate-800 {
+  color: var(--foreground) !important;
+}
+
+
+/* ─── Border fixes: slate borders → ultra-thin glass specular ───────────── */
+.dark .glass-panel .border-slate-200,
+.dark .glass-panel .border-slate-300,
+.dark .glass-panel .border-slate-400,
+.dark #tour-patients-list .border-slate-400,
+.dark #tour-patients-list .border-slate-300,
+.dark #tour-patients-list .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ─── Badge/pill fixes: patient list selected item pill ─────────────────── */
+.dark .glass-panel .bg-slate-100 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: var(--muted-foreground) !important;
+}
+
+/* ─── Input border fixes: legacy slate-300 input borders ───────────────── */
+.dark .glass-panel .border-slate-300,
+.dark #tour-patients-list .border-slate-300 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎨 GLOBAL LIGHT-MODE COLOR → DARK GLASS CONVERSIONS
+   Catches all remaining bg-*-50 and bg-*-100 fills that appear white/bright
+   in dark mode. These are the most common "AI slop" color leaks.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Amber/Orange blobs → warm amber glass */
+.dark .bg-amber-50,
+.dark .bg-amber-100,
+.dark .bg-orange-50,
+.dark .bg-orange-100,
+.dark .bg-yellow-50,
+.dark .bg-yellow-100 {
+  background-color: rgba(245, 158, 11, 0.10) !important;
+}
+
+/* Emerald/Green blobs → emerald glass */
+.dark .bg-emerald-50,
+.dark .bg-emerald-100,
+.dark .bg-green-50,
+.dark .bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+}
+
+/* Rose/Red blobs → rose glass */
+.dark .bg-rose-50,
+.dark .bg-rose-100,
+.dark .bg-red-50,
+.dark .bg-red-100 {
+  background-color: rgba(244, 63, 94, 0.10) !important;
+}
+
+/* Blue/Indigo blobs → indigo glass */
+.dark .bg-blue-50,
+.dark .bg-blue-100,
+.dark .bg-indigo-50,
+.dark .bg-indigo-100 {
+  background-color: rgba(99, 102, 241, 0.10) !important;
+}
+
+/* Violet/Purple blobs → violet glass */
+.dark .bg-violet-50,
+.dark .bg-violet-100,
+.dark .bg-purple-50,
+.dark .bg-purple-100 {
+  background-color: rgba(139, 92, 246, 0.10) !important;
+}
+
+/* Teal/Cyan blobs → teal glass */
+.dark .bg-teal-50,
+.dark .bg-teal-100,
+.dark .bg-cyan-50,
+.dark .bg-cyan-100 {
+  background-color: rgba(20, 184, 166, 0.10) !important;
+}
+
+/* Correct text colors for all light-mode *-700/*-800 texts in dark mode */
+.dark .text-amber-700, .dark .text-amber-800 { color: rgb(251, 191, 36) !important; }
+.dark .text-emerald-700, .dark .text-emerald-800 { color: rgb(52, 211, 153) !important; }
+.dark .text-rose-700, .dark .text-rose-800 { color: rgb(251, 113, 133) !important; }
+.dark .text-red-700, .dark .text-red-800 { color: rgb(248, 113, 113) !important; }
+.dark .text-blue-700, .dark .text-blue-800 { color: rgb(96, 165, 250) !important; }
+.dark .text-indigo-700, .dark .text-indigo-800 { color: rgb(129, 140, 248) !important; }
+.dark .text-violet-700, .dark .text-violet-800 { color: rgb(167, 139, 250) !important; }
+.dark .text-teal-700, .dark .text-teal-800 { color: rgb(45, 212, 191) !important; }
+
+/* Light-mode border colors in dark → glass specular */
+.dark .border-amber-200, .dark .border-amber-100 { border-color: rgba(245, 158, 11, 0.25) !important; }
+.dark .border-emerald-100, .dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.25) !important; }
+.dark .border-rose-100, .dark .border-rose-200 { border-color: rgba(244, 63, 94, 0.25) !important; }
+.dark .border-red-100, .dark .border-red-200 { border-color: rgba(239, 68, 68, 0.25) !important; }
+.dark .border-blue-100, .dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.25) !important; }
+.dark .border-indigo-100, .dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.25) !important; }
+.dark .border-violet-100, .dark .border-violet-200 { border-color: rgba(139, 92, 246, 0.25) !important; }
+.dark .border-teal-100, .dark .border-teal-200 { border-color: rgba(20, 184, 166, 0.25) !important; }
+
+/* ─── Notification Panel Opaque & High Contrast Overrides ─── */
+.notif-popover {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15) !important;
+  color: #1e293b !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark .notif-popover {
+  background-color: #1a1726 !important;
+  background: #1a1726 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+  color: #ffffff !important;
+}
+
+/* Force correct text contrasts inside notification popover */
+.notif-popover .text-slate-800,
+.notif-popover .text-slate-900,
+.notif-popover span.dark\:text-white {
+  color: #1e293b !important;
+}
+.dark .notif-popover .text-slate-800,
+.dark .notif-popover .text-slate-900,
+.dark .notif-popover span.dark\:text-white {
+  color: #f5eff9 !important;
+}
+
+.notif-popover .text-slate-650,
+.notif-popover .text-slate-600,
+.notif-popover .text-slate-500,
+.notif-popover span.dark\:text-slate-400,
+.notif-popover p.dark\:text-slate-400 {
+  color: #57606a !important;
+}
+.dark .notif-popover .text-slate-650,
+.dark .notif-popover .text-slate-600,
+.dark .notif-popover .text-slate-500,
+.dark .notif-popover span.dark\:text-slate-400,
+.dark .notif-popover p.dark\:text-slate-400 {
+  color: #a699ac !important;
+}
+
+.notif-popover .bg-slate-50 {
+  background-color: #f6f8fa !important;
+}
+.dark .notif-popover .bg-slate-50,
+.dark .notif-popover [class*="bg-slate-900"] {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Hover effects for notification rows */
+.notif-popover button:hover {
+  background-color: #f6f8fa !important;
+}
+.dark .notif-popover button:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Icons background fills */
+.notif-popover .bg-red-50 { background-color: #ffebe9 !important; color: #cf222e !important; }
+.notif-popover .bg-amber-50 { background-color: #fff8c5 !important; color: #9a6700 !important; }
+.notif-popover .bg-blue-50 { background-color: #ddf4ff !important; color: #0969da !important; }
+
+.dark .notif-popover .bg-red-50 { background-color: rgba(248, 81, 73, 0.15) !important; color: #ff7b72 !important; }
+.dark .notif-popover .bg-amber-50 { background-color: rgba(210, 153, 34, 0.15) !important; color: #f0883e !important; }
+.dark .notif-popover .bg-blue-50 { background-color: rgba(88, 166, 255, 0.15) !important; color: #58a6ff !important; }
+
+/* Badges */
+.notif-popover .bg-red-100 { background-color: rgba(207, 34, 46, 0.1) !important; color: #cf222e !important; }
+.notif-popover .bg-amber-100 { background-color: rgba(154, 103, 0, 0.1) !important; color: #9a6700 !important; }
+.notif-popover .bg-blue-100 { background-color: rgba(9, 105, 218, 0.1) !important; color: #0969da !important; }
+
+.dark .notif-popover .bg-red-100 { background-color: rgba(248, 81, 73, 0.2) !important; color: #ff7b72 !important; }
+.dark .notif-popover .bg-amber-100 { background-color: rgba(210, 153, 34, 0.2) !important; color: #f0883e !important; }
+.dark .notif-popover .bg-blue-100 { background-color: rgba(88, 166, 255, 0.2) !important; color: #58a6ff !important; }
