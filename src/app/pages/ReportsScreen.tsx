@@ -232,6 +232,24 @@ const MOCK_ANIO_ACTUAL: ReportData = {
   },
 };
 
+const EMPTY_REPORT_DATA: ReportData = {
+  kpis: {
+    ingresosNetos: 0,
+    ingresosNetosDiff: 0,
+    egresos: 0,
+    egresosDiff: 0,
+    citasCompletadas: 0,
+    citasCompletadasDiff: 0,
+    valorAlmacen: 0,
+    valorAlmacenDiff: 0,
+  },
+  dailyEvolution: [],
+  paymentMethods: [],
+  topTreatments: [],
+  topSupplies: [],
+  porSucursal: {},
+};
+
 export default function ReportsScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
@@ -240,7 +258,7 @@ export default function ReportsScreen() {
   const [range, setRange] = useState<DateRange>("este_mes");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [data, setData] = useState<ReportData>(MOCK_ESTE_MES);
+  const [data, setData] = useState<ReportData>(EMPTY_REPORT_DATA);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -292,14 +310,11 @@ export default function ReportsScreen() {
       const localData = localStorage.getItem(`bloom_skin_report_${range}`);
       if (localData) {
         setData(JSON.parse(localData));
+        toast.warning("Sin conexión. Mostrando datos contables históricos guardados localmente.");
       } else {
-        if (range === "personalizado") {
-          const diffTime = Math.abs(new Date(customEnd).getTime() - new Date(customStart).getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 30;
-          setData(generatePersonalizedMock(diffDays));
-        } else {
-          setError("Error al cargar las métricas desde el servidor y no hay caché local disponible.");
-        }
+        setData(EMPTY_REPORT_DATA);
+        setError("Error de comunicación con el servidor. No se pudieron cargar los reportes.");
+        toast.error("La conexión con el servidor falló.");
       }
     } finally {
       setLoading(false);

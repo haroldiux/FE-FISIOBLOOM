@@ -461,18 +461,18 @@ function Topbar({
           </button>
 
           {notifPanelOpen && (
-            <div className="absolute right-0 top-12 w-96 notif-popover rounded-2xl border shadow-2xl z-[9000] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute right-0 top-12 w-96 rounded-2xl border border-border/80 bg-[#181223] shadow-2xl z-[9000] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                  <span className="text-sm font-bold text-slate-800 dark:text-white">Notificaciones</span>
+                  <Bell className="w-4 h-4 text-foreground" />
+                  <span className="text-sm font-bold text-foreground">Notificaciones</span>
                   {notifications.length > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{notifications.length}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">{notifications.length}</span>
                   )}
                 </div>
-                <button onClick={onCloseNotifPanel} className="w-6 h-6 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors">
-                  <X className="w-3 h-3 text-slate-500" />
+                <button onClick={onCloseNotifPanel} className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center transition-colors cursor-pointer">
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               </div>
 
@@ -480,47 +480,55 @@ function Topbar({
               <div className="max-h-[420px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
                 {notifications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
-                      <Bell className="w-5 h-5 text-emerald-500" />
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
+                      <Bell className="w-5 h-5" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">¡Todo en orden!</p>
-                    <p className="text-xs text-slate-400 mt-1">No hay alertas pendientes del sistema.</p>
+                    <p className="text-sm font-semibold text-foreground">¡Todo en orden!</p>
+                    <p className="text-xs text-muted-foreground mt-1">No hay alertas pendientes del sistema.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="divide-y divide-border">
                     {notifications.map((notif) => {
                       const Icon = notif.type === 'low_stock' ? PackageX
                         : notif.type === 'expiring_package' ? ShoppingCart
                         : Syringe;
-                      const iconBg = notif.severity === 'critical' ? 'bg-red-50 text-red-500'
-                        : notif.severity === 'warning' ? 'bg-amber-50 text-amber-500'
-                        : 'bg-blue-50 text-blue-500';
-                      const badgeBg = notif.severity === 'critical' ? 'bg-red-100 text-red-600'
-                        : notif.severity === 'warning' ? 'bg-amber-100 text-amber-600'
-                        : 'bg-blue-100 text-blue-600';
+                      const iconBg = notif.severity === 'critical' ? 'bg-red-500/10 text-red-500 border border-red-500/10'
+                        : notif.severity === 'warning' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
+                        : 'bg-blue-500/10 text-blue-500 border border-blue-500/10';
+                      const badgeBg = notif.severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        : notif.severity === 'warning' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
                       const targetScreen = notif.type === 'low_stock' ? 'inventory'
                         : notif.type === 'expiring_package' ? 'patients'
                         : 'dashboard';
 
                       return (
-                        <button
+                        <div
                           key={notif.id}
-                          onClick={() => { onNavigate(targetScreen); onCloseNotifPanel(); }}
-                          className="w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors text-left"
+                          role="button"
+                          onClick={() => {
+                            if (notif.patientId) {
+                              onSelectPatient(notif.patientId);
+                            } else {
+                              onNavigate(targetScreen);
+                            }
+                            onCloseNotifPanel();
+                          }}
+                          className="w-full flex items-start gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left cursor-pointer bg-transparent"
                         >
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 border ${iconBg}`}>
                             <Icon className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badgeBg}`}>
                                 {notif.severity === 'critical' ? '⚠ Crítico' : notif.severity === 'warning' ? '• Alerta' : 'Info'}
                               </span>
-                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 truncate">{notif.title}</span>
+                              <span className="text-[10px] font-bold text-foreground truncate">{notif.title}</span>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug line-clamp-2">{notif.message}</p>
+                            <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{notif.message}</p>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -529,8 +537,8 @@ function Topbar({
 
               {/* Footer */}
               {notifications.length > 0 && (
-                <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
-                  <p className="text-[10px] text-slate-400 text-center">Haz clic en una alerta para ir al módulo correspondiente</p>
+                <div className="px-4 py-2.5 border-t border-border bg-muted/20">
+                  <p className="text-[10px] text-muted-foreground text-center font-semibold">Haz clic en una alerta para ir al módulo correspondiente</p>
                 </div>
               )}
             </div>
@@ -1378,6 +1386,11 @@ export default function App() {
             <CalendarScreen 
               presetAppointmentData={presetAppointmentData}
               clearPresetAppointmentData={() => setPresetAppointmentData(null)}
+              onNavigate={(s) => setScreen(s as Screen)}
+              onSelectPatient={(patientId) => {
+                setSearchSelectedPatientId(patientId);
+                setScreen("patients");
+              }}
             />
           )}
           {screen === "patients" && (

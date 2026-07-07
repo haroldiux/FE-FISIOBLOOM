@@ -690,7 +690,7 @@ export default function FinanceScreen() {
   const handleCreatePayroll = () => {
     const prof = professionals.find(p => p.id === payrollsForm.professionalId);
     if (!prof) {
-      alert("Seleccione un profesional.");
+      toast.error("Seleccione un profesional.");
       return;
     }
     
@@ -713,7 +713,7 @@ export default function FinanceScreen() {
     setPayrolls(updated);
     localStorage.setItem("bloom_payrolls", JSON.stringify(updated));
     setShowPayrollModal(false);
-    alert("Nómina generada con éxito.");
+    toast.success("Nómina generada con éxito.");
   };
 
   const loadData = async () => {
@@ -831,7 +831,7 @@ export default function FinanceScreen() {
 
   const handleOpenCash = async () => {
     if (!initialBalance || Number(initialBalance) < 0) {
-      alert("Monto inicial inválido.");
+      toast.error("Monto inicial inválido.");
       return;
     }
     try {
@@ -844,13 +844,13 @@ export default function FinanceScreen() {
       setShowOpenModal(false);
       await loadCashStatus();
     } catch (err: any) {
-      alert(err.message || "Error al abrir la caja.");
+      toast.error(err.message || "Error al abrir la caja.");
     }
   };
 
   const handleCloseCash = async () => {
     if (!actualBalance || Number(actualBalance) < 0) {
-      alert("Monto conteo físico inválido.");
+      toast.error("Monto conteo físico inválido.");
       return;
     }
     try {
@@ -863,13 +863,13 @@ export default function FinanceScreen() {
       setShowCloseModal(false);
       await loadCashStatus();
     } catch (err: any) {
-      alert(err.message || "Error al cerrar la caja.");
+      toast.error(err.message || "Error al cerrar la caja.");
     }
   };
 
   const handleRegisterExpense = async () => {
     if (!expenseAmount || Number(expenseAmount) <= 0 || !expenseDesc) {
-      alert("Complete monto y descripción.");
+      toast.error("Complete monto y descripción.");
       return;
     }
     try {
@@ -882,7 +882,7 @@ export default function FinanceScreen() {
       setShowExpenseModal(false);
       await loadCashStatus();
     } catch (err: any) {
-      alert(err.message || "Error al registrar el egreso.");
+      toast.error(err.message || "Error al registrar el egreso.");
     }
   };
 
@@ -1044,11 +1044,11 @@ export default function FinanceScreen() {
 
   const handleCheckout = async () => {
     if (!selectedPatientId) {
-      alert("Seleccione un paciente para asignar la venta.");
+      toast.error("Seleccione un paciente para asignar la venta.");
       return;
     }
     if (cart.length === 0) {
-      alert("El carrito está vacío.");
+      toast.error("El carrito está vacío.");
       return;
     }
     setPosError(null);
@@ -1149,7 +1149,7 @@ export default function FinanceScreen() {
         setAppliedCoupon(null);
         setCouponSuccessMsg(null);
         setTimeout(() => setPosSuccess(false), 4000);
-        alert("Sin conexión. La venta se ha guardado localmente y se sincronizará automáticamente al recuperar la conexión.");
+        toast.warning("Sin conexión. La venta se ha guardado localmente y se sincronizará automáticamente al recuperar la conexión.");
       } else {
         setPosError(err.message || "Error al completar el cobro.");
       }
@@ -1158,7 +1158,7 @@ export default function FinanceScreen() {
 
   const handleCreateCampaign = async () => {
     if (!campaignForm.name || !campaignForm.serviceId || !campaignForm.discountValue || !campaignForm.startDate || !campaignForm.endDate) {
-      alert("Por favor, complete todos los campos obligatorios.");
+      toast.error("Por favor, complete todos los campos obligatorios.");
       return;
     }
     const newCamp: Campaign = {
@@ -1197,7 +1197,7 @@ export default function FinanceScreen() {
 
   const handleCreateCoupon = async () => {
     if (!couponForm.code || !couponForm.discountValue || !couponForm.usageStock || !couponForm.expiryDate) {
-      alert("Por favor, complete todos los campos obligatorios.");
+      toast.error("Por favor, complete todos los campos obligatorios.");
       return;
     }
     const newCoup: Coupon = {

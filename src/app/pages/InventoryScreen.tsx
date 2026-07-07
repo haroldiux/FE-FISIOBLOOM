@@ -12,6 +12,7 @@ import {
   TrendingDown,
   History,
   SlidersHorizontal,
+  DollarSign,
 } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -388,6 +389,7 @@ export default function InventoryScreen() {
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   // Stock Adjustment state
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
@@ -479,9 +481,7 @@ export default function InventoryScreen() {
 
   useEffect(() => {
     loadProducts();
-    if (activeSubTab === "MOVEMENTS") {
-      loadMovements();
-    }
+    loadMovements();
   }, [activeSubTab]);
 
   const loadProducts = async () => {
@@ -535,6 +535,19 @@ export default function InventoryScreen() {
   });
 
   const lowStock = products.filter((p) => p.isActive && p.stock < 5);
+
+  const getTotalInventoryValue = () => {
+    return products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+  };
+
+  const getTotalLossFromMovements = () => {
+    return movements
+      .filter(m => m.type === "STOCK_OUT" && !m.appointmentId)
+      .reduce((sum, m) => {
+        const prod = products.find(p => p.id === m.productId);
+        return sum + (m.quantity * (prod?.price || 0));
+      }, 0);
+  };
 
   const handleSave = async (form: ProductForm) => {
     const payload = {
@@ -638,11 +651,11 @@ export default function InventoryScreen() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Desactivar este producto del catálogo?")) return;
+  const handleDeleteConfirm = async (id: string) => {
     setDeletingId(id);
     try {
       await api.delete(`/products/${id}`);
+      toast.success("Producto desactivado con éxito.");
     } catch (e: any) {
       // Fallback local deletion
       const local = localStorage.getItem("bloom_skin_products");
@@ -650,6 +663,7 @@ export default function InventoryScreen() {
         const list = JSON.parse(local).map((p: any) => p.id === id ? { ...p, isActive: false } : p);
         localStorage.setItem("bloom_skin_products", JSON.stringify(list));
       }
+      toast.error("Error al desactivar el producto.");
       setError(e.message);
     } finally {
       await loadProducts();
@@ -729,6 +743,38 @@ export default function InventoryScreen() {
         />
       )}
 
+      {productToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-sm rounded-2xl border border-slate-300 shadow-2xl p-6 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-2">Desactivar Producto</h3>
+            <p className="text-xs text-muted-foreground font-medium mb-6">
+              ¿Estás seguro de que deseas desactivar a <span className="font-bold text-foreground">"{productToDelete.name}"</span> del catálogo de inventario?
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setProductToDelete(null)}
+                className="flex-1 px-4 py-2.5 border border-border text-foreground hover:bg-muted text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  const id = productToDelete.id;
+                  setProductToDelete(null);
+                  await handleDeleteConfirm(id);
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-650 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer bg-red-600"
+              >
+                Desactivar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Low stock alert */}
       {activeSubTab === "STOCK" && lowStock.length > 0 && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
@@ -740,6 +786,45 @@ export default function InventoryScreen() {
             <p className="text-xs text-amber-600 mt-0.5">
               {lowStock.map((p) => `${p.name} (${p.stock})`).join(" · ")}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Financial Valuation Bento Cards */}
+      {activeSubTab === "STOCK" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                Valorización Total del Stock
+              </span>
+              <span className="text-2xl font-extrabold text-foreground block">
+                ${getTotalInventoryValue().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                Suma de precio de venta * stock de todos los insumos activos
+              </span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0 text-emerald-400">
+              <DollarSign className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                Pérdidas Acumuladas por Mermas
+              </span>
+              <span className="text-2xl font-extrabold text-rose-500 block">
+                ${getTotalLossFromMovements().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                Pérdidas de almacén registradas por mermas manuales
+              </span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center flex-shrink-0 text-rose-400">
+              <TrendingDown className="w-6 h-6" />
+            </div>
           </div>
         </div>
       )}
@@ -821,11 +906,11 @@ export default function InventoryScreen() {
                           >
                             <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(product.id)}
-                            disabled={deletingId === product.id}
-                            className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-muted-foreground transition-colors"
-                          >
+                           <button
+                             onClick={() => setProductToDelete(product)}
+                             disabled={deletingId === product.id}
+                             className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-muted-foreground transition-colors"
+                           >
                             {deletingId === product.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (

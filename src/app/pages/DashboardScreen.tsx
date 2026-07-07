@@ -25,6 +25,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "../services/api";
+import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,24 @@ interface RetouchAlert {
   status: "PENDING" | "SCHEDULED" | "COMPLETED" | "EXPIRED" | "WAIVED";
   notes?: string;
 }
+
+// Empty initial state data
+const EMPTY_DATA: DashboardData = {
+  todayAppointments: 0,
+  todayRevenue: 0,
+  activePatients: 0,
+  packagesExpiringSoon: 0,
+  weeklyRevenue: [
+    { day: "Lun", ingresos: 0 },
+    { day: "Mar", ingresos: 0 },
+    { day: "Mié", ingresos: 0 },
+    { day: "Jue", ingresos: 0 },
+    { day: "Vie", ingresos: 0 },
+    { day: "Sáb", ingresos: 0 },
+    { day: "Dom", ingresos: 0 },
+  ],
+  todayAppointmentsList: [],
+};
 
 // Static fallback data
 const STATIC_DATA: DashboardData = {
@@ -173,7 +192,7 @@ export default function DashboardScreen({
   onNavigate?: (screen: string) => void;
   onScheduleAppointment?: (patientId: string, patientName: string, date?: string) => void;
 }) {
-  const [data, setData] = useState<DashboardData>(STATIC_DATA);
+  const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [retouchAlerts, setRetouchAlerts] = useState<RetouchAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingStatic, setUsingStatic] = useState(false);
@@ -243,7 +262,7 @@ export default function DashboardScreen({
       setRetouchAlerts(retouchAlerts.filter(r => r.id !== id));
       setRetouchToDismiss(null);
     } catch (err: any) {
-      alert("Error al descartar retoque: " + err.message);
+      toast.error("Error al descartar retoque: " + err.message);
     } finally {
       setDismissingId(null);
     }
@@ -531,7 +550,7 @@ export default function DashboardScreen({
                                 retouch.scheduledDate.slice(0, 10)
                               );
                             } else {
-                              window.alert("Redirigiendo a Citas para agendar a: " + retouch.patient.fullName);
+                              toast.info("Redirigiendo a Citas para agendar a: " + retouch.patient.fullName);
                             }
                           }}
                           className="text-[10px] font-bold py-1.5 px-3 bg-primary text-white rounded-lg hover:bg-primary/95 transition-all shadow-sm shadow-primary/10"

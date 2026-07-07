@@ -330,7 +330,7 @@ function BranchModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 text-xs font-bold border border-border rounded-xl hover:bg-muted/50 transition-all cursor-pointer"
+              className="flex-1 py-2.5 text-xs font-bold border border-border rounded-xl hover:bg-muted/50 text-foreground transition-all cursor-pointer"
             >
               Cancelar
             </button>
@@ -453,7 +453,7 @@ function ProfessionalModal({
           )}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-muted/50 transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
@@ -632,6 +632,7 @@ export default function ConfigScreen() {
       await loadBranches();
     } catch (e: any) {
       setError(e.message || "Error al guardar sucursal.");
+      throw e;
     }
   };
 
@@ -688,14 +689,19 @@ export default function ConfigScreen() {
   };
 
   const handleCreateProfessional = async (form: ProfessionalForm) => {
-    await api.post("/auth/register", {
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      role: form.role,
-    });
-    await loadProfessionals();
-    setShowNewModal(false);
+    try {
+      await api.post("/auth/register", {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+      });
+      await loadProfessionals();
+      setShowNewModal(false);
+    } catch (e: any) {
+      setError(e.message || "Error al crear profesional.");
+      throw e;
+    }
   };
 
   const handleToggleActive = async (pro: Professional) => {
@@ -927,11 +933,11 @@ export default function ConfigScreen() {
                   </div>
                   <button
                     onClick={() => handleToggleFeature('multiBranch')}
-                    className="flex-shrink-0 ml-4 focus:outline-none"
+                    className="flex-shrink-0 ml-4 focus:outline-none cursor-pointer"
                   >
                     {tenantSettings.features.multiBranch
                       ? <ToggleRight className="w-8 h-8 text-primary" />
-                      : <ToggleLeft className="w-8 h-8 text-slate-350" />}
+                      : <ToggleLeft className="w-8 h-8 text-muted-foreground/45" />}
                   </button>
                 </div>
 
@@ -942,11 +948,11 @@ export default function ConfigScreen() {
                   </div>
                   <button
                     onClick={() => handleToggleFeature('inventory')}
-                    className="flex-shrink-0 ml-4 focus:outline-none"
+                    className="flex-shrink-0 ml-4 focus:outline-none cursor-pointer"
                   >
                     {tenantSettings.features.inventory
                       ? <ToggleRight className="w-8 h-8 text-primary" />
-                      : <ToggleLeft className="w-8 h-8 text-slate-350" />}
+                      : <ToggleLeft className="w-8 h-8 text-muted-foreground/45" />}
                   </button>
                 </div>
 
@@ -957,11 +963,11 @@ export default function ConfigScreen() {
                   </div>
                   <button
                     onClick={() => handleToggleFeature('portalPaciente')}
-                    className="flex-shrink-0 ml-4 focus:outline-none"
+                    className="flex-shrink-0 ml-4 focus:outline-none cursor-pointer"
                   >
                     {tenantSettings.features.portalPaciente
                       ? <ToggleRight className="w-8 h-8 text-primary" />
-                      : <ToggleLeft className="w-8 h-8 text-slate-350" />}
+                      : <ToggleLeft className="w-8 h-8 text-muted-foreground/45" />}
                   </button>
                 </div>
               </div>

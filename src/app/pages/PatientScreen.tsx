@@ -156,7 +156,7 @@ export default function PatientScreen({
 
   useEffect(() => {
     if (searchSelectedPatientId) {
-      setSelectedPatientId(searchSelectedPatientId);
+      handleSelectPatient(searchSelectedPatientId);
       if (clearSearchSelectedPatientId) {
         clearSearchSelectedPatientId();
       }
@@ -397,7 +397,7 @@ export default function PatientScreen({
     await loadPhotos(patientId);
     setIsUploading(false);
     if (successCount > 0) {
-      alert(`Sincronizadas ${successCount} fotos con el servidor.`);
+      toast.success(`Sincronizadas ${successCount} fotos con el servidor.`);
     }
   };
 
@@ -1213,9 +1213,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                   <div className="flex items-center gap-2 pt-2">
                                     <button
                                       onClick={() => {
-                                        if (window.confirm("¿Desestimar este retoque?")) {
-                                          setRetouchToDismiss(item);
-                                        }
+                                        setRetouchToDismiss(item);
                                       }}
                                       className="text-[10px] font-bold px-2.5 py-1 border border-border text-slate-500 rounded-lg hover:bg-slate-100"
                                     >

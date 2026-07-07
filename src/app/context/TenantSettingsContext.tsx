@@ -94,8 +94,10 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/tenant/settings');
-      const data = res.data || defaultSettings;
+      const res = await api.get<any>('/tenant/settings');
+      console.log('fetchSettings response raw:', res);
+      const data = res?.branding ? res : (res?.data || defaultSettings);
+      console.log('fetchSettings data parsed:', data);
       setSettings(data);
       localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(data)));
       applyBranding(data.branding.primaryColor);
@@ -122,8 +124,13 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
 
   const updateSettings = async (newSettings: Partial<TenantSettings>) => {
     try {
-      const res = await api.put('/tenant/settings', newSettings);
-      const data = res.data;
+      const res = await api.put<any>('/tenant/settings', newSettings);
+      console.log('updateSettings response raw:', res);
+      const data = res?.branding ? res : res?.data;
+      console.log('updateSettings data parsed:', data);
+      if (!data || !data.branding) {
+        throw new Error("La respuesta del servidor no contiene la configuración de marca (branding).");
+      }
       setSettings(data);
       localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(data)));
       applyBranding(data.branding.primaryColor);

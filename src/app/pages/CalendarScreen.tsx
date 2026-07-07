@@ -182,9 +182,13 @@ const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; d
 export default function CalendarScreen({
   presetAppointmentData,
   clearPresetAppointmentData,
+  onNavigate,
+  onSelectPatient,
 }: {
   presetAppointmentData?: { patientId: string; patientName: string; date?: string } | null;
   clearPresetAppointmentData?: () => void;
+  onNavigate?: (screen: string) => void;
+  onSelectPatient?: (patientId: string) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<"weekly" | "cabins">("weekly");
@@ -802,7 +806,15 @@ export default function CalendarScreen({
                         <div className="flex items-start gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${style.dot}`} />
                           <div className="min-w-0">
-                            <div className="text-[11px] font-bold leading-tight truncate">{appt.patient?.fullName}</div>
+                            <div className="text-[11px] font-bold leading-tight truncate flex items-center gap-1">
+                              <span>{appt.patient?.fullName}</span>
+                              {(!appt.patient?.consentSigned || !appt.patient?.medicalHistory) && (
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
+                              )}
+                            </div>
+                            {appt.service && (
+                              <div className="text-[9px] opacity-75 font-semibold leading-tight truncate mt-0.5">{appt.service.name}</div>
+                            )}
                             {durHrs >= 0.75 && (
                               <>
                                 <div className="text-[10px] opacity-70 leading-tight truncate mt-0.5">{appt.professional?.name}</div>
@@ -843,7 +855,15 @@ export default function CalendarScreen({
                         <div className="flex items-start gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${style.dot}`} />
                           <div className="min-w-0">
-                            <div className="text-[11px] font-bold leading-tight truncate">{appt.patient?.fullName}</div>
+                            <div className="text-[11px] font-bold leading-tight truncate flex items-center gap-1">
+                              <span>{appt.patient?.fullName}</span>
+                              {(!appt.patient?.consentSigned || !appt.patient?.medicalHistory) && (
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
+                              )}
+                            </div>
+                            {appt.service && (
+                              <div className="text-[9px] opacity-75 font-semibold leading-tight truncate mt-0.5">{appt.service.name}</div>
+                            )}
                             {durHrs >= 0.75 && (
                               <>
                                 <div className="text-[10px] opacity-70 leading-tight truncate mt-0.5">{appt.professional?.name}</div>
@@ -922,12 +942,12 @@ export default function CalendarScreen({
                     />
                   </div>
                   {searchQuery.trim().length >= 2 && !selectedPatientId && (
-                    <div className="mt-1.5 border-2 border-border rounded-xl bg-background max-h-48 overflow-y-auto shadow-xl divide-y divide-border">
+                    <div className="mt-1.5 border border-border/80 rounded-xl bg-[#1e152a] max-h-48 overflow-y-auto shadow-2xl divide-y divide-border/40 z-50 relative">
                       {patients.map((p) => (
                         <div
                           key={p.id}
                           onClick={() => { setSelectedPatientId(p.id); setSearchQuery(p.fullName); setPatients([]); }}
-                          className="px-4 py-2.5 hover:bg-primary/5 cursor-pointer transition-colors flex items-center gap-3"
+                          className="px-4 py-2.5 hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-3"
                         >
                           <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                             {p.fullName.charAt(0)}
@@ -943,7 +963,7 @@ export default function CalendarScreen({
                           setQuickPhone("");
                           setShowQuickRegister(true);
                         }}
-                        className="px-4 py-3 text-xs font-bold text-primary hover:bg-primary/5 cursor-pointer transition-colors flex items-center gap-2 bg-slate-50/50"
+                        className="px-4 py-3 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-2 bg-white/5"
                       >
                         <Plus className="w-3.5 h-3.5" /> Registrar "{searchQuery}" como nuevo paciente (Registro Rápido)
                       </div>
@@ -1278,10 +1298,46 @@ export default function CalendarScreen({
                     </p>
                   </div>
                 )}
+
+                <div>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] block mb-1">
+                    Tratamiento / Servicio
+                  </span>
+                  <span className="text-sm font-bold text-violet-500 block">
+                    {selectedAppointment.service?.name || "Consulta General"}
+                  </span>
+                </div>
+
+                {(!selectedAppointment.patient?.consentSigned || !selectedAppointment.patient?.medicalHistory) && (
+                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 space-y-1.5 animate-pulse">
+                    <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-wider">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <span>Documentación Pendiente</span>
+                    </div>
+                    <ul className="text-[10px] font-semibold list-disc list-inside space-y-0.5 pl-1.5 opacity-90">
+                      {!selectedAppointment.patient?.consentSigned && <li>Ficha de Consentimiento Informado</li>}
+                      {!selectedAppointment.patient?.medicalHistory && <li>Ficha Dermatofuncional (Historial)</li>}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
-              <div className="px-6 py-4 border-t border-border flex gap-2 flex-shrink-0 bg-card justify-end">
+              <div className="px-6 py-4 border-t border-border flex gap-2 flex-wrap flex-shrink-0 bg-card justify-end">
+                {(!selectedAppointment.patient?.consentSigned || !selectedAppointment.patient?.medicalHistory) && (
+                  <button
+                    onClick={() => {
+                      if (onSelectPatient) {
+                        setShowDetailModal(false);
+                        onSelectPatient(selectedAppointment.patientId);
+                      }
+                    }}
+                    className="px-4 py-2.5 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-600 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/10"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Completar Expediente / Firma
+                  </button>
+                )}
                 {selectedAppointment.status !== "NO_ASISTIO" && selectedAppointment.status !== "COMPLETADA" && (
                   <button
                     onClick={() => handleMarkNoShow(selectedAppointment.id)}

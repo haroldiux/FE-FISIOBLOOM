@@ -1207,12 +1207,35 @@ export default function ServicesScreen() {
                     )}
 
                     {srv.consumables && srv.consumables.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="text-[10px] text-muted-foreground font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                          <Layers className="w-3 h-3 text-primary" />
-                          {srv.consumables.length} insumo{srv.consumables.length > 1 ? "s" : ""}
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          <span className="text-[10px] text-muted-foreground font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                            <Layers className="w-3 h-3 text-primary" />
+                            {srv.consumables.length} insumo{srv.consumables.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-border/40">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-muted-foreground font-medium">Costo Insumos:</span>
+                            <span className="text-foreground font-bold">
+                              ${srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.price || 0)), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-muted-foreground font-medium">Margen Est.:</span>
+                            {(() => {
+                              const cost = srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.price || 0)), 0);
+                              const margin = srv.defaultPrice - cost;
+                              const pct = srv.defaultPrice > 0 ? (margin / srv.defaultPrice) * 100 : 0;
+                              return (
+                                <span className={`font-black ${margin >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                  ${margin.toLocaleString("es-MX", { minimumFractionDigits: 2 })} ({pct.toFixed(0)}%)
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
 

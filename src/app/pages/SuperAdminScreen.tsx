@@ -27,10 +27,12 @@ export default function SuperAdminScreen() {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get("/saas/tenants");
-      setTenants(res.data);
+      const res = await api.get<any>("/saas/tenants");
+      // res is directly the parsed JSON array of tenants
+      const list = Array.isArray(res) ? res : res?.data || [];
+      setTenants(list);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Error al cargar inquilinos globales.");
+      setError(err.message || "Error al cargar inquilinos globales.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,7 @@ export default function SuperAdminScreen() {
       setShowModal(false);
       await fetchTenants();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Error al crear inquilino.");
+      setError(err.message || "Error al crear inquilino.");
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +69,7 @@ export default function SuperAdminScreen() {
       });
       await fetchTenants();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Error al actualizar estado.");
+      setError(err.message || "Error al actualizar estado.");
     }
   };
 
@@ -79,7 +81,7 @@ export default function SuperAdminScreen() {
       });
       await fetchTenants();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Error al actualizar plan.");
+      setError(err.message || "Error al actualizar plan.");
     }
   };
 
