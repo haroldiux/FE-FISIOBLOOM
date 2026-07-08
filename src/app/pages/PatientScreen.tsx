@@ -843,6 +843,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             />
           </div>
           <button
+            id="tour-patients-register-btn"
             onClick={() => {
               setCreateError(null);
               setShowCreateModal(true);
@@ -1100,9 +1101,9 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     <div className="flex justify-between items-center mb-5">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Evolución de Sesiones</h3>
                       <button
-                        id="tour-patients-register-btn"
+                        id="tour-session-modal-trigger"
                         onClick={() => { setError(null); setShowModal(true); }}
-                        className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
+                        className="flex-items-center gap-2 bg-primary text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Registrar Sesión
@@ -1317,6 +1318,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         Servicio o Tratamiento a Consentir
                       </label>
                       <select
+                        id="tour-patients-consent-service-select"
                         value={selectedConsentServiceId}
                         onChange={(e) => {
                           setSelectedConsentServiceId(e.target.value);
@@ -1486,6 +1488,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           }`}
                         >
                           <input
+                            id="tour-gallery-file-input"
                             type="file"
                             ref={fileInputRef}
                             onChange={handleFileChange}
@@ -1519,7 +1522,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
                       <div className="space-y-4 lg:col-span-2 flex flex-col justify-between h-full min-h-[180px]">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
+                          <div id="tour-gallery-type-select">
                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
                               Tipo de Registro
                             </label>
@@ -1578,6 +1581,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             </button>
                           )}
                           <button
+                            id="tour-gallery-submit"
                             type="submit"
                             disabled={isUploading || !photoFile}
                             className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2016,6 +2020,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   Nombre Completo *
                 </label>
                 <input
+                  id="tour-patient-form-name"
                   type="text"
                   required
                   value={newFullName}
@@ -2058,6 +2063,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   Ficha / Antecedentes Médicos Iniciales
                 </label>
                 <textarea
+                  id="tour-patient-form-history"
                   rows={5}
                   value={newMedicalHistory}
                   onChange={(e) => setNewMedicalHistory(e.target.value)}
@@ -2076,6 +2082,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   Cancelar
                 </button>
                 <button
+                  id="tour-patient-form-submit"
                   type="submit"
                   disabled={createSubmitting}
                   className="flex-1 py-3 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"

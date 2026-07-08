@@ -74,52 +74,6 @@ const EMPTY_DATA: DashboardData = {
   todayAppointmentsList: [],
 };
 
-// Static fallback data
-const STATIC_DATA: DashboardData = {
-  todayAppointments: 8,
-  todayRevenue: 4250,
-  activePatients: 47,
-  packagesExpiringSoon: 3,
-  weeklyRevenue: [
-    { day: "Lun", ingresos: 1840 },
-    { day: "Mar", ingresos: 2320 },
-    { day: "Mié", ingresos: 1965 },
-    { day: "Jue", ingresos: 2847 },
-    { day: "Vie", ingresos: 3200 },
-    { day: "Sáb", ingresos: 2100 },
-    { day: "Dom", ingresos: 890 },
-  ],
-  todayAppointmentsList: [
-    { time: "09:00", patient: "Ana García López", treatment: "Masaje Terapéutico", professional: "Dra. Torres", status: "CONFIRMADA" },
-    { time: "09:30", patient: "Carlos Eduardo López", treatment: "Ultrasonido Terapéutico", professional: "Lic. Ramírez", status: "PENDIENTE" },
-    { time: "10:00", patient: "María Rodríguez", treatment: "Radiofrecuencia Facial", professional: "Dra. Mendoza", status: "CONFIRMADA" },
-    { time: "10:30", patient: "Pedro Martínez Ríos", treatment: "Electroterapia TENS", professional: "Lic. Ramírez", status: "COMPLETADA" },
-    { time: "11:00", patient: "Sofía Hernández P.", treatment: "Drenaje Linfático", professional: "Dra. Torres", status: "PENDIENTE" },
-  ],
-};
-
-const MOCK_RETOUCH_ALERTS: RetouchAlert[] = [
-  {
-    id: "r-1",
-    patientId: "p-101",
-    patient: { id: "p-101", fullName: "Sofía Hernández P.", phone: "+591 78945612" },
-    serviceId: "s-3",
-    service: { id: "s-3", name: "Microblading de Cejas Aura" },
-    originalAppointment: { dateTime: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
-    scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    status: "PENDING",
-  },
-  {
-    id: "r-2",
-    patientId: "p-102",
-    patient: { id: "p-102", fullName: "María Rodríguez", phone: "+591 65432178" },
-    serviceId: "s-4",
-    service: { id: "s-4", name: "Peeling Químico Revitalizante" },
-    originalAppointment: { dateTime: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString() },
-    scheduledDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    status: "PENDING",
-  }
-];
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -195,7 +149,6 @@ export default function DashboardScreen({
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [retouchAlerts, setRetouchAlerts] = useState<RetouchAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingStatic, setUsingStatic] = useState(false);
   const [retouchToDismiss, setRetouchToDismiss] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -234,22 +187,13 @@ export default function DashboardScreen({
           weeklyRevenue: result.weeklyRevenue ?? [],
           todayAppointmentsList: result.todayAppointmentsList ?? [],
         });
-      } else {
-        setUsingStatic(true);
       }
 
-      if (retouches) {
+      if (retouches && Array.isArray(retouches)) {
         setRetouchAlerts(retouches);
-      } else {
-        if (!result) {
-          setRetouchAlerts(MOCK_RETOUCH_ALERTS);
-        } else {
-          setRetouchAlerts([]);
-        }
       }
     } catch {
-      setUsingStatic(true);
-      setRetouchAlerts(MOCK_RETOUCH_ALERTS);
+      toast.error("Error al cargar el dashboard. Verifica tu conexión.");
     } finally {
       setLoading(false);
     }
@@ -371,15 +315,6 @@ export default function DashboardScreen({
 
   return (
     <div className="p-6 space-y-6">
-      {usingStatic && (
-        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-          <AlertTriangle className="w-4 h-4 text-blue-500 flex-shrink-0" />
-          <p className="text-xs text-blue-700 font-medium">
-            Conectado al servidor. Cargando alertas de retoques y datos en tiempo real de SQLite.
-          </p>
-        </div>
-      )}
-
       {/* Bento KPI cards Grid */}
       <div id="tour-dashboard-kpi" className="grid grid-cols-1 md:grid-cols-12 gap-4">
         <div className="md:col-span-3">

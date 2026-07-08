@@ -768,6 +768,7 @@ export default function ConfigScreen() {
             </div>
             {isAdmin && (
               <button
+                id="tour-config-add-professional-btn"
                 onClick={() => setShowNewModal(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
               >
@@ -783,7 +784,7 @@ export default function ConfigScreen() {
               <span className="text-sm text-muted-foreground">Cargando...</span>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div id="tour-config-professionals-list" className="space-y-3">
               {professionals.map((pro) => (
                 <div key={pro.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                   <div className="flex items-center gap-4 p-4">
@@ -870,7 +871,7 @@ export default function ConfigScreen() {
             </p>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div id="tour-config-clinic-form" className="bg-card border border-border rounded-2xl p-6 space-y-4">
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                 Nombre del Centro
@@ -1052,7 +1053,7 @@ export default function ConfigScreen() {
               </div>
 
               {/* B — Settings */}
-              <div className="bg-card border border-border rounded-2xl p-5 space-y-5">
+              <div id="tour-config-whatsapp-form" className="bg-card border border-border rounded-2xl p-5 space-y-5">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Bell className="w-3.5 h-3.5" />
                   Configuración de Recordatorios

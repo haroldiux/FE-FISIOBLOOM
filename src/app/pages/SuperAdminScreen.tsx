@@ -103,11 +103,28 @@ export default function SuperAdminScreen() {
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
+            id="tour-saas-create-tenant-btn"
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Nuevo Inquilino
           </button>
+        </div>
+      </div>
+
+      {/* SaaS Global Statistics (Bento Grid) */}
+      <div id="tour-saas-stats" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Clínicas Activas</p>
+          <p className="text-xl font-black text-primary">{tenants.filter(t => t.isActive).length}</p>
+        </div>
+        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Suscripciones Premium</p>
+          <p className="text-xl font-black text-cyan-550">{tenants.filter(t => t.plan === "PREMIUM").length}</p>
+        </div>
+        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Suscripciones Basic</p>
+          <p className="text-xl font-black text-purple-550">{tenants.filter(t => t.plan === "BASIC").length}</p>
         </div>
       </div>
 
@@ -123,7 +140,7 @@ export default function SuperAdminScreen() {
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div id="tour-saas-tenant-list" className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>

@@ -40,6 +40,7 @@ export interface Service {
   isActive: boolean;
   createdAt?: string;
   consumables?: ServiceConsumable[];
+  activeCampaign?: Campaign | null;
 }
 
 export interface PackageTemplateLine {
@@ -70,93 +71,6 @@ export interface Campaign {
   endDate: string;
   isActive: boolean;
 }
-
-export const getActiveCampaignForService = (serviceId: string): Campaign | null => {
-  const localCampaignsStr = localStorage.getItem("bloom_campaigns");
-  if (!localCampaignsStr) return null;
-  try {
-    const campaigns: Campaign[] = JSON.parse(localCampaignsStr);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const activeCampaign = campaigns.find(c => {
-      if (c.serviceId !== serviceId || !c.isActive) return false;
-      const start = c.startDate ? new Date(c.startDate) : null;
-      if (start) start.setHours(0, 0, 0, 0);
-      const end = c.endDate ? new Date(c.endDate) : null;
-      if (end) end.setHours(23, 59, 59, 999);
-      const fitsStart = !start || now >= start;
-      const fitsEnd = !end || now <= end;
-      return fitsStart && fitsEnd;
-    });
-    return activeCampaign || null;
-  } catch (e) {
-    return null;
-  }
-};
-
-// MOCKS iniciales por si la API retorna 404 o no está disponible
-const MOCK_SERVICES: Service[] = [
-  {
-    id: "s-1",
-    name: "Limpieza Facial Profunda con Microdermoabrasión",
-    category: "FACIAL",
-    treatmentType: "SINGLE_SESSION",
-    defaultDuration: 60,
-    defaultPrice: 150,
-    requiresConsent: false,
-    isActive: true,
-  },
-  {
-    id: "s-2",
-    name: "Cavitación Ultrasónica Reductora",
-    category: "CORPORAL",
-    treatmentType: "MULTI_SESSION",
-    defaultDuration: 45,
-    defaultPrice: 120,
-    requiresConsent: true,
-    contraindications: "No apto para personas con implantes metálicos o marcapasos.",
-    isActive: true,
-  },
-  {
-    id: "s-3",
-    name: "Microblading de Cejas Aura (Efecto Pelo a Pelo)",
-    category: "ESTETICA",
-    treatmentType: "RETOUCHABLE",
-    defaultDuration: 120,
-    defaultPrice: 350,
-    retouchConfig: {
-      retouchAfterDays: 30,
-      maxRetouches: 1
-    },
-    requiresConsent: true,
-    contraindications: "No recomendado en embarazo, diabetes no controlada o queloides activos.",
-    isActive: true,
-  },
-  {
-    id: "s-4",
-    name: "Sesión Terapéutica de Fisioterapia Postural",
-    category: "FISIOTERAPIA",
-    treatmentType: "SINGLE_SESSION",
-    defaultDuration: 50,
-    defaultPrice: 90,
-    requiresConsent: false,
-    isActive: true,
-  },
-];
-
-const MOCK_PACKAGES: PackageTemplate[] = [
-  {
-    id: "p-1",
-    name: "Plan Reductor Intensivo Cavitación",
-    description: "Combo diseñado para reducción corporal en abdomen y piernas",
-    validityDays: 90,
-    totalPrice: 960,
-    isActive: true,
-    lines: [
-      { serviceId: "s-2", serviceName: "Cavitación Ultrasónica Reductora", sessions: 10 }
-    ]
-  }
-];
 
 const CATEGORIES = ["FACIAL", "CORPORAL", "FISIOTERAPIA", "ESTETICA"] as const;
 const TREATMENT_TYPES = [
@@ -226,15 +140,7 @@ function ServiceModal({
         setAllProducts(list.filter((p: any) => p.category === "PRODUCTO" && p.isActive));
       })
       .catch(() => {
-        // Fallback to localStorage products
-        const local = localStorage.getItem("bloom_skin_products");
-        if (local) {
-          try {
-            const parsed = JSON.parse(local);
-            const list = Array.isArray(parsed) ? parsed : parsed.products || [];
-            setAllProducts(list.filter((p: any) => p.category === "PRODUCTO" && p.isActive));
-          } catch (e) {}
-        }
+        toast.error("No se pudieron cargar los productos del inventario.");
       });
   }, []);
 
@@ -333,6 +239,7 @@ function ServiceModal({
               Nombre del Servicio / Procedimiento
             </label>
             <input
+              id="tour-service-form-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Radiofrecuencia Tripolar, Drenaje Linfático"
@@ -461,6 +368,7 @@ function ServiceModal({
               <div className="flex-1">
                 <label className="text-[9px] font-bold text-slate-500 block mb-1">Producto</label>
                 <select
+                  id="tour-service-form-consumables"
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs border border-border rounded-xl bg-background"
@@ -538,6 +446,7 @@ function ServiceModal({
               Cancelar
             </button>
             <button
+              id="tour-service-form-submit"
               type="submit"
               disabled={saving}
               className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/20"
@@ -880,42 +789,14 @@ export default function ServicesScreen() {
         api.get<PackageTemplate[]>("/services/templates")
       ]);
 
-      for (const s of servicesData) {
-        if (!s.consumables) {
-          const localConsumables = localStorage.getItem(`bloom_skin_consumables_${s.id}`);
-          if (localConsumables) {
-            try {
-              s.consumables = JSON.parse(localConsumables);
-            } catch (e) {}
-          }
-        }
-      }
-
-      localStorage.setItem("bloom_skin_services", JSON.stringify(servicesData));
-      localStorage.setItem("bloom_skin_packages", JSON.stringify(packagesData));
-
       setServices(servicesData);
       setPackages(packagesData);
     } catch (e: any) {
-      const localSrv = localStorage.getItem("bloom_skin_services");
-      const localPkg = localStorage.getItem("bloom_skin_packages");
-      if (localSrv && localPkg) {
-        let sList = JSON.parse(localSrv);
-        for (const s of sList) {
-          const localConsumables = localStorage.getItem(`bloom_skin_consumables_${s.id}`);
-          if (localConsumables) {
-            try {
-              s.consumables = JSON.parse(localConsumables);
-            } catch (err) {}
-          }
-        }
-        setServices(sList);
-        setPackages(JSON.parse(localPkg));
-      } else {
-        setServices([]);
-        setPackages([]);
-        setError("Error al cargar los servicios y paquetes del servidor y no hay caché disponible.");
-      }
+      const msg = e?.message || "Error de conexión";
+      setError("Error al cargar los servicios: " + msg);
+      toast.error("No se pudieron cargar los servicios del servidor.");
+      setServices([]);
+      setPackages([]);
     } finally {
       setLoading(false);
     }
@@ -1146,7 +1027,7 @@ export default function ServicesScreen() {
             {filteredServices.map((srv) => {
               const theme = categoryColors[srv.category] || { bg: "bg-white/5 text-muted-foreground border-white/10", text: "text-muted-foreground", border: "border-border" };
               const typeBadge = typeBadges[srv.treatmentType] || { label: "Estándar", bg: "bg-white/5", text: "text-muted-foreground" };
-              const campaign = getActiveCampaignForService(srv.id);
+              const campaign = srv.activeCampaign || null;
               const finalPrice = campaign
                 ? (campaign.discountType === "PERCENT"
                     ? Math.max(0, srv.defaultPrice * (1 - campaign.discountValue / 100))

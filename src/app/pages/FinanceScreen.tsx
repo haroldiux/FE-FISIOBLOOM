@@ -123,143 +123,6 @@ const ROLE_BADGES: Record<string, string> = {
   RECEPTIONIST: "bg-slate-100 text-slate-600 border border-slate-200",
 };
 
-const MOCK_PROFESSIONALS: Professional[] = [
-  {
-    id: "seed-prof-ana",
-    name: "Dra. Ana Martínez",
-    email: "ana.martinez@bloomskin.com",
-    role: "PHYSIO",
-    isActive: true,
-    workingHours: {
-      monday: { start: "09:00", end: "17:00" },
-      tuesday: { start: "09:00", end: "17:00" },
-      wednesday: { start: "09:00", end: "17:00" },
-      thursday: { start: "09:00", end: "17:00" },
-      friday: { start: "09:00", end: "15:00" },
-    }
-  },
-  {
-    id: "seed-prof-carlos",
-    name: "Carlos Gómez",
-    email: "carlos.gomez@bloomskin.com",
-    role: "AESTHETICIAN",
-    isActive: true,
-    workingHours: {
-      tuesday: { start: "10:00", end: "19:00" },
-      wednesday: { start: "10:00", end: "19:00" },
-      thursday: { start: "10:00", end: "19:00" },
-      friday: { start: "10:00", end: "19:00" },
-      saturday: { start: "09:00", end: "14:00" },
-    }
-  },
-  {
-    id: "seed-prof-sofia",
-    name: "Sofía Ruiz",
-    email: "sofia.ruiz@bloomskin.com",
-    role: "RECEPTIONIST",
-    isActive: true,
-    workingHours: {
-      monday: { start: "08:30", end: "17:30" },
-      tuesday: { start: "08:30", end: "17:30" },
-      wednesday: { start: "08:30", end: "17:30" },
-      thursday: { start: "08:30", end: "17:30" },
-      friday: { start: "08:30", end: "17:30" },
-    }
-  }
-];
-
-const MOCK_PERFORMANCE: StaffPerformance[] = [
-  {
-    professionalId: "seed-prof-ana",
-    name: "Dra. Ana Martínez",
-    role: "PHYSIO",
-    month: "Julio 2026",
-    salesTarget: 6000,
-    actualSales: 4800,
-    servicesSales: 4500,
-    productsSales: 300,
-    commissionRate: 15,
-    commissionEarned: 720,
-    servicesCount: 38,
-    productsCount: 6,
-  },
-  {
-    professionalId: "seed-prof-carlos",
-    name: "Carlos Gómez",
-    role: "AESTHETICIAN",
-    month: "Julio 2026",
-    salesTarget: 4000,
-    actualSales: 3200,
-    servicesSales: 2700,
-    productsSales: 500,
-    commissionRate: 10,
-    commissionEarned: 320,
-    servicesCount: 22,
-    productsCount: 12,
-  },
-  {
-    professionalId: "seed-prof-sofia",
-    name: "Sofía Ruiz",
-    role: "RECEPTIONIST",
-    month: "Julio 2026",
-    salesTarget: 2000,
-    actualSales: 800,
-    servicesSales: 0,
-    productsSales: 800,
-    commissionRate: 5,
-    commissionEarned: 40,
-    servicesCount: 0,
-    productsCount: 16,
-  }
-];
-
-const MOCK_PAYROLL: StaffPayroll[] = [
-  {
-    id: "pay-1",
-    professionalId: "seed-prof-ana",
-    name: "Dra. Ana Martínez",
-    role: "PHYSIO",
-    period: "Junio 2026",
-    baseSalary: 2500,
-    commissions: 850,
-    deductions: 320,
-    bonuses: 150,
-    netPay: 3180,
-    status: "PENDIENTE",
-  },
-  {
-    id: "pay-2",
-    professionalId: "seed-prof-carlos",
-    name: "Carlos Gómez",
-    role: "AESTHETICIAN",
-    period: "Junio 2026",
-    baseSalary: 1800,
-    commissions: 410,
-    deductions: 210,
-    bonuses: 100,
-    netPay: 2100,
-    status: "PAGADO",
-    paidAt: "2026-06-28T18:30:00.000Z",
-    paymentMethod: "TRANSFERENCIA",
-  },
-  {
-    id: "pay-3",
-    professionalId: "seed-prof-sofia",
-    name: "Sofía Ruiz",
-    role: "RECEPTIONIST",
-    period: "Junio 2026",
-    baseSalary: 1500,
-    commissions: 50,
-    deductions: 120,
-    bonuses: 50,
-    netPay: 1480,
-    status: "PAGADO",
-    paidAt: "2026-06-28T18:40:00.000Z",
-    paymentMethod: "TRANSFERENCIA",
-  }
-];
-
-
 interface Patient {
   id: string;
   fullName: string;
@@ -302,26 +165,6 @@ interface CashRegister {
     user?: { name: string };
   }[];
 }
-
-// Mocks para desarrollo robusto
-const MOCK_PATIENTS = [
-  { id: "seed-pat-sofia", fullName: "Sofía Hernández P." },
-  { id: "p-102", fullName: "María Rodríguez" },
-  { id: "p-103", fullName: "Ana García López" }
-];
-
-const MOCK_SERVICES = [
-  { id: "seed-srv-facial", name: "Limpieza Facial Profunda con Microdermoabrasión", defaultPrice: 150 },
-  { id: "seed-srv-cavitacion", name: "Cavitación Ultrasónica Reductora", defaultPrice: 120 },
-  { id: "seed-srv-microblading", name: "Microblading de Cejas Aura (Pelo a Pelo)", defaultPrice: 350 },
-  { id: "seed-srv-fisio", name: "Sesión Terapéutica de Fisioterapia Postural", defaultPrice: 90 }
-];
-
-const MOCK_PRODUCTS = [
-  { id: "prod-1", name: "Gel Conductor Neutro 1L", price: 35, stock: 15 },
-  { id: "prod-2", name: "Crema Hidratante Aura con Ácido Hialurónico", price: 65, stock: 8 },
-  { id: "prod-3", name: "Aceite de Masajes Relajante Lavanda 250ml", price: 28, stock: 20 }
-];
 
 export default function FinanceScreen() {
   const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions">("pos");
@@ -519,17 +362,9 @@ export default function FinanceScreen() {
       
       const updatedProfs = professionals.map(p => p.id === selectedProfId ? { ...p, workingHours: filtered } : p);
       setProfessionals(updatedProfs);
-      localStorage.setItem("bloom_professionals", JSON.stringify(updatedProfs));
       toast.success("Horarios guardados exitosamente en el servidor.");
     } catch (err) {
-      console.warn("Fallback local para guardar horarios:", err);
-      const filtered = Object.fromEntries(
-        Object.entries(selectedProfHours).filter(([, v]) => v !== null)
-      ) as Record<string, { start: string; end: string }>;
-      const updatedProfs = professionals.map(p => p.id === selectedProfId ? { ...p, workingHours: filtered } : p);
-      setProfessionals(updatedProfs);
-      localStorage.setItem("bloom_professionals", JSON.stringify(updatedProfs));
-      toast.warning("Horarios guardados localmente (Modo fallback).");
+      toast.error("Error al guardar horarios en el servidor.");
     } finally {
       setLoadingStaff(false);
     }
@@ -543,30 +378,7 @@ export default function FinanceScreen() {
       setPerformances(freshData);
       toast.success("Comisiones calculadas desde el servidor.");
     } catch (err) {
-      console.warn("Fallback recalculando comisiones:", err);
-      const updated = performances.map(p => {
-        if (p.professionalId === profId && p.month === month) {
-          const addedServices = Math.floor(Math.random() * 300) + 150;
-          const addedProducts = Math.floor(Math.random() * 100) + 50;
-          const servicesSales = p.servicesSales + addedServices;
-          const productsSales = p.productsSales + addedProducts;
-          const actualSales = servicesSales + productsSales;
-          const commissionEarned = Math.round(actualSales * (p.commissionRate / 100));
-          return {
-            ...p,
-            servicesSales,
-            productsSales,
-            actualSales,
-            commissionEarned,
-            servicesCount: p.servicesCount + Math.floor(Math.random() * 2) + 1,
-            productsCount: p.productsCount + Math.floor(Math.random() * 3) + 1,
-          };
-        }
-        return p;
-      });
-      setPerformances(updated);
-      localStorage.setItem("bloom_performances", JSON.stringify(updated));
-      toast.warning("Desempeño y comisiones recalculados (Simulación Fallback).");
+      toast.error("Error al recalcular comisiones con el servidor.");
     } finally {
       setLoadingStaff(false);
     }
@@ -595,24 +407,9 @@ export default function FinanceScreen() {
       setShowGoalModal(false);
       setEditingPerformance(null);
     } catch (err: any) {
-      console.warn("Fallback local para guardar metas:", err);
-      const updated = performances.map(p => {
-        if (p.professionalId === editingPerformance.professionalId && p.month === editingPerformance.month) {
-          const commissionEarned = Math.round(p.actualSales * (rate / 100));
-          return {
-            ...p,
-            salesTarget: target,
-            commissionRate: rate,
-            commissionEarned,
-          };
-        }
-        return p;
-      });
-      setPerformances(updated);
-      localStorage.setItem("bloom_performances", JSON.stringify(updated));
+      toast.error("Error al actualizar meta y tasa de comisión en el servidor.");
       setShowGoalModal(false);
       setEditingPerformance(null);
-      toast.warning("Meta y tasa de comisión actualizadas (Modo fallback).");
     } finally {
       setLoadingStaff(false);
     }
@@ -631,16 +428,7 @@ export default function FinanceScreen() {
       toast.success("Nómina pagada en el servidor.");
       loadStaffFinanceData();
     } catch (err) {
-      console.warn("Fallback pagando nómina:", err);
-      const updated = payrolls.map(p => {
-        if (p.id === selectedPayrollToPay.id) {
-          return { ...p, status: "PAID" as const, paidAt: new Date().toISOString() };
-        }
-        return p;
-      });
-      setPayrolls(updated);
-      localStorage.setItem("bloom_payrolls", JSON.stringify(updated));
-      toast.warning(`Nómina liquidada por $${selectedPayrollToPay.netPay.toLocaleString()} vía ${payMethod} (Modo fallback).`);
+      toast.error("Error al procesar el pago de la nómina en el servidor.");
     } finally {
       setLoadingStaff(false);
       setShowPayConfirmModal(false);
@@ -711,7 +499,6 @@ export default function FinanceScreen() {
     
     const updated = [entry, ...payrolls];
     setPayrolls(updated);
-    localStorage.setItem("bloom_payrolls", JSON.stringify(updated));
     setShowPayrollModal(false);
     toast.success("Nómina generada con éxito.");
   };
@@ -726,19 +513,11 @@ export default function FinanceScreen() {
       setPatients(pData);
       setServices(sData);
       setProducts(prData);
-
-      localStorage.setItem("pos_cached_patients", JSON.stringify(pData));
-      localStorage.setItem("bloom_skin_services", JSON.stringify(sData));
-      localStorage.setItem("pos_cached_products", JSON.stringify(prData));
     } catch (e: any) {
-      console.warn("Error cargando catálogos de POS, usando cachés locales si existen...", e);
-      const cachedPatients = localStorage.getItem("pos_cached_patients");
-      const cachedServices = localStorage.getItem("bloom_skin_services");
-      const cachedProducts = localStorage.getItem("pos_cached_products");
-
-      setPatients(cachedPatients ? JSON.parse(cachedPatients) : []);
-      setServices(cachedServices ? JSON.parse(cachedServices) : []);
-      setProducts(cachedProducts ? JSON.parse(cachedProducts) : []);
+      toast.error("Error cargando catálogos del POS.");
+      setPatients([]);
+      setServices([]);
+      setProducts([]);
     }
   };
 
@@ -756,76 +535,23 @@ export default function FinanceScreen() {
   };
 
   const loadPromotions = async () => {
-    // Inicializar LocalStorage si no existe
-    if (!localStorage.getItem("bloom_campaigns")) {
-      localStorage.setItem("bloom_campaigns", JSON.stringify([
-        {
-          id: "camp-1",
-          name: "Especial de Verano",
-          serviceId: "seed-srv-facial",
-          discountType: "PERCENT",
-          discountValue: 20,
-          startDate: "2026-06-01",
-          endDate: "2026-08-31",
-          isActive: true
-        },
-        {
-          id: "camp-2",
-          name: "Descuento Fisio",
-          serviceId: "seed-srv-fisio",
-          discountType: "FIXED",
-          discountValue: 15,
-          startDate: "2026-07-01",
-          endDate: "2026-07-31",
-          isActive: true
-        }
-      ]));
-    }
-    if (!localStorage.getItem("bloom_coupons")) {
-      localStorage.setItem("bloom_coupons", JSON.stringify([
-        {
-          id: "coup-1",
-          code: "BLOOM10",
-          discountType: "PERCENT",
-          discountValue: 10,
-          expiryDate: "2026-12-31",
-          usageStock: 100,
-          usedCount: 5,
-          minPurchase: 50,
-          isActive: true
-        },
-        {
-          id: "coup-2",
-          code: "BIENVENIDA20",
-          discountType: "FIXED",
-          discountValue: 20,
-          expiryDate: "2026-09-30",
-          usageStock: 50,
-          usedCount: 0,
-          minPurchase: 100,
-          isActive: true
-        }
-      ]));
-    }
-
     try {
       const [campaignsData, couponsData] = await Promise.all([
         api.get<Campaign[]>("/campaigns").catch(() => {
-          const loc = localStorage.getItem("bloom_campaigns");
-          return loc ? JSON.parse(loc) : [];
+          toast.error("Error al cargar campañas desde el servidor.");
+          return [];
         }),
         api.get<Coupon[]>("/coupons").catch(() => {
-          const loc = localStorage.getItem("bloom_coupons");
-          return loc ? JSON.parse(loc) : [];
+          toast.error("Error al cargar cupones desde el servidor.");
+          return [];
         })
       ]);
       setCampaigns(campaignsData);
       setCoupons(couponsData);
     } catch (e) {
-      const locC = localStorage.getItem("bloom_campaigns");
-      if (locC) setCampaigns(JSON.parse(locC));
-      const locCp = localStorage.getItem("bloom_coupons");
-      if (locCp) setCoupons(JSON.parse(locCp));
+      toast.error("Error de conexión al cargar promociones.");
+      setCampaigns([]);
+      setCoupons([]);
     }
   };
 
@@ -937,35 +663,6 @@ export default function FinanceScreen() {
 
       applyCouponDetails(verifiedCoupon);
     } catch (err: any) {
-      console.warn("Validación en backend falló, probando fallback local:", err);
-      // Fallback local en localStorage
-      const localCouponsStr = localStorage.getItem("bloom_coupons");
-      if (localCouponsStr) {
-        try {
-          const couponsList: Coupon[] = JSON.parse(localCouponsStr);
-          const found = couponsList.find(c => c.code.toUpperCase() === codeUpper && c.isActive);
-          if (found) {
-            if (found.expiryDate && new Date(found.expiryDate) < new Date()) {
-              throw new Error("El cupón ha expirado.");
-            }
-            if (found.usageStock !== undefined && found.usedCount !== undefined && found.usedCount >= found.usageStock) {
-              throw new Error("El cupón ha agotado su stock de usos.");
-            }
-            if (found.minPurchase && currentSubtotal < found.minPurchase) {
-              throw new Error(`La compra mínima para este cupón es de $${found.minPurchase}`);
-            }
-            
-            applyCouponDetails(found);
-            return;
-          }
-        } catch (e: any) {
-          setCouponError(e.message || "Error al aplicar cupón.");
-          setAppliedCoupon(null);
-          setDiscount(0);
-          setCouponValidationLoading(false);
-          return;
-        }
-      }
       setCouponError(err.message || "Cupón inválido o no encontrado.");
       setAppliedCoupon(null);
       setDiscount(0);
@@ -1075,24 +772,6 @@ export default function FinanceScreen() {
         couponCode: appliedCoupon ? appliedCoupon.code : null
       });
 
-      // Incrementar contador de usos del cupón localmente si aplica
-      if (appliedCoupon) {
-        const localCouponsStr = localStorage.getItem("bloom_coupons");
-        if (localCouponsStr) {
-          try {
-            const couponsList: Coupon[] = JSON.parse(localCouponsStr);
-            const updatedCoupons = couponsList.map(c => {
-              if (c.code.toUpperCase() === appliedCoupon.code.toUpperCase()) {
-                return { ...c, usedCount: (c.usedCount || 0) + 1 };
-              }
-              return c;
-            });
-            localStorage.setItem("bloom_coupons", JSON.stringify(updatedCoupons));
-            setCoupons(updatedCoupons);
-          } catch (e) {}
-        }
-      }
-
       setPosSuccess(true);
       setCart([]);
       setSelectedPatientId("");
@@ -1121,24 +800,6 @@ export default function FinanceScreen() {
         const localInvoices = localInvoicesRaw ? JSON.parse(localInvoicesRaw) : [];
         localInvoices.push(invoiceData);
         localStorage.setItem("offline_invoices", JSON.stringify(localInvoices));
-
-        // Increment coupon count locally if applicable
-        if (appliedCoupon) {
-          const localCouponsStr = localStorage.getItem("bloom_coupons");
-          if (localCouponsStr) {
-            try {
-              const couponsList: Coupon[] = JSON.parse(localCouponsStr);
-              const updatedCoupons = couponsList.map(c => {
-                if (c.code.toUpperCase() === appliedCoupon.code.toUpperCase()) {
-                  return { ...c, usedCount: (c.usedCount || 0) + 1 };
-                }
-                return c;
-              });
-              localStorage.setItem("bloom_coupons", JSON.stringify(updatedCoupons));
-              setCoupons(updatedCoupons);
-            } catch (e) {}
-          }
-        }
 
         setPosSuccess(true);
         setCart([]);
@@ -1176,12 +837,8 @@ export default function FinanceScreen() {
       await api.post<Campaign>("/campaigns", newCamp);
       const updated = [newCamp, ...campaigns];
       setCampaigns(updated);
-      localStorage.setItem("bloom_campaigns", JSON.stringify(updated));
     } catch (err) {
-      console.warn("Error enviando campaña al backend, usando fallback local:", err);
-      const updated = [newCamp, ...campaigns];
-      setCampaigns(updated);
-      localStorage.setItem("bloom_campaigns", JSON.stringify(updated));
+      toast.error("Error al crear campaña en el servidor.");
     }
 
     setCampaignForm({
@@ -1216,12 +873,8 @@ export default function FinanceScreen() {
       await api.post<Coupon>("/coupons", newCoup);
       const updated = [newCoup, ...coupons];
       setCoupons(updated);
-      localStorage.setItem("bloom_coupons", JSON.stringify(updated));
     } catch (err) {
-      console.warn("Error enviando cupón al backend, usando fallback local:", err);
-      const updated = [newCoup, ...coupons];
-      setCoupons(updated);
-      localStorage.setItem("bloom_coupons", JSON.stringify(updated));
+      toast.error("Error al crear cupón en el servidor.");
     }
 
     setCouponForm({
@@ -1240,12 +893,8 @@ export default function FinanceScreen() {
       await api.put(`/campaigns/${id}/toggle`, {});
       const updated = campaigns.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
       setCampaigns(updated);
-      localStorage.setItem("bloom_campaigns", JSON.stringify(updated));
     } catch (err) {
-      console.warn("Error al pausar campaña en backend, usando fallback local:", err);
-      const updated = campaigns.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
-      setCampaigns(updated);
-      localStorage.setItem("bloom_campaigns", JSON.stringify(updated));
+      toast.error("Error al cambiar estado de campaña en el servidor.");
     }
   };
 
@@ -1254,12 +903,8 @@ export default function FinanceScreen() {
       await api.put(`/coupons/${id}/toggle`, {});
       const updated = coupons.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
       setCoupons(updated);
-      localStorage.setItem("bloom_coupons", JSON.stringify(updated));
     } catch (err) {
-      console.warn("Error al pausar cupón en backend, usando fallback local:", err);
-      const updated = coupons.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
-      setCoupons(updated);
-      localStorage.setItem("bloom_coupons", JSON.stringify(updated));
+      toast.error("Error al cambiar estado de cupón en el servidor.");
     }
   };
 
@@ -1362,7 +1007,7 @@ export default function FinanceScreen() {
             </div>
           </div>
           <button
-            onClick={() => { setError(null); setShowOpenModal(true); }}
+            onClick={() => { setPosError(null); setShowOpenModal(true); }}
             className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-amber-500/30 transition-colors"
           >
             <Unlock className="w-3.5 h-3.5" />
@@ -1506,6 +1151,7 @@ export default function FinanceScreen() {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Paciente *</label>
                 <select
+                  id="tour-pos-patient-search"
                   value={selectedPatientId}
                   onChange={(e) => setSelectedPatientId(e.target.value)}
                   className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
@@ -1559,6 +1205,7 @@ export default function FinanceScreen() {
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase">Método Pago</label>
                     <select
+                      id="tour-pos-payment-method"
                       value={paymentMethod}
                       onChange={(e: any) => setPaymentMethod(e.target.value)}
                       className="w-full text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-xl p-2"
@@ -1581,10 +1228,22 @@ export default function FinanceScreen() {
                   </div>
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase">Tipo de Comprobante</label>
+                  <select
+                    id="tour-pos-invoice-type"
+                    className="w-full text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-xl p-2 focus:outline-none"
+                  >
+                    <option value="INTERNAL">Ticket Interno</option>
+                    <option value="TAX">Factura Fiscal</option>
+                  </select>
+                </div>
+
                 {paymentMethod !== "EFECTIVO" && (
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase">Referencia de Transacción</label>
                     <input
+                      id="tour-pos-reference"
                       type="text"
                       placeholder="Ej: Nro de comprobante / lote"
                       value={paymentReference}
@@ -1669,6 +1328,7 @@ export default function FinanceScreen() {
 
               {/* Botón Checkout */}
               <button
+                id="tour-pos-submit-sale"
                 onClick={handleCheckout}
                 disabled={!cashRegister || cart.length === 0 || !selectedPatientId}
                 className="w-full py-3 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/20 disabled:opacity-40 flex items-center justify-center gap-2 uppercase tracking-wider"
@@ -1727,6 +1387,7 @@ export default function FinanceScreen() {
                 <div className="bg-card rounded-2xl border border-slate-300 p-5 flex flex-col justify-center gap-2">
                   <div className="flex gap-2">
                     <button
+                      id="tour-cash-expense-btn"
                       onClick={() => setShowExpenseModal(true)}
                       className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
                     >
@@ -1734,6 +1395,7 @@ export default function FinanceScreen() {
                       Registrar Egreso
                     </button>
                     <button
+                      id="tour-cash-close-btn"
                       onClick={() => { setFinanceNotes(""); setActualBalance(""); setShowCloseModal(true); }}
                       className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-red-100"
                     >
@@ -1814,7 +1476,7 @@ export default function FinanceScreen() {
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">Para iniciar el cobro de tratamientos o registrar movimientos financieros, proceda a abrir la caja.</p>
               </div>
               <button
-                onClick={() => { setError(null); setShowOpenModal(true); }}
+                onClick={() => { setPosError(null); setShowOpenModal(true); }}
                 className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-colors shadow-md shadow-primary/10"
               >
                 <Unlock className="w-3.5 h-3.5" />
@@ -1839,6 +1501,7 @@ export default function FinanceScreen() {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Fondo de Efectivo Inicial ($) *</label>
                 <input
+                  id="tour-cash-initial-balance"
                   type="number"
                   placeholder="Ej: 500"
                   value={initialBalance}

@@ -15,7 +15,9 @@ import SuperAdminScreen from "./pages/SuperAdminScreen";
 import PatientPortalScreen from "./pages/PatientPortalScreen";
 import { useTenantSettings } from "./context/TenantSettingsContext";
 import { useSyncManager, SyncState } from "./hooks/useSyncManager";
-// TutorialTour and HelpCenterModal removed — will be rebuilt
+import { TutorialProvider, useTutorial } from "./context/TutorialContext";
+import TutorialTour from "./components/TutorialTour";
+import HelpCenterModal from "./components/HelpCenterModal";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -119,7 +121,7 @@ function BranchSelectorButton() {
   }
 
   return (
-    <div className="relative group/branch">
+    <div id="tour-dashboard-branch" className="relative group/branch">
       <button
         onClick={() => setOpen(!open)}
         className="w-16 py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 text-white/50 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all duration-300 spring-hover cursor-pointer"
@@ -253,7 +255,7 @@ function UserFooterButton({ setActive }: { setActive: (s: Screen) => void }) {
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "A";
   return (
-    <div className="mt-auto flex-shrink-0 group/user">
+    <div id="tour-user-footer" className="mt-auto flex-shrink-0 group/user">
       <button
         onClick={() => setActive("config")}
         className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center text-white text-xs font-black shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
@@ -310,6 +312,7 @@ function Topbar({
   onSelectPatient,
   theme,
   onToggleTheme,
+  onOpenHelpCenter,
 }: {
   title: string;
   subtitle: string;
@@ -322,6 +325,7 @@ function Topbar({
   onSelectPatient: (patientId: string) => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  onOpenHelpCenter: () => void;
 }) {
   const { user, logout } = useAuth();
   const notifPanelRef = useRef<HTMLDivElement>(null);
@@ -434,6 +438,16 @@ function Topbar({
             </div>
           )}
         </div>
+
+        {/* Help/Tutorial Launcher Button */}
+        <button
+          id="tour-topbar-tutorial"
+          onClick={onOpenHelpCenter}
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
+          title="Ayuda y Tutoriales Interactivos"
+        >
+          <HelpCircle className="w-4 h-4 text-primary animate-pulse" />
+        </button>
 
         {/* Theme Switcher Button */}
         <button
@@ -1220,8 +1234,9 @@ function InspectDetailModal({ item, onClose }: InspectDetailModalProps) {
   );
 }
 
-export default function App() {
+function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+  const { openHelpCenter } = useTutorial();
   const [screen, setScreen] = useState<Screen>("dashboard");
   const mainRef = useRef<HTMLElement>(null);
 
@@ -1371,6 +1386,7 @@ export default function App() {
           }}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onOpenHelpCenter={openHelpCenter}
         />
         <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-3xl p-6 border border-white/10 dark:border-white/5 relative">
           {screen === "dashboard" && (
@@ -1410,7 +1426,17 @@ export default function App() {
         </main>
       </div>
 
-      {/* Help Center, Tutorial Tour, and Puntero de Ayuda removed — will be rebuilt */}
+      {/* Help Center, Tutorial Tour, and Puntero de Ayuda */}
+      <TutorialTour onNavigate={(s) => setScreen(s as Screen)} />
+      <HelpCenterModal />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <TutorialProvider>
+      <AppContent />
+    </TutorialProvider>
   );
 }

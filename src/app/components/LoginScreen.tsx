@@ -112,6 +112,7 @@ export default function LoginScreen() {
             <div className="relative glowing-border rounded-2xl">
               <Mail className="w-4 h-4 text-white/30 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
+                id="tour-login-email"
                 type="email"
                 required
                 value={email}
@@ -129,6 +130,7 @@ export default function LoginScreen() {
             <div className="relative glowing-border rounded-2xl">
               <Lock className="w-4 h-4 text-white/30 absolute left-4 top-1/2 -translate-y-1/2" />
               <input
+                id="tour-login-password"
                 type="password"
                 required
                 value={password}
@@ -140,6 +142,7 @@ export default function LoginScreen() {
           </div>
 
           <button
+            id="tour-login-submit"
             type="submit"
             disabled={submitting}
             className="w-full py-4 bg-primary hover:bg-primary/95 text-white font-bold rounded-2xl shadow-lg shadow-primary/25 transition-all spring-hover flex items-center justify-center gap-2 mt-4 disabled:bg-primary/60 disabled:cursor-not-allowed text-xs uppercase tracking-widest"
