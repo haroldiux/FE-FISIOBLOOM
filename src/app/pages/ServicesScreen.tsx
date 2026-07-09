@@ -21,6 +21,8 @@ import {
 import { api } from "../services/api";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import { useTutorial } from "../context/TutorialContext";
+import { enrichStep } from "../components/TutorialTour";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -80,16 +82,16 @@ const TREATMENT_TYPES = [
 ];
 
 const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
-  FACIAL:      { bg: "bg-rose-500/10 text-rose-400 border-rose-500/25",    border: "hover:border-rose-500/40" },
-  CORPORAL:    { bg: "bg-teal-500/10 text-teal-400 border-teal-500/25",    border: "hover:border-teal-500/40" },
-  FISIOTERAPIA:{ bg: "bg-indigo-500/10 text-indigo-400 border-indigo-500/25", border: "hover:border-indigo-500/40" },
-  ESTETICA:    { bg: "bg-amber-500/10 text-amber-400 border-amber-500/25", border: "hover:border-amber-500/40" },
+  FACIAL:      { bg: "bg-primary/10 text-primary border-primary/25",    border: "hover:border-primary/40" },
+  CORPORAL:    { bg: "bg-success/10 text-success border-success/20",    border: "hover:border-success/30" },
+  FISIOTERAPIA:{ bg: "bg-secondary/10 text-secondary border-secondary/20", border: "hover:border-secondary/30" },
+  ESTETICA:    { bg: "bg-warning/10 text-warning border-warning/20", border: "hover:border-warning/30" },
 };
 
 const typeBadges: Record<string, { label: string; bg: string; text: string }> = {
-  SINGLE_SESSION: { label: "Única Sesión",  bg: "bg-white/5",           text: "text-muted-foreground" },
-  MULTI_SESSION:  { label: "Paquete",       bg: "bg-blue-500/10",        text: "text-blue-400" },
-  RETOUCHABLE:    { label: "Con Retoque",   bg: "bg-violet-500/10",      text: "text-violet-400" }
+  SINGLE_SESSION: { label: "Única Sesión",  bg: "bg-muted",           text: "text-muted-foreground" },
+  MULTI_SESSION:  { label: "Paquete",       bg: "bg-secondary/10",    text: "text-secondary" },
+  RETOUCHABLE:    { label: "Con Retoque",   bg: "bg-primary/10",      text: "text-primary" }
 };
 
 // ── Modals ───────────────────────────────────────────────────────────────────
@@ -221,9 +223,9 @@ function ServiceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-lg mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-slate-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             {service ? "Editar Servicio" : "Nuevo Servicio de Estética / Fisio"}
@@ -311,12 +313,12 @@ function ServiceModal({
           </div>
 
           {treatmentType === "RETOUCHABLE" && (
-            <div className="p-4 bg-violet-50/50 border border-violet-100 rounded-2xl space-y-3">
-              <h3 className="text-xs font-bold text-violet-800 flex items-center gap-1.5">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl space-y-3">
+              <h3 className="text-xs font-bold text-primary flex items-center gap-1.5">
                 <Repeat className="w-4 h-4" /> Configuración de Retoque
               </h3>
               <div>
-                <label className="text-[10px] font-bold text-violet-700 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-primary uppercase tracking-wider block mb-1">
                   Retoque obligatorio después de (días)
                 </label>
                 <input
@@ -324,7 +326,7 @@ function ServiceModal({
                   value={retouchDays}
                   onChange={(e) => setRetouchDays(e.target.value)}
                   min="1"
-                  className="w-full px-3 py-2 text-sm border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-200 bg-background"
+                  className="w-full px-3 py-2 text-sm border border-primary/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
                 />
               </div>
             </div>
@@ -338,7 +340,7 @@ function ServiceModal({
                 onChange={(e) => setRequiresConsent(e.target.checked)}
                 className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20"
               />
-              <span className="text-xs font-bold text-slate-700">Requiere consentimiento firmado del paciente</span>
+              <span className="text-xs font-bold text-foreground">Requiere consentimiento firmado del paciente</span>
             </label>
           </div>
 
@@ -356,17 +358,17 @@ function ServiceModal({
           </div>
 
           {/* Insumos del Tratamiento */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+          <div className="p-4 bg-muted border border-border rounded-2xl space-y-3">
+            <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
               <Layers className="w-4 h-4 text-primary" /> Insumos del Tratamiento
             </h3>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[10px] text-muted-foreground">
               Configura los insumos que se consumen automáticamente del stock en cada sesión de este servicio.
             </p>
 
             <div className="flex gap-2 items-end">
               <div className="flex-1">
-                <label className="text-[9px] font-bold text-slate-500 block mb-1">Producto</label>
+                <label className="text-[9px] font-bold text-muted-foreground block mb-1">Producto</label>
                 <select
                   id="tour-service-form-consumables"
                   value={selectedProductId}
@@ -382,7 +384,7 @@ function ServiceModal({
                 </select>
               </div>
               <div className="w-20">
-                <label className="text-[9px] font-bold text-slate-500 block mb-1">Cantidad</label>
+                <label className="text-[9px] font-bold text-muted-foreground block mb-1">Cantidad</label>
                 <input
                   type="number"
                   value={quantity}
@@ -409,17 +411,17 @@ function ServiceModal({
                 {consumables.map((c, idx) => {
                   const prod = c.product || allProducts.find((p) => p.id === c.productId);
                   return (
-                    <div key={idx} className="flex items-center justify-between bg-slate-50 border border-border px-3 py-1.5 rounded-xl">
-                      <span className="text-xs text-slate-700 font-medium truncate flex-1 pr-2">
+                    <div key={idx} className="flex items-center justify-between bg-muted border border-border px-3 py-1.5 rounded-xl">
+                      <span className="text-xs text-foreground font-medium truncate flex-1 pr-2">
                         {prod?.name || "Producto Desconocido"}
                       </span>
-                      <span className="text-xs text-slate-600 font-bold px-2 whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground font-bold px-2 whitespace-nowrap">
                         {c.quantity} {prod?.unit || "unid."}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveConsumable(idx)}
-                        className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                        className="text-muted-foreground hover:text-error p-0.5 rounded transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -431,9 +433,9 @@ function ServiceModal({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-700 font-medium">{error}</p>
+            <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+              <p className="text-xs text-error font-medium">{error}</p>
             </div>
           )}
 
@@ -554,7 +556,7 @@ function PackageTemplateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-3xl mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[85vh]">
         
         {/* Lado Izquierdo: Configuración del Paquete */}
@@ -625,14 +627,14 @@ function PackageTemplateModal({
 
           {/* Comparación de Ahorro */}
           {lines.length > 0 && (
-            <div className="p-4 bg-teal-50 border border-teal-100 rounded-2xl flex items-center justify-between">
+            <div className="p-4 bg-success/10 border border-success/20 rounded-2xl flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Precio de Lista</p>
-                <p className="text-sm font-semibold text-slate-500 line-through">${originalPriceSum.toFixed(2)}</p>
+                <p className="text-[10px] font-bold text-success uppercase tracking-wider">Precio de Lista</p>
+                <p className="text-sm font-semibold text-muted-foreground line-through">${originalPriceSum.toFixed(2)}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Descuento Realizado</p>
-                <p className="text-base font-black text-teal-600">
+                <p className="text-[10px] font-bold text-success uppercase tracking-wider">Descuento Realizado</p>
+                <p className="text-base font-black text-success">
                   {discountPercent > 0 ? `${discountPercent}% de ahorro` : "$0.00"}
                 </p>
               </div>
@@ -641,11 +643,11 @@ function PackageTemplateModal({
 
           {/* Listado de Servicios agregados al paquete */}
           <div className="space-y-2">
-            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-primary" /> Servicios Incluidos en el Paquete
             </h3>
             {lines.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic bg-slate-50 p-4 border border-dashed rounded-xl text-center">
+              <p className="text-xs text-muted-foreground italic bg-muted p-4 border border-dashed rounded-xl text-center">
                 Selecciona servicios del panel derecho para armar el paquete.
               </p>
             ) : (
@@ -654,9 +656,9 @@ function PackageTemplateModal({
                   const srv = services.find((s) => s.id === line.serviceId);
                   const price = srv ? srv.defaultPrice * line.sessions : 0;
                   return (
-                    <div key={idx} className="flex items-center gap-3 bg-slate-50 border border-border rounded-xl px-3 py-2">
+                    <div key={idx} className="flex items-center gap-3 bg-muted border border-border rounded-xl px-3 py-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{line.serviceName}</p>
+                        <p className="text-xs font-bold text-foreground truncate">{line.serviceName}</p>
                         <p className="text-[10px] text-muted-foreground">${srv?.defaultPrice} c/u</p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -667,13 +669,13 @@ function PackageTemplateModal({
                           min="1"
                           className="w-12 px-2 py-1 text-center text-xs border border-border rounded-lg bg-background"
                         />
-                        <span className="text-[10px] text-slate-400 font-medium">ses.</span>
+                        <span className="text-[10px] text-muted-foreground font-medium">ses.</span>
                       </div>
-                      <p className="text-xs font-bold text-slate-700 w-16 text-right">${price}</p>
+                      <p className="text-xs font-bold text-foreground w-16 text-right">${price}</p>
                       <button
                         type="button"
                         onClick={() => handleRemoveLine(idx)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="p-1 rounded-lg text-muted-foreground hover:text-error hover:bg-error/10 transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -685,9 +687,9 @@ function PackageTemplateModal({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-700 font-medium">{error}</p>
+            <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+              <p className="text-xs text-error font-medium">{error}</p>
             </div>
           )}
 
@@ -711,16 +713,16 @@ function PackageTemplateModal({
         </form>
 
         {/* Lado Derecho: Buscador/Selector de Servicios para el Paquete */}
-        <div className="w-full md:w-80 bg-slate-50/50 p-6 flex flex-col max-h-[40vh] md:max-h-full border-t md:border-t-0 md:border-l border-border">
+        <div className="w-full md:w-80 bg-muted/40 p-6 flex flex-col max-h-[40vh] md:max-h-full border-t md:border-t-0 md:border-l border-border">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h3 className="text-xs font-bold text-slate-700">Agregar Servicios</h3>
+            <h3 className="text-xs font-bold text-foreground">Agregar Servicios</h3>
             <button onClick={onClose} className="p-1 md:hidden">
               <X className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
 
           <div className="relative mb-3 flex-shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               placeholder="Buscar servicio..."
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-background"
@@ -736,10 +738,10 @@ function PackageTemplateModal({
                 className="w-full flex items-center justify-between text-left p-2 rounded-xl bg-card border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
               >
                 <div className="min-w-0 pr-2">
-                  <p className="text-[11px] font-bold text-slate-700 truncate group-hover:text-primary transition-colors">{srv.name}</p>
-                  <p className="text-[9px] text-slate-400 font-medium">${srv.defaultPrice} · {srv.defaultDuration} min</p>
+                  <p className="text-[11px] font-bold text-foreground truncate group-hover:text-primary transition-colors">{srv.name}</p>
+                  <p className="text-[9px] text-muted-foreground font-medium">${srv.defaultPrice} · {srv.defaultDuration} min</p>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </button>
             ))}
           </div>
@@ -757,6 +759,19 @@ export default function ServicesScreen() {
   const isAdmin = user?.role === "ADMIN";
 
   const [activeTab, setActiveTab] = useState<"SERVICES" | "PACKAGES">("SERVICES");
+
+  // Tutorial tab sync watcher
+  const { activeTour, currentStep } = useTutorial();
+  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
+
+  useEffect(() => {
+    if (activeStep?.targetTab) {
+      const upperTab = activeStep.targetTab.toUpperCase();
+      if (["SERVICES", "PACKAGES"].includes(upperTab)) {
+        setActiveTab(upperTab as any);
+      }
+    }
+  }, [activeStep]);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<PackageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -918,14 +933,14 @@ export default function ServicesScreen() {
 
       {/* Tabs Principales de la Pantalla */}
       <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
-        <div id="tour-services-tabs" className="flex bg-white/5 backdrop-blur-md p-1 rounded-xl gap-1 border border-white/8 shadow-inner shadow-black/20">
+        <div id="tour-services-tabs" className="flex bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10">
           <button
             id="tour-services-tab-services"
             onClick={() => setActiveTab("SERVICES")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeTab === "SERVICES"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
             <Settings className="w-4 h-4" /> Catálogo de Servicios
@@ -936,7 +951,7 @@ export default function ServicesScreen() {
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeTab === "PACKAGES"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
             <Gift className="w-4 h-4" /> Paquetes Pre-Armados
@@ -1004,9 +1019,9 @@ export default function ServicesScreen() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-4 animate-shake">
-          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-700 font-medium">{error}</p>
+        <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl mb-4 animate-shake">
+          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-xs text-error font-medium">{error}</p>
         </div>
       )}
 
@@ -1025,8 +1040,8 @@ export default function ServicesScreen() {
         ) : (
           <div id="tour-services-supplies" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredServices.map((srv) => {
-              const theme = categoryColors[srv.category] || { bg: "bg-white/5 text-muted-foreground border-white/10", text: "text-muted-foreground", border: "border-border" };
-              const typeBadge = typeBadges[srv.treatmentType] || { label: "Estándar", bg: "bg-white/5", text: "text-muted-foreground" };
+              const theme = categoryColors[srv.category] || { bg: "bg-muted text-muted-foreground border-border", text: "text-muted-foreground", border: "border-border" };
+              const typeBadge = typeBadges[srv.treatmentType] || { label: "Estándar", bg: "bg-muted", text: "text-muted-foreground" };
               const campaign = srv.activeCampaign || null;
               const finalPrice = campaign
                 ? (campaign.discountType === "PERCENT"
@@ -1050,7 +1065,7 @@ export default function ServicesScreen() {
                           {typeBadge.label}
                         </span>
                         {campaign && (
-                          <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                          <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/20">
                             PROMO: {campaign.name}
                           </span>
                         )}
@@ -1063,13 +1078,13 @@ export default function ServicesScreen() {
                               setEditService(srv);
                               setShowServiceModal(true);
                             }}
-                            className="p-1.5 rounded-lg hover:bg-muted text-slate-500 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDeleteService(srv.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-error/10 text-muted-foreground hover:text-error transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1082,7 +1097,7 @@ export default function ServicesScreen() {
                     </h3>
 
                     {srv.contraindications && (
-                      <p className="text-[10px] text-muted-foreground mt-2 line-clamp-2 bg-white/5 p-2 rounded-xl border border-white/8">
+                      <p className="text-[10px] text-muted-foreground mt-2 line-clamp-2 bg-muted p-2 rounded-xl border border-border">
                         {srv.contraindications}
                       </p>
                     )}
@@ -1090,7 +1105,7 @@ export default function ServicesScreen() {
                     {srv.consumables && srv.consumables.length > 0 && (
                       <>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          <span className="text-[10px] text-muted-foreground font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground font-bold bg-muted border border-border px-2 py-0.5 rounded-lg flex items-center gap-1">
                             <Layers className="w-3 h-3 text-primary" />
                             {srv.consumables.length} insumo{srv.consumables.length > 1 ? "s" : ""}
                           </span>
@@ -1109,7 +1124,7 @@ export default function ServicesScreen() {
                               const margin = srv.defaultPrice - cost;
                               const pct = srv.defaultPrice > 0 ? (margin / srv.defaultPrice) * 100 : 0;
                               return (
-                                <span className={`font-black ${margin >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                <span className={`font-black ${margin >= 0 ? "text-success" : "text-error"}`}>
                                   ${margin.toLocaleString("es-MX", { minimumFractionDigits: 2 })} ({pct.toFixed(0)}%)
                                 </span>
                               );
@@ -1123,18 +1138,18 @@ export default function ServicesScreen() {
                   {/* Footer Tarjeta */}
                   <div className="flex items-end justify-between border-t border-border/60 pt-4 mt-4">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-xs font-semibold">{srv.defaultDuration} min</span>
                     </div>
 
                     <div className="text-right">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Precio Base</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Precio Base</p>
                       {campaign ? (
                         <div className="flex flex-col items-end mt-1">
-                          <span className="text-[11px] font-bold text-red-500 line-through leading-none">
+                          <span className="text-[11px] font-bold text-error line-through leading-none">
                             ${srv.defaultPrice.toFixed(2)}
                           </span>
-                          <span className="text-base font-black text-emerald-500 leading-none mt-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                          <span className="text-base font-black text-success leading-none mt-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
                             ${finalPrice.toFixed(2)}
                           </span>
                         </div>
@@ -1166,7 +1181,7 @@ export default function ServicesScreen() {
               >
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{pkg.name}</h3>
+                    <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{pkg.name}</h3>
                     {isAdmin && (
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -1174,13 +1189,13 @@ export default function ServicesScreen() {
                             setEditPackage(pkg);
                             setShowPackageModal(true);
                           }}
-                          className="p-1.5 rounded-lg hover:bg-muted text-slate-500 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeletePackage(pkg.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-error/10 text-muted-foreground hover:text-error transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1193,24 +1208,24 @@ export default function ServicesScreen() {
                   )}
 
                   {/* Servicios incluidos en el combo */}
-                  <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-3.5 space-y-1.5">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Servicios Incluidos</p>
+                  <div className="bg-muted/40 border border-border rounded-2xl p-3.5 space-y-1.5">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Servicios Incluidos</p>
                     {pkg.lines.map((line, idx) => (
-                      <div key={idx} className="flex justify-between text-xs text-slate-600 font-medium">
+                      <div key={idx} className="flex justify-between text-xs text-muted-foreground font-medium">
                         <span>{line.serviceName}</span>
-                        <span className="font-bold text-slate-700">{line.sessions} sesiones</span>
+                        <span className="font-bold text-foreground">{line.sessions} sesiones</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div className="flex items-end justify-between border-t border-border/60 pt-4 mt-4">
-                  <div className="text-xs text-slate-500 font-semibold">
-                    Vigencia: <span className="text-slate-800">{pkg.validityDays} días</span>
+                  <div className="text-xs text-muted-foreground font-semibold">
+                    Vigencia: <span className="text-foreground">{pkg.validityDays} días</span>
                   </div>
                   <div className="text-right">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Precio Combo</p>
-                    <p className="text-lg font-black text-teal-600 mt-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Precio Combo</p>
+                    <p className="text-lg font-black text-success mt-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
                       ${pkg.totalPrice.toFixed(2)}
                     </p>
                   </div>
@@ -1223,7 +1238,7 @@ export default function ServicesScreen() {
 
       {/* Service Deactivation Confirmation Modal */}
       {serviceToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 backdrop-blur-sm">
           <div className="bg-card border border-border/80 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">¿Dar de Baja Servicio?</h3>
             <p className="text-xs text-muted-foreground mb-4">El servicio estará inactivo pero se preservará su historial de citas y facturas previas.</p>
@@ -1246,7 +1261,7 @@ export default function ServicesScreen() {
                     setServiceToDelete(null);
                   }
                 }}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-bold bg-destructive hover:bg-destructive/90 text-white rounded-xl transition-all cursor-pointer"
               >
                 Confirmar
               </button>
@@ -1257,7 +1272,7 @@ export default function ServicesScreen() {
 
       {/* Package Deactivation Confirmation Modal */}
       {packageToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 backdrop-blur-sm">
           <div className="bg-card border border-border/80 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">¿Desactivar Combo?</h3>
             <p className="text-xs text-muted-foreground mb-4">¿Estás seguro de que deseas desactivar este paquete combo?</p>
@@ -1280,7 +1295,7 @@ export default function ServicesScreen() {
                     setPackageToDelete(null);
                   }
                 }}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-bold bg-destructive hover:bg-destructive/90 text-white rounded-xl transition-all cursor-pointer"
               >
                 Confirmar
               </button>

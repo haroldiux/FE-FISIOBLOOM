@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 import { toast } from "sonner";
+import { useTutorial } from "../context/TutorialContext";
+import { enrichStep } from "../components/TutorialTour";
 
 interface Campaign {
   id: string;
@@ -117,10 +119,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_BADGES: Record<string, string> = {
-  ADMIN: "bg-red-100 text-red-700 border border-red-200",
-  PHYSIO: "bg-blue-100 text-blue-700 border border-blue-200",
-  AESTHETICIAN: "bg-violet-100 text-violet-700 border border-violet-200",
-  RECEPTIONIST: "bg-slate-100 text-slate-600 border border-slate-200",
+  ADMIN: "bg-destructive/10 text-destructive border border-destructive/20",
+  PHYSIO: "bg-secondary/10 text-secondary border border-secondary/20",
+  AESTHETICIAN: "bg-secondary/10 text-secondary border border-secondary/20",
+  RECEPTIONIST: "bg-muted text-muted-foreground border border-border",
 };
 
 interface Patient {
@@ -167,7 +169,20 @@ interface CashRegister {
 }
 
 export default function FinanceScreen() {
-  const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions">("pos");
+  const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions" | "attendance">("pos");
+
+  // Tutorial tab sync watcher
+  const { activeTour, currentStep } = useTutorial();
+  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
+
+  useEffect(() => {
+    if (activeStep?.targetTab) {
+      const lowerTab = activeStep.targetTab.toLowerCase();
+      if (["pos", "caja", "schedules", "performance", "payroll", "promotions", "attendance"].includes(lowerTab)) {
+        setActiveTab(lowerTab as any);
+      }
+    }
+  }, [activeStep]);
 
   // Estado de campañas y cupones
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -281,12 +296,34 @@ export default function FinanceScreen() {
   const [selectedPayrollToPay, setSelectedPayrollToPay] = useState<StaffPayroll | null>(null);
   const [payMethod, setPayMethod] = useState<"TRANSFERENCIA" | "EFECTIVO" | "TARJETA">("TRANSFERENCIA");
 
+  // Asistencia States
+  const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  const loadAttendanceHistory = async () => {
+    try {
+      setAttendanceLoading(true);
+      const data = await api.get<any[]>("/attendance/history");
+      setAttendanceHistory(data || []);
+    } catch (err) {
+      console.error("Error al cargar historial de asistencia:", err);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
     loadCashStatus();
     loadStaffFinanceData();
     loadPromotions();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "attendance") {
+      loadAttendanceHistory();
+    }
+  }, [activeTab]);
 
   const loadStaffFinanceData = async () => {
     setLoadingStaff(true);
@@ -926,14 +963,14 @@ export default function FinanceScreen() {
         </div>
 
         {/* Tab Selector */}
-        <div id="tour-finance-tabs" className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/60 shadow-sm gap-1 overflow-x-auto max-w-full">
+        <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full">
           <button
             id="tour-finance-pos-tab"
             onClick={() => setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "pos"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Terminal POS
@@ -943,8 +980,8 @@ export default function FinanceScreen() {
             onClick={() => setActiveTab("caja")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "caja"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Caja Diaria
@@ -954,8 +991,8 @@ export default function FinanceScreen() {
             onClick={() => setActiveTab("schedules")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "schedules"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Horarios de Staff
@@ -965,8 +1002,8 @@ export default function FinanceScreen() {
             onClick={() => setActiveTab("performance")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "performance"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Desempeño y Metas
@@ -976,19 +1013,30 @@ export default function FinanceScreen() {
             onClick={() => setActiveTab("payroll")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "payroll"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Nóminas y Liquidación
+          </button>
+          <button
+            id="tour-finance-attendance-tab"
+            onClick={() => setActiveTab("attendance")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === "attendance"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            Asistencia
           </button>
           <button
             id="tour-finance-promotions-tab"
             onClick={() => setActiveTab("promotions")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "promotions"
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             Promociones
@@ -998,17 +1046,17 @@ export default function FinanceScreen() {
 
       {/* Caja Abierta Alerta Banner */}
       {!cajaLoading && !cashRegister && (
-        <div className="flex items-center justify-between gap-4 p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4 p-4 bg-warning/10 border border-warning/20 rounded-2xl backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <Lock className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <Lock className="w-5 h-5 text-warning flex-shrink-0" />
             <div>
-              <p className="text-xs font-bold text-amber-300">Sesión de caja inactiva (Cerrada)</p>
-              <p className="text-[10px] text-amber-400/70">Debe abrir caja antes de poder realizar cobros en el POS o registrar egresos.</p>
+              <p className="text-xs font-bold text-warning">Sesión de caja inactiva (Cerrada)</p>
+              <p className="text-[10px] text-warning/70">Debe abrir caja antes de poder realizar cobros en el POS o registrar egresos.</p>
             </div>
           </div>
           <button
             onClick={() => { setPosError(null); setShowOpenModal(true); }}
-            className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-amber-500/30 transition-colors"
+            className="flex items-center gap-1.5 bg-warning/20 border border-warning/30 text-warning text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/30 transition-colors"
           >
             <Unlock className="w-3.5 h-3.5" />
             Abrir Caja Diaria
@@ -1024,20 +1072,20 @@ export default function FinanceScreen() {
           <div className="lg:col-span-3 space-y-4">
             
             {/* Buscador */}
-            <div className="bg-card rounded-2xl border border-slate-300 p-4">
+            <div className="bg-card rounded-2xl border border-border p-4">
               <input
                 type="text"
                 placeholder="Buscar tratamientos o productos..."
                 value={posSearch}
                 onChange={(e) => setPosSearch(e.target.value)}
-                className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
               />
             </div>
 
             {/* Listado de Servicios */}
-            <div className="bg-card rounded-2xl border border-slate-300 p-5 space-y-3">
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-violet-400" />
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
+              <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-secondary" />
                 Tratamientos Clínicos
               </h3>
               
@@ -1053,13 +1101,13 @@ export default function FinanceScreen() {
                   return (
                     <div
                       key={srv.id}
-                      className="p-3 border border-slate-200 rounded-xl hover:border-primary hover:bg-slate-50/50 transition-all flex justify-between items-center group"
+                      className="p-3 border border-border rounded-xl hover:border-primary hover:bg-muted/50 transition-all flex justify-between items-center group"
                     >
                       <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-slate-100 truncate flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-bold text-foreground truncate flex items-center gap-1.5 flex-wrap">
                           {srv.name}
                           {campaign && (
-                            <span className="bg-emerald-100 text-emerald-700 text-[8px] px-1.5 py-0.5 rounded-full font-bold">
+                            <span className="bg-success/10 text-success text-[8px] px-1.5 py-0.5 rounded-full font-bold">
                               {campaign.name}
                             </span>
                           )}
@@ -1067,8 +1115,8 @@ export default function FinanceScreen() {
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {campaign ? (
                             <>
-                              <span className="text-[11px] font-bold text-red-500 line-through">${srv.defaultPrice}</span>
-                              <span className="text-[11px] font-black text-emerald-500 font-extrabold">${finalPrice}</span>
+                              <span className="text-[11px] font-bold text-error line-through">${srv.defaultPrice}</span>
+                              <span className="text-[11px] font-black text-success font-extrabold">${finalPrice}</span>
                             </>
                           ) : (
                             <span className="text-[11px] font-black text-primary">${srv.defaultPrice}</span>
@@ -1078,7 +1126,7 @@ export default function FinanceScreen() {
                       <button
                         onClick={() => addToCart(srv, "SERVICE")}
                         disabled={!cashRegister}
-                        className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-primary/10 disabled:hover:text-primary flex-shrink-0"
+                        className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-30 disabled:hover:bg-primary/10 disabled:hover:text-primary flex-shrink-0"
                         title="Agregar al carrito"
                       >
                         <Plus className="w-4 h-4" />
@@ -1090,9 +1138,9 @@ export default function FinanceScreen() {
             </div>
 
             {/* Listado de Productos */}
-            <div className="bg-card rounded-2xl border border-slate-300 p-5 space-y-3">
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-emerald-400" />
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
+              <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-success" />
                 Productos & Insumos de Apoyo
               </h3>
               
@@ -1100,19 +1148,19 @@ export default function FinanceScreen() {
                 {filteredProducts.map((prod) => (
                   <div
                     key={prod.id}
-                    className="p-3 border border-slate-200 rounded-xl hover:border-emerald-500 hover:bg-slate-50/50 transition-all flex justify-between items-center group"
+                    className="p-3 border border-border rounded-xl hover:border-success hover:bg-muted/50 transition-all flex justify-between items-center group"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-100 truncate">{prod.name}</p>
+                      <p className="text-xs font-bold text-foreground truncate">{prod.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] font-black text-emerald-600">${prod.price}</span>
-                        <span className="text-[9px] font-bold text-slate-400">Stock: {prod.stock}</span>
+                        <span className="text-[11px] font-black text-success">${prod.price}</span>
+                        <span className="text-[9px] font-bold text-muted-foreground">Stock: {prod.stock}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => addToCart(prod, "PRODUCT")}
                       disabled={!cashRegister || prod.stock <= 0}
-                      className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-30"
+                      className="w-7 h-7 rounded-lg bg-success/10 text-success flex items-center justify-center hover:bg-success hover:text-primary-foreground transition-all disabled:opacity-30"
                       title="Agregar al carrito"
                     >
                       <Plus className="w-4 h-4" />
@@ -1127,22 +1175,22 @@ export default function FinanceScreen() {
           {/* LADO DERECHO: Carrito de Compras & Checkout (Colspan 2) */}
           <div className="lg:col-span-2 space-y-4">
             
-            <div className="bg-card rounded-2xl border border-slate-300 p-5 space-y-5">
-              <h3 className="text-xs font-black text-slate-200 uppercase tracking-widest flex items-center gap-2 pb-3 border-b border-white/10">
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-5">
+              <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2 pb-3 border-b border-border">
                 <Receipt className="w-4 h-4 text-primary" />
                 Resumen del Cobro
               </h3>
 
               {posSuccess && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold animate-fade-in">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-xl text-success text-xs font-bold animate-fade-in">
+                  <CheckCircle className="w-4 h-4 text-success" />
                   Venta registrada con éxito. La caja diaria fue actualizada.
                 </div>
               )}
 
               {posError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold">
-                  <AlertCircle className="w-4 h-4 text-red-500" />
+                <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-bold">
+                  <AlertCircle className="w-4 h-4 text-error" />
                   {posError}
                 </div>
               )}
@@ -1154,7 +1202,7 @@ export default function FinanceScreen() {
                   id="tour-pos-patient-search"
                   value={selectedPatientId}
                   onChange={(e) => setSelectedPatientId(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                 >
                   <option value="">-- Asignar Paciente --</option>
                   {patients.map(p => (
@@ -1165,17 +1213,17 @@ export default function FinanceScreen() {
 
               {/* Items del Carrito */}
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase block border-b border-slate-100 pb-1">Items Seleccionados</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase block border-b border-border pb-1">Items Seleccionados</label>
                 
                 {cart.length === 0 ? (
                   <p className="text-[11px] text-muted-foreground italic text-center py-6">El carrito está vacío.</p>
                 ) : (
                   <div className="space-y-2">
                     {cart.map((item) => (
-                      <div key={`${item.type}-${item.id}`} className="flex justify-between items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                      <div key={`${item.type}-${item.id}`} className="flex justify-between items-center gap-2 p-2 bg-muted rounded-xl border border-border">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-slate-100 truncate">{item.name}</p>
-                          <p className="text-[9px] font-black text-slate-400">${item.price} c/u</p>
+                          <p className="text-[11px] font-bold text-foreground truncate">{item.name}</p>
+                          <p className="text-[9px] font-black text-muted-foreground">${item.price} c/u</p>
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -1184,11 +1232,11 @@ export default function FinanceScreen() {
                             min="1"
                             value={item.quantity}
                             onChange={(e) => updateQuantity(item.id, item.type, Number(e.target.value))}
-                            className="w-10 text-center text-xs font-bold bg-white border border-slate-200 rounded-lg p-1"
+                            className="w-10 text-center text-xs font-bold bg-card border border-border rounded-lg p-1"
                           />
                           <button
                             onClick={() => removeFromCart(item.id, item.type)}
-                            className="text-slate-400 hover:text-red-500 p-1"
+                            className="text-muted-foreground hover:text-error p-1"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1200,7 +1248,7 @@ export default function FinanceScreen() {
               </div>
 
               {/* Forma de Pago */}
-              <div className="space-y-4 pt-3 border-t border-slate-100">
+              <div className="space-y-4 pt-3 border-t border-border">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase">Método Pago</label>
@@ -1208,7 +1256,7 @@ export default function FinanceScreen() {
                       id="tour-pos-payment-method"
                       value={paymentMethod}
                       onChange={(e: any) => setPaymentMethod(e.target.value)}
-                      className="w-full text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-xl p-2"
+                      className="w-full text-[11px] font-bold bg-muted border border-border rounded-xl p-2"
                     >
                       <option value="EFECTIVO">💵 Efectivo</option>
                       <option value="TARJETA">💳 Tarjeta</option>
@@ -1223,7 +1271,7 @@ export default function FinanceScreen() {
                       min="0"
                       value={discount}
                       onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
-                      className="w-full text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-xl p-2 focus:outline-none"
+                      className="w-full text-[11px] font-bold bg-muted border border-border rounded-xl p-2 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1232,7 +1280,7 @@ export default function FinanceScreen() {
                   <label className="text-[9px] font-bold text-muted-foreground uppercase">Tipo de Comprobante</label>
                   <select
                     id="tour-pos-invoice-type"
-                    className="w-full text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-xl p-2 focus:outline-none"
+                    className="w-full text-[11px] font-bold bg-muted border border-border rounded-xl p-2 focus:outline-none"
                   >
                     <option value="INTERNAL">Ticket Interno</option>
                     <option value="TAX">Factura Fiscal</option>
@@ -1248,13 +1296,13 @@ export default function FinanceScreen() {
                       placeholder="Ej: Nro de comprobante / lote"
                       value={paymentReference}
                       onChange={(e) => setPaymentReference(e.target.value)}
-                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 focus:outline-none"
+                      className="w-full text-xs bg-muted border border-border rounded-xl p-2 focus:outline-none"
                     />
                   </div>
                 )}
 
                 {/* Casilla de Aplicar Cupón */}
-                <div id="tour-pos-coupons" className="space-y-2 pt-2 border-t border-slate-100/50">
+                <div id="tour-pos-coupons" className="space-y-2 pt-2 border-t border-border/50">
                   <label className="text-[9px] font-bold text-muted-foreground uppercase block">Aplicar Cupón</label>
                   <div className="flex gap-2">
                     <input
@@ -1262,26 +1310,26 @@ export default function FinanceScreen() {
                       placeholder="Ej: BLOOM10"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      className="flex-1 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-primary/45 uppercase tracking-wider placeholder:font-sans"
+                      className="flex-1 text-xs font-mono font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-primary/45 uppercase tracking-wider placeholder:font-sans"
                     />
                     <button
                       onClick={handleApplyCoupon}
                       disabled={couponValidationLoading || !couponCode.trim() || cart.length === 0}
-                      className="bg-slate-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-40"
+                      className="bg-secondary text-secondary-foreground text-xs font-bold px-3.5 py-2.5 rounded-xl hover:bg-secondary/80 transition-colors disabled:opacity-40"
                     >
                       {couponValidationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Aplicar"}
                     </button>
                   </div>
                   {couponError && (
-                    <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
+                    <p className="text-[10px] text-error font-bold flex items-center gap-1">
                       <AlertCircle className="w-3 h-3 flex-shrink-0" />
                       {couponError}
                     </p>
                   )}
                   {couponSuccessMsg && (
-                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
-                      <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1.5 leading-snug">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                    <div className="p-2 bg-success/10 border border-success/20 rounded-xl flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-success font-semibold flex items-center gap-1.5 leading-snug">
+                        <CheckCircle className="w-3.5 h-3.5 text-success flex-shrink-0" />
                         {couponSuccessMsg}
                       </p>
                       <button
@@ -1291,7 +1339,7 @@ export default function FinanceScreen() {
                           setCouponSuccessMsg(null);
                           setCouponCode("");
                         }}
-                        className="text-emerald-700 hover:text-emerald-950 p-0.5 rounded hover:bg-emerald-100"
+                        className="text-success hover:text-foreground p-0.5 rounded hover:bg-success/20"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -1301,26 +1349,26 @@ export default function FinanceScreen() {
               </div>
 
               {/* Totales */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
-                <div className="flex justify-between text-xs font-bold text-slate-400">
+              <div className="bg-muted p-4 rounded-2xl border border-border space-y-2">
+                <div className="flex justify-between text-xs font-bold text-muted-foreground">
                   <span>Subtotal:</span>
                   <span>${getSubtotal().toLocaleString()}</span>
                 </div>
                 {appliedCoupon && (
-                  <div className="flex justify-between text-xs font-bold text-emerald-600 items-center">
+                  <div className="flex justify-between text-xs font-bold text-success items-center">
                     <span>Cupón ({appliedCoupon.code}):</span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[9px] px-2 py-0.5 rounded-full font-black border border-emerald-200">
+                    <span className="bg-success/20 text-success text-[9px] px-2 py-0.5 rounded-full font-black border border-success/20">
                       -{appliedCoupon.discountType === "PERCENT" ? `${appliedCoupon.discountValue}%` : `$${appliedCoupon.discountValue}`}
                     </span>
                   </div>
                 )}
                 {discount > 0 && !appliedCoupon && (
-                  <div className="flex justify-between text-xs font-bold text-red-500">
+                  <div className="flex justify-between text-xs font-bold text-error">
                     <span>Descuento Manual:</span>
                     <span>-${discount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm font-black text-slate-200 border-t border-white/10 pt-2">
+                <div className="flex justify-between text-sm font-black text-foreground border-t border-border pt-2">
                   <span>Total a Cobrar:</span>
                   <span className="text-primary text-base">${getTotal().toLocaleString()}</span>
                 </div>
@@ -1331,7 +1379,7 @@ export default function FinanceScreen() {
                 id="tour-pos-submit-sale"
                 onClick={handleCheckout}
                 disabled={!cashRegister || cart.length === 0 || !selectedPatientId}
-                className="w-full py-3 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/20 disabled:opacity-40 flex items-center justify-center gap-2 uppercase tracking-wider"
+                className="w-full py-3 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/20 disabled:opacity-40 flex items-center justify-center gap-2 uppercase tracking-wider"
               >
                 Completar Venta y Cobro
                 <ArrowRight className="w-4 h-4" />
@@ -1360,36 +1408,36 @@ export default function FinanceScreen() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 
                 {/* Saldo Inicial */}
-                <div className="bg-card rounded-2xl border border-slate-300 p-5 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
+                <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
                     <Unlock className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Monto Inicial de Apertura</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">${cashRegister.initialBalance.toLocaleString()}</p>
+                    <p className="text-xl font-black text-foreground mt-0.5">${cashRegister.initialBalance.toLocaleString()}</p>
                     <p className="text-[9px] text-muted-foreground">Abierto por: {cashRegister.openedBy.name}</p>
                   </div>
                 </div>
 
                 {/* Saldo Esperado */}
-                <div className="bg-card rounded-2xl border border-slate-300 p-5 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Saldo Esperado en Caja</p>
-                    <p className="text-xl font-black text-emerald-600 mt-0.5">${cashRegister.expectedBalance.toLocaleString()}</p>
+                    <p className="text-xl font-black text-success mt-0.5">${cashRegister.expectedBalance.toLocaleString()}</p>
                     <p className="text-[9px] text-muted-foreground">Calculado con transacciones registradas</p>
                   </div>
                 </div>
 
                 {/* Acciones de Caja */}
-                <div className="bg-card rounded-2xl border border-slate-300 p-5 flex flex-col justify-center gap-2">
+                <div className="bg-card rounded-2xl border border-border p-5 flex flex-col justify-center gap-2">
                   <div className="flex gap-2">
                     <button
                       id="tour-cash-expense-btn"
                       onClick={() => setShowExpenseModal(true)}
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2 bg-muted hover:bg-muted/70 border border-border text-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
                     >
                       <TrendingDown className="w-3.5 h-3.5" />
                       Registrar Egreso
@@ -1397,7 +1445,7 @@ export default function FinanceScreen() {
                     <button
                       id="tour-cash-close-btn"
                       onClick={() => { setFinanceNotes(""); setActualBalance(""); setShowCloseModal(true); }}
-                      className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-red-100"
+                      className="flex-1 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-destructive/20"
                     >
                       <Lock className="w-3.5 h-3.5" />
                       Cerrar Caja
@@ -1408,13 +1456,13 @@ export default function FinanceScreen() {
               </div>
 
               {/* Historial de Movimientos de Caja */}
-              <div className="bg-card rounded-2xl border border-slate-300 overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+              <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                <div className="px-5 py-4 border-b border-border flex justify-between items-center">
                   <div>
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Historial de Flujo de Caja</h3>
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-widest">Historial de Flujo de Caja</h3>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Ingresos y egresos detallados en la sesión de hoy</p>
                   </div>
-                  <span className="px-2.5 py-1 text-[9px] font-bold bg-emerald-100 text-emerald-700 rounded-full">
+                  <span className="px-2.5 py-1 text-[9px] font-bold bg-success/10 text-success rounded-full">
                     Sesión Abierta
                   </span>
                 </div>
@@ -1422,7 +1470,7 @@ export default function FinanceScreen() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/50">
+                      <tr className="border-b border-border bg-muted/50">
                         <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Hora</th>
                         <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Descripción</th>
                         <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Tipo</th>
@@ -1439,24 +1487,24 @@ export default function FinanceScreen() {
                         </tr>
                       ) : (
                         cashRegister.movements.map((mv) => (
-                          <tr key={mv.id} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
-                            <td className="px-5 py-3.5 text-xs font-bold text-slate-500">
+                          <tr key={mv.id} className="border-b border-border hover:bg-muted/40 transition-colors">
+                            <td className="px-5 py-3.5 text-xs font-bold text-muted-foreground">
                               {new Date(mv.createdAt).toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })}
                             </td>
-                            <td className="px-5 py-3.5 text-xs font-bold text-slate-800">
+                            <td className="px-5 py-3.5 text-xs font-bold text-foreground">
                               {mv.description}
                             </td>
                             <td className="px-5 py-3.5">
                               <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                                mv.type === "INCOME" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100"
+                                mv.type === "INCOME" ? "bg-success/10 text-success border border-success/20" : "bg-error/10 text-error border border-error/20"
                               }`}>
                                 {mv.type === "INCOME" ? "Ingreso" : "Egreso"}
                               </span>
                             </td>
-                            <td className="px-5 py-3.5 text-xs font-black text-slate-800">
+                            <td className="px-5 py-3.5 text-xs font-black text-foreground">
                               {mv.type === "INCOME" ? "+" : "-"}${mv.amount.toLocaleString()}
                             </td>
-                            <td className="px-5 py-3.5 text-xs font-bold text-slate-500">
+                            <td className="px-5 py-3.5 text-xs font-bold text-muted-foreground">
                               {mv.user?.name || "Sistema"}
                             </td>
                           </tr>
@@ -1469,15 +1517,15 @@ export default function FinanceScreen() {
 
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 bg-card rounded-2xl border border-slate-300 gap-4 text-center">
-              <Lock className="w-12 h-12 text-slate-400/40" />
+            <div className="flex flex-col items-center justify-center py-16 bg-card rounded-2xl border border-border gap-4 text-center">
+              <Lock className="w-12 h-12 text-muted-foreground/40" />
               <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Caja Diaria Inactiva</h3>
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Caja Diaria Inactiva</h3>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">Para iniciar el cobro de tratamientos o registrar movimientos financieros, proceda a abrir la caja.</p>
               </div>
               <button
                 onClick={() => { setPosError(null); setShowOpenModal(true); }}
-                className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-colors shadow-md shadow-primary/10"
+                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-colors shadow-md shadow-primary/10"
               >
                 <Unlock className="w-3.5 h-3.5" />
                 Abrir Caja Diaria
@@ -1490,9 +1538,9 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: APERTURA DE CAJA ── */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
               <Unlock className="w-4 h-4 text-primary" />
               Apertura de Caja Diaria
             </h3>
@@ -1506,7 +1554,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: 500"
                   value={initialBalance}
                   onChange={(e) => setInitialBalance(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -1516,7 +1564,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: Caja matutina, billetes de baja denominación para cambio."
                   value={financeNotes}
                   onChange={(e) => setFinanceNotes(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 h-20 focus:outline-none"
+                  className="w-full text-xs bg-muted border border-border rounded-xl p-3 h-20 focus:outline-none"
                 />
               </div>
             </div>
@@ -1524,13 +1572,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowOpenModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleOpenCash}
-                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm shadow-primary/10"
+                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm shadow-primary/10"
               >
                 Abrir Sesión
               </button>
@@ -1541,10 +1589,10 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: REGISTRO DE EGRESO (GASTO MENOR) ── */}
       {showExpenseModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-              <TrendingDown className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
+              <TrendingDown className="w-4 h-4 text-error" />
               Registrar Egreso (Gasto Menor)
             </h3>
 
@@ -1556,7 +1604,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: 50"
                   value={expenseAmount}
                   onChange={(e) => setExpenseAmount(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -1567,7 +1615,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: Compra de café e insumos de limpieza rápida"
                   value={expenseDesc}
                   onChange={(e) => setExpenseDesc(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -1575,13 +1623,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowExpenseModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleRegisterExpense}
-                className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 shadow-sm shadow-red-100"
+                className="px-4 py-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-xl hover:bg-destructive/90 shadow-sm shadow-destructive/20"
               >
                 Registrar Gasto
               </button>
@@ -1592,20 +1640,20 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: CIERRE DE CAJA (CONCILIACIÓN VISUAL) ── */}
       {showCloseModal && cashRegister && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Lock className="w-4 h-4 text-red-600" />
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
+              <Lock className="w-4 h-4 text-destructive" />
               Cierre de Caja y Arqueo
             </h3>
 
             <div className="space-y-4">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                <div className="flex justify-between text-xs text-slate-500 font-bold">
+              <div className="bg-muted p-4 rounded-xl border border-border space-y-2">
+                <div className="flex justify-between text-xs text-muted-foreground font-bold">
                   <span>Monto Apertura:</span>
                   <span>${cashRegister.initialBalance.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-xs text-emerald-600 font-bold border-b border-slate-200 pb-2">
+                <div className="flex justify-between text-xs text-success font-bold border-b border-border pb-2">
                   <span>Saldo Esperado (Sistema):</span>
                   <span>${cashRegister.expectedBalance.toLocaleString()}</span>
                 </div>
@@ -1618,20 +1666,20 @@ export default function FinanceScreen() {
                   placeholder="Ej: 520"
                   value={actualBalance}
                   onChange={(e) => setActualBalance(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
 
               {actualBalance && (
                 <div className="space-y-1">
                   {Number(actualBalance) - cashRegister.expectedBalance === 0 ? (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold flex items-center gap-1.5">
-                      <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    <div className="p-3 bg-success/10 border border-success/20 rounded-xl text-success text-xs font-bold flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-success" />
                       ¡Caja cuadra perfectamente! ($0 discrepancia)
                     </div>
                   ) : (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                      <AlertCircle className="w-4 h-4 text-error" />
                       Discrepancia detectada: {Number(actualBalance) - cashRegister.expectedBalance > 0 ? "Excedente de" : "Faltante de"} ${Math.abs(Number(actualBalance) - cashRegister.expectedBalance).toLocaleString()}
                     </div>
                   )}
@@ -1644,7 +1692,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: Se detectó faltante de $5 por devolución manual de cambio."
                   value={financeNotes}
                   onChange={(e) => setFinanceNotes(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 h-20 focus:outline-none"
+                  className="w-full text-xs bg-muted border border-border rounded-xl p-3 h-20 focus:outline-none"
                 />
               </div>
             </div>
@@ -1652,13 +1700,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowCloseModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCloseCash}
-                className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 shadow-sm shadow-red-100"
+                className="px-4 py-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-xl hover:bg-destructive/90 shadow-sm shadow-destructive/20"
               >
                 Confirmar Cierre
               </button>
@@ -1670,9 +1718,9 @@ export default function FinanceScreen() {
       {/* ── SECCIÓN HORARIOS DE STAFF ── */}
       {activeTab === "schedules" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in">
-          <div className="lg:col-span-1 bg-card rounded-2xl border border-slate-300 p-5 space-y-4">
+          <div className="lg:col-span-1 bg-card rounded-2xl border border-border p-5 space-y-4">
             <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
                 Seleccionar Profesional
               </h3>
@@ -1689,12 +1737,12 @@ export default function FinanceScreen() {
                     onClick={() => handleSelectProfessional(p.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                       selectedProfId === p.id
-                        ? "border-primary bg-primary/5 text-slate-800 shadow-sm"
-                        : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                        ? "border-primary bg-primary/5 text-foreground shadow-sm"
+                        : "border-border hover:border-primary/40 text-muted-foreground bg-card"
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                      selectedProfId === p.id ? "bg-primary text-white" : "bg-slate-100 text-slate-600"
+                      selectedProfId === p.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                     }`}>
                       {(p?.name || "").charAt(0).toUpperCase() || "?"}
                     </div>
@@ -1710,11 +1758,11 @@ export default function FinanceScreen() {
             </div>
           </div>
 
-          <div className="lg:col-span-3 bg-card rounded-2xl border border-slate-300 p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="lg:col-span-3 bg-card rounded-2xl border border-border p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
               <div>
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-violet-500" />
+                <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-secondary" />
                   Jornada Semanal Visual
                 </h3>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1725,7 +1773,7 @@ export default function FinanceScreen() {
               <button
                 onClick={handleSaveHours}
                 disabled={loadingStaff || !selectedProfId}
-                className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
+                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
               >
                 {loadingStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 Guardar Jornada Semanal
@@ -1742,18 +1790,18 @@ export default function FinanceScreen() {
                     key={key}
                     className={`p-4 border rounded-2xl transition-all space-y-4 flex flex-col justify-between ${
                       active
-                        ? "border-primary/35 bg-primary/5/10 shadow-sm"
-                        : "border-slate-200 bg-slate-50/50 opacity-70"
+                        ? "border-primary/35 bg-primary/5 shadow-sm"
+                        : "border-border bg-muted/50 opacity-70"
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{label}</span>
+                      <span className="text-xs font-black text-foreground uppercase tracking-wider">{label}</span>
                       <button
                         onClick={() => toggleDay(key)}
                         className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full border transition-all ${
                           active
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            : "bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200"
+                            ? "bg-success/10 text-success border-success/20 hover:bg-success/20"
+                            : "bg-muted text-muted-foreground border-border hover:bg-muted/70"
                         }`}
                       >
                         {active ? "🟢 Labora" : "🔴 Descanso"}
@@ -1769,7 +1817,7 @@ export default function FinanceScreen() {
                               type="time"
                               value={shift.start}
                               onChange={(e) => updateTime(key, "start", e.target.value)}
-                              className="w-full text-xs font-bold border border-slate-200 rounded-xl p-2 focus:outline-none focus:border-primary bg-white text-slate-700"
+                              className="w-full text-xs font-bold border border-border rounded-xl p-2 focus:outline-none focus:border-primary bg-card text-foreground"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1778,7 +1826,7 @@ export default function FinanceScreen() {
                               type="time"
                               value={shift.end}
                               onChange={(e) => updateTime(key, "end", e.target.value)}
-                              className="w-full text-xs font-bold border border-slate-200 rounded-xl p-2 focus:outline-none focus:border-primary bg-white text-slate-700"
+                              className="w-full text-xs font-bold border border-border rounded-xl p-2 focus:outline-none focus:border-primary bg-card text-foreground"
                             />
                           </div>
                         </div>
@@ -1801,39 +1849,39 @@ export default function FinanceScreen() {
         <div className="space-y-6 animate-fade-in">
           {/* KPI Dashboard */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-card border border-slate-300 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0">
+            <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
                 <TrendingUp className="w-5 h-5" />
               </div>
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ventas Totales Staff</p>
-                <p className="text-xl font-black text-slate-800 mt-0.5">
+                <p className="text-xl font-black text-foreground mt-0.5">
                   ${performances.reduce((sum, p) => sum + p.actualSales, 0).toLocaleString()}
                 </p>
                 <p className="text-[9px] text-muted-foreground">Generado este mes por el equipo</p>
               </div>
             </div>
 
-            <div className="bg-card border border-slate-300 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+            <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-success/10 text-success flex items-center justify-center flex-shrink-0">
                 <Coins className="w-5 h-5" />
               </div>
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Comisiones Acumuladas</p>
-                <p className="text-xl font-black text-emerald-600 mt-0.5">
+                <p className="text-xl font-black text-success mt-0.5">
                   ${performances.reduce((sum, p) => sum + p.commissionEarned, 0).toLocaleString()}
                 </p>
                 <p className="text-[9px] text-muted-foreground">Total acumulado a pagar</p>
               </div>
             </div>
 
-            <div className="bg-card border border-slate-300 rounded-2xl p-5 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+            <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 text-warning flex items-center justify-center flex-shrink-0">
                 <Award className="w-5 h-5" />
               </div>
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tasa de Cumplimiento</p>
-                <p className="text-xl font-black text-amber-600 mt-0.5">
+                <p className="text-xl font-black text-warning mt-0.5">
                   {Math.round(
                     (performances.reduce((sum, p) => sum + p.actualSales, 0) / 
                      Math.max(1, performances.reduce((sum, p) => sum + p.salesTarget, 0))) * 100
@@ -1852,17 +1900,17 @@ export default function FinanceScreen() {
               performances.map(perf => {
                 const progressPct = Math.min(100, Math.round((perf.actualSales / perf.salesTarget) * 100)) || 0;
                 return (
-                  <div key={perf.professionalId} className="bg-card border border-slate-300 rounded-2xl p-5 space-y-4 hover:shadow-md transition-shadow">
+                  <div key={perf.professionalId} className="bg-card border border-border rounded-2xl p-5 space-y-4 hover:shadow-md transition-shadow">
                     
                     {/* Header de Tarjeta */}
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center justify-between pb-3 border-b border-border">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 text-white flex items-center justify-center text-xs font-bold">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-secondary to-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
                           {(perf?.name || "").charAt(0).toUpperCase() || "P"}
                         </div>
                         <div>
-                          <h4 className="text-xs font-bold text-slate-800">{perf?.name || "Profesional"}</h4>
-                          <span className={`inline-block text-[8px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${ROLE_BADGES[perf?.role || ""] || "bg-slate-100"}`}>
+                          <h4 className="text-xs font-bold text-foreground">{perf?.name || "Profesional"}</h4>
+                          <span className={`inline-block text-[8px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${ROLE_BADGES[perf?.role || ""] || "bg-muted"}`}>
                             {ROLE_LABELS[perf?.role || ""] || perf?.role || "Staff"}
                           </span>
                         </div>
@@ -1870,7 +1918,7 @@ export default function FinanceScreen() {
 
                       <button
                         onClick={() => handleOpenGoalModal(perf)}
-                        className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                         title="Ajustar Meta y Comisión"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -1880,14 +1928,14 @@ export default function FinanceScreen() {
                     {/* Barra de Progreso */}
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[10px] font-bold">
-                        <span className="text-slate-500">Meta de Ventas:</span>
-                        <span className="text-slate-800">${perf.actualSales.toLocaleString()} / ${perf.salesTarget.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Meta de Ventas:</span>
+                        <span className="text-foreground">${perf.actualSales.toLocaleString()} / ${perf.salesTarget.toLocaleString()}</span>
                       </div>
                       
-                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                      <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                         <div
                           className={`h-full transition-all duration-700 ${
-                            progressPct >= 100 ? "bg-emerald-500" : progressPct >= 50 ? "bg-primary" : "bg-amber-500"
+                            progressPct >= 100 ? "bg-success" : progressPct >= 50 ? "bg-primary" : "bg-warning"
                           }`}
                           style={{ width: `${progressPct}%` }}
                         />
@@ -1900,20 +1948,20 @@ export default function FinanceScreen() {
                     </div>
 
                     {/* Métricas e Ingresos */}
-                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2 text-[11px] font-bold">
-                      <div className="flex justify-between text-slate-500">
+                    <div className="bg-muted p-3.5 rounded-xl border border-border space-y-2 text-[11px] font-bold">
+                      <div className="flex justify-between text-muted-foreground">
                         <span>Tasa Comisión:</span>
-                        <span className="text-slate-800">{perf.commissionRate}%</span>
+                        <span className="text-foreground">{perf.commissionRate}%</span>
                       </div>
-                      <div className="flex justify-between text-slate-500">
+                      <div className="flex justify-between text-muted-foreground">
                         <span>Comisiones Acumuladas:</span>
-                        <span className="text-emerald-600 font-extrabold text-xs">${perf.commissionEarned.toLocaleString()}</span>
+                        <span className="text-success font-extrabold text-xs">${perf.commissionEarned.toLocaleString()}</span>
                       </div>
-                      <div className="border-t border-slate-200 pt-2 flex justify-between text-slate-400 text-[10px]">
+                      <div className="border-t border-border pt-2 flex justify-between text-muted-foreground text-[10px]">
                         <span>Tratamientos ({perf.servicesCount}):</span>
                         <span>${perf.servicesSales.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-slate-400 text-[10px]">
+                      <div className="flex justify-between text-muted-foreground text-[10px]">
                         <span>Productos ({perf.productsCount}):</span>
                         <span>${perf.productsSales.toLocaleString()}</span>
                       </div>
@@ -1923,7 +1971,7 @@ export default function FinanceScreen() {
                     <button
                       onClick={() => handleRecalculateCommissions(perf.professionalId, perf.month)}
                       disabled={loadingStaff}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-2 bg-muted hover:bg-muted/70 border border-border text-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
                     >
                       <RefreshCw className="w-3 h-3" />
                       Recalcular Avance
@@ -1941,19 +1989,19 @@ export default function FinanceScreen() {
       {activeTab === "payroll" && (
         <div id="tour-pos-payroll" className="space-y-6 animate-fade-in">
           {/* Resumen nóminas */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-slate-300 rounded-2xl p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5">
             <div className="flex gap-6 items-center flex-wrap">
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase">Pendiente de Pago</p>
-                <p className="text-xl font-black text-amber-600 mt-0.5">
+                <p className="text-xl font-black text-warning mt-0.5">
                   ${payrolls.filter(p => p.status === "PENDIENTE").reduce((sum, p) => sum + p.netPay, 0).toLocaleString()}
                 </p>
                 <p className="text-[9px] text-muted-foreground">{payrolls.filter(p => p.status === "PENDIENTE").length} profesionales pendientes</p>
               </div>
-              <div className="w-px h-10 bg-slate-200 hidden sm:block" />
+              <div className="w-px h-10 bg-border hidden sm:block" />
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase">Liquidado este Mes</p>
-                <p className="text-xl font-black text-emerald-600 mt-0.5">
+                <p className="text-xl font-black text-success mt-0.5">
                   ${payrolls.filter(p => p.status === "PAGADO").reduce((sum, p) => sum + p.netPay, 0).toLocaleString()}
                 </p>
                 <p className="text-[9px] text-muted-foreground">{payrolls.filter(p => p.status === "PAGADO").length} nóminas pagadas</p>
@@ -1962,7 +2010,7 @@ export default function FinanceScreen() {
 
             <button
               onClick={handleOpenPayrollModal}
-              className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 self-start sm:self-center"
+              className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 self-start sm:self-center"
             >
               <Plus className="w-4 h-4" />
               Generar Nueva Nómina
@@ -1970,27 +2018,27 @@ export default function FinanceScreen() {
           </div>
 
           {/* Historial de Nóminas */}
-          <div className="bg-card border border-slate-300 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Historial de Liquidaciones</h3>
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h3 className="text-xs font-black text-foreground uppercase tracking-widest">Historial de Liquidaciones</h3>
               <p className="text-[10px] text-muted-foreground mt-0.5">Detalle mensual de salarios y comisiones pagadas</p>
             </div>
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {payrolls.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic text-center py-10">No se han registrado nóminas en el sistema.</p>
               ) : (
                 payrolls.map(pay => (
-                  <div key={pay.id} className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 hover:bg-slate-50/30 transition-colors">
+                  <div key={pay.id} className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 hover:bg-muted/30 transition-colors">
                     {/* Datos del profesional */}
                     <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-700 font-bold">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-foreground font-bold">
                         {(pay?.name || "").charAt(0).toUpperCase() || "N"}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-xs font-black text-slate-800">{pay?.name || "Colaborador"}</h4>
-                          <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${ROLE_BADGES[pay?.role || ""] || "bg-slate-100"}`}>
+                          <h4 className="text-xs font-black text-foreground">{pay?.name || "Colaborador"}</h4>
+                          <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${ROLE_BADGES[pay?.role || ""] || "bg-muted"}`}>
                             {ROLE_LABELS[pay?.role || ""] || pay?.role || "Staff"}
                           </span>
                         </div>
@@ -1999,22 +2047,22 @@ export default function FinanceScreen() {
                     </div>
 
                     {/* Desglose detallado */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100 flex-1 max-w-xl text-[10px] font-bold">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted p-3 rounded-xl border border-border flex-1 max-w-xl text-[10px] font-bold">
                       <div>
-                        <p className="text-slate-400">Sueldo Base</p>
-                        <p className="text-slate-700 font-black mt-0.5">${pay.baseSalary.toLocaleString()}</p>
+                        <p className="text-muted-foreground">Sueldo Base</p>
+                        <p className="text-foreground font-black mt-0.5">${pay.baseSalary.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Comisiones (+)</p>
-                        <p className="text-emerald-600 font-black mt-0.5">+${pay.commissions.toLocaleString()}</p>
+                        <p className="text-muted-foreground">Comisiones (+)</p>
+                        <p className="text-success font-black mt-0.5">+${pay.commissions.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Bonos (+)</p>
-                        <p className="text-emerald-600 font-black mt-0.5">+${pay.bonuses.toLocaleString()}</p>
+                        <p className="text-muted-foreground">Bonos (+)</p>
+                        <p className="text-success font-black mt-0.5">+${pay.bonuses.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Deducciones (-)</p>
-                        <p className="text-red-500 font-black mt-0.5">-${pay.deductions.toLocaleString()}</p>
+                        <p className="text-muted-foreground">Deducciones (-)</p>
+                        <p className="text-error font-black mt-0.5">-${pay.deductions.toLocaleString()}</p>
                       </div>
                     </div>
 
@@ -2029,14 +2077,14 @@ export default function FinanceScreen() {
                         {pay.status === "PENDIENTE" ? (
                           <button
                             onClick={() => handleOpenPayConfirm(pay)}
-                            className="bg-amber-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-amber-700 transition-colors shadow-sm flex items-center gap-1.5"
+                            className="bg-warning text-foreground text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/90 transition-colors shadow-sm flex items-center gap-1.5"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
                             Pagar Nómina
                           </button>
                         ) : (
                           <div className="text-right">
-                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">
                               <Check className="w-3 h-3" />
                               Pagado
                             </span>
@@ -2058,9 +2106,9 @@ export default function FinanceScreen() {
       {/* ── SECCIÓN PROMOCIONES, CAMPAÑAS Y CUPONES ── */}
       {activeTab === "promotions" && (
         <div className="space-y-6 animate-fade-in">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-slate-300 rounded-2xl p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5">
             <div>
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
                 <Percent className="w-4 h-4 text-primary" />
                 Gestión de Promociones y Campañas Temporales
               </h3>
@@ -2071,14 +2119,14 @@ export default function FinanceScreen() {
             <div className="flex gap-2 self-start sm:self-center">
               <button
                 onClick={() => setShowCampaignModal(true)}
-                className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10"
+                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Nueva Campaña
               </button>
               <button
                 onClick={() => setShowCouponModal(true)}
-                className="flex items-center gap-2 bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-700 transition-all shadow-md"
+                className="flex items-center gap-2 bg-secondary text-secondary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-secondary/80 transition-all shadow-md"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Nuevo Cupón
@@ -2088,8 +2136,8 @@ export default function FinanceScreen() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* CAMPAÑAS */}
-            <div className="bg-card rounded-2xl border border-slate-300 p-5 space-y-4">
-              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+              <h4 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-border">
                 Campañas Activas en Servicios
               </h4>
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
@@ -2099,28 +2147,28 @@ export default function FinanceScreen() {
                   campaigns.map(c => {
                     const srv = services.find(s => s.id === c.serviceId);
                     return (
-                      <div key={c.id} className="p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 transition-all">
+                      <div key={c.id} className="p-4 border border-border rounded-xl flex items-center justify-between gap-4 bg-muted/50 hover:bg-muted transition-all">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-slate-800">{c.name}</span>
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className="text-xs font-bold text-foreground">{c.name}</span>
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${c.isActive ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
                               {c.isActive ? 'Activo' : 'Pausado'}
                             </span>
                           </div>
                           <p className="text-[10px] font-medium text-muted-foreground mt-1">
-                            Aplica a: <span className="font-bold text-slate-700">{srv ? srv.name : "Servicio no encontrado"}</span>
+                            Aplica a: <span className="font-bold text-foreground">{srv ? srv.name : "Servicio no encontrado"}</span>
                           </p>
-                          <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                          <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
                             Descuento: <span className="font-bold text-primary">{c.discountType === "PERCENT" ? `${c.discountValue}%` : `$${c.discountValue}`}</span>
                           </p>
-                          <p className="text-[9px] font-bold text-slate-400 mt-1">
+                          <p className="text-[9px] font-bold text-muted-foreground mt-1">
                             Vigencia: {c.startDate || "N/A"} al {c.endDate || "N/A"}
                           </p>
                         </div>
                         <button
                           onClick={() => handleToggleCampaignState(c.id)}
                           className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
-                            c.isActive ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                            c.isActive ? 'border-error/20 text-error hover:bg-error/10' : 'border-success/20 text-success hover:bg-success/10'
                           }`}
                         >
                           {c.isActive ? 'Pausar' : 'Reactivar'}
@@ -2133,8 +2181,8 @@ export default function FinanceScreen() {
             </div>
 
             {/* CUPONES */}
-            <div className="bg-card rounded-2xl border border-slate-300 p-5 space-y-4">
-              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+              <h4 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-border">
                 Cupones de Descuento
               </h4>
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
@@ -2142,25 +2190,25 @@ export default function FinanceScreen() {
                   <p className="text-xs text-muted-foreground italic text-center py-8">No hay cupones registrados.</p>
                 ) : (
                   coupons.map(cp => (
-                    <div key={cp.id} className="p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 transition-all">
-                      <div className="min-w-0 flex-1 font-bold text-[11px] text-slate-500">
+                    <div key={cp.id} className="p-4 border border-border rounded-xl flex items-center justify-between gap-4 bg-muted/50 hover:bg-muted transition-all">
+                      <div className="min-w-0 flex-1 font-bold text-[11px] text-muted-foreground">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="text-xs font-black text-primary font-mono tracking-wider bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20">{cp.code}</span>
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${cp.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${cp.isActive ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
                             {cp.isActive ? 'Activo' : 'Pausado'}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1.5">
-                          <p>Valor: <span className="text-slate-800">{cp.discountType === "PERCENT" ? `${cp.discountValue}%` : `$${cp.discountValue}`}</span></p>
-                          <p>Compra Mínima: <span className="text-slate-800">${cp.minPurchase}</span></p>
-                          <p>Usos: <span className="text-slate-800">{cp.usedCount || 0} / {cp.usageStock}</span></p>
-                          <p className="col-span-2 text-[9px] font-bold text-slate-400 mt-1">Expiración: {cp.expiryDate || "N/A"}</p>
+                          <p>Valor: <span className="text-foreground">{cp.discountType === "PERCENT" ? `${cp.discountValue}%` : `$${cp.discountValue}`}</span></p>
+                          <p>Compra Mínima: <span className="text-foreground">${cp.minPurchase}</span></p>
+                          <p>Usos: <span className="text-foreground">{cp.usedCount || 0} / {cp.usageStock}</span></p>
+                          <p className="col-span-2 text-[9px] font-bold text-muted-foreground mt-1">Expiración: {cp.expiryDate || "N/A"}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleToggleCouponState(cp.id)}
                         className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
-                          cp.isActive ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                          cp.isActive ? 'border-error/20 text-error hover:bg-error/10' : 'border-success/20 text-success hover:bg-success/10'
                         }`}
                       >
                         {cp.isActive ? 'Pausar' : 'Reactivar'}
@@ -2174,11 +2222,104 @@ export default function FinanceScreen() {
         </div>
       )}
 
+      {activeTab === "attendance" && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                Control de Asistencia y Turnos de Staff
+              </h3>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Consulte las horas de entrada, salida y el estado de asistencia de cada especialista registrado.
+              </p>
+            </div>
+            <button
+              onClick={loadAttendanceHistory}
+              disabled={attendanceLoading}
+              className="flex items-center gap-1.5 border border-border text-xs font-bold px-3 py-2 rounded-xl hover:bg-muted text-foreground transition-all flex-shrink-0"
+            >
+              {attendanceLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Actualizar
+            </button>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+            {attendanceLoading && attendanceHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground font-semibold">Cargando asistencias...</span>
+              </div>
+            ) : attendanceHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <Clock className="w-10 h-10 text-muted-foreground/30" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Sin registros de asistencia</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Nadie ha fichado entrada para el período seleccionado.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                      <th className="p-4">Profesional</th>
+                      <th className="p-4">Rol</th>
+                      <th className="p-4">Fecha</th>
+                      <th className="p-4">Entrada</th>
+                      <th className="p-4">Salida</th>
+                      <th className="p-4">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs font-medium text-foreground">
+                    {attendanceHistory.map((att: any) => {
+                      const checkInDate = new Date(att.checkIn);
+                      const checkOutDate = att.checkOut ? new Date(att.checkOut) : null;
+                      
+                      return (
+                        <tr key={att.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-4 font-bold text-foreground">
+                            {att.user?.name || "Desconocido"}
+                          </td>
+                          <td className="p-4 uppercase tracking-widest text-[9px] font-black">
+                            <span className="px-2 py-0.5 rounded-md border border-border bg-background">
+                              {att.user?.role || "STAFF"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-muted-foreground">
+                            {checkInDate.toLocaleDateString("es-MX", { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                          </td>
+                          <td className="p-4 font-bold text-success">
+                            {checkInDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="p-4 font-bold text-error">
+                            {checkOutDate 
+                              ? checkOutDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })
+                              : <span className="text-warning italic font-bold">Activo</span>}
+                          </td>
+                          <td className="p-4 font-black">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] ${
+                              att.status === "PRESENT" ? "bg-success/10 text-success border border-success/20" : "bg-warning/10 text-warning border border-warning/20"
+                            }`}>
+                              {att.status === "PRESENT" ? "PRESENTE" : "TARDÍO"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL: NUEVA CAMPAÑA DE DESCUENTO ── */}
       {showCampaignModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
               <Percent className="w-4 h-4 text-primary" />
               Nueva Campaña de Descuento
             </h3>
@@ -2191,7 +2332,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: Promo de Verano, Semana Facial"
                   value={campaignForm.name}
                   onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -2200,7 +2341,7 @@ export default function FinanceScreen() {
                 <select
                   value={campaignForm.serviceId}
                   onChange={(e) => setCampaignForm({ ...campaignForm, serviceId: e.target.value })}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                 >
                   <option value="">-- Seleccionar Tratamiento --</option>
                   {services.map(s => (
@@ -2215,7 +2356,7 @@ export default function FinanceScreen() {
                   <select
                     value={campaignForm.discountType}
                     onChange={(e: any) => setCampaignForm({ ...campaignForm, discountType: e.target.value })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   >
                     <option value="PERCENT">Porcentaje (%)</option>
                     <option value="FIXED">Monto Fijo ($)</option>
@@ -2229,7 +2370,7 @@ export default function FinanceScreen() {
                     placeholder="Ej: 10"
                     value={campaignForm.discountValue}
                     onChange={(e) => setCampaignForm({ ...campaignForm, discountValue: Number(e.target.value) })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -2241,7 +2382,7 @@ export default function FinanceScreen() {
                     type="date"
                     value={campaignForm.startDate}
                     onChange={(e) => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2250,7 +2391,7 @@ export default function FinanceScreen() {
                     type="date"
                     value={campaignForm.endDate}
                     onChange={(e) => setCampaignForm({ ...campaignForm, endDate: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -2259,13 +2400,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowCampaignModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateCampaign}
-                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm shadow-primary/10"
+                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm shadow-primary/10"
               >
                 Guardar Campaña
               </button>
@@ -2276,10 +2417,10 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: NUEVO CUPÓN DE DESCUENTO ── */}
       {showCouponModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Percent className="w-4 h-4 text-slate-800" />
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
+              <Percent className="w-4 h-4 text-foreground" />
               Nuevo Cupón de Descuento
             </h3>
 
@@ -2291,7 +2432,7 @@ export default function FinanceScreen() {
                   placeholder="Ej: SUMMER20"
                   value={couponForm.code}
                   onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
-                  className="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary tracking-wider"
+                  className="w-full text-xs font-mono font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary tracking-wider"
                 />
               </div>
 
@@ -2301,7 +2442,7 @@ export default function FinanceScreen() {
                   <select
                     value={couponForm.discountType}
                     onChange={(e: any) => setCouponForm({ ...couponForm, discountType: e.target.value })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   >
                     <option value="PERCENT">Porcentaje (%)</option>
                     <option value="FIXED">Monto Fijo ($)</option>
@@ -2315,7 +2456,7 @@ export default function FinanceScreen() {
                     placeholder="Ej: 15"
                     value={couponForm.discountValue}
                     onChange={(e) => setCouponForm({ ...couponForm, discountValue: Number(e.target.value) })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -2329,7 +2470,7 @@ export default function FinanceScreen() {
                     placeholder="Ej: 50"
                     value={couponForm.usageStock}
                     onChange={(e) => setCouponForm({ ...couponForm, usageStock: Number(e.target.value) })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2340,7 +2481,7 @@ export default function FinanceScreen() {
                     placeholder="Ej: 50"
                     value={couponForm.minPurchase}
                     onChange={(e) => setCouponForm({ ...couponForm, minPurchase: Number(e.target.value) })}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -2351,7 +2492,7 @@ export default function FinanceScreen() {
                   type="date"
                   value={couponForm.expiryDate}
                   onChange={(e) => setCouponForm({ ...couponForm, expiryDate: e.target.value })}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                  className="w-full text-xs bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -2359,13 +2500,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowCouponModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateCoupon}
-                className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 shadow-sm"
+                className="px-4 py-2 bg-secondary text-secondary-foreground text-xs font-bold rounded-xl hover:bg-secondary/80 shadow-sm"
               >
                 Guardar Cupón
               </button>
@@ -2376,9 +2517,9 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: AJUSTAR META Y TASA DE COMISIÓN ── */}
       {showGoalModal && editingPerformance && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-sm rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
               <Percent className="w-4 h-4 text-primary" />
               Metas y Comisión
             </h3>
@@ -2394,7 +2535,7 @@ export default function FinanceScreen() {
                   type="number"
                   value={newGoal}
                   onChange={(e) => setNewGoal(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -2404,7 +2545,7 @@ export default function FinanceScreen() {
                   type="number"
                   value={newRate}
                   onChange={(e) => setNewRate(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -2412,13 +2553,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => { setShowGoalModal(false); setEditingPerformance(null); }}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveGoal}
-                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm"
+                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm"
               >
                 Aplicar Ajustes
               </button>
@@ -2429,9 +2570,9 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: GENERAR NUEVA NÓMINA ── */}
       {showPayrollModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
               <Briefcase className="w-4 h-4 text-primary" />
               Generar Nómina de Staff
             </h3>
@@ -2442,7 +2583,7 @@ export default function FinanceScreen() {
                 <select
                   value={payrollsForm.professionalId}
                   onChange={(e) => handlePayrollFormChange("professionalId", e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none"
                 >
                   <option value="">-- Seleccionar Profesional --</option>
                   {professionals.map(p => (
@@ -2457,7 +2598,7 @@ export default function FinanceScreen() {
                   <select
                     value={payrollsForm.period}
                     onChange={(e) => handlePayrollFormChange("period", e.target.value)}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   >
                     <option value="Julio 2026">Julio 2026</option>
                     <option value="Junio 2026">Junio 2026</option>
@@ -2470,7 +2611,7 @@ export default function FinanceScreen() {
                     type="number"
                     value={payrollsForm.baseSalary}
                     onChange={(e) => handlePayrollFormChange("baseSalary", e.target.value)}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -2482,7 +2623,7 @@ export default function FinanceScreen() {
                     type="number"
                     value={payrollsForm.commissions}
                     onChange={(e) => handlePayrollFormChange("commissions", e.target.value)}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2491,7 +2632,7 @@ export default function FinanceScreen() {
                     type="number"
                     value={payrollsForm.bonuses}
                     onChange={(e) => handlePayrollFormChange("bonuses", e.target.value)}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2500,14 +2641,14 @@ export default function FinanceScreen() {
                     type="number"
                     value={payrollsForm.deductions}
                     onChange={(e) => handlePayrollFormChange("deductions", e.target.value)}
-                    className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none"
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Neto a pagar de previsualización */}
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center font-bold text-xs">
-                <span className="text-slate-500">Neto Precalculado:</span>
+              <div className="bg-muted border border-border p-4 rounded-xl flex justify-between items-center font-bold text-xs">
+                <span className="text-muted-foreground">Neto Precalculado:</span>
                 <span className="text-base font-extrabold text-primary">
                   ${(Number(payrollsForm.baseSalary) + Number(payrollsForm.commissions) + Number(payrollsForm.bonuses) - Number(payrollsForm.deductions)).toLocaleString()}
                 </span>
@@ -2517,13 +2658,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowPayrollModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreatePayroll}
-                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm"
+                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm"
               >
                 Generar Nómina
               </button>
@@ -2534,26 +2675,26 @@ export default function FinanceScreen() {
 
       {/* ── MODAL: CONFIRMACIÓN DE LIQUIDACIÓN DE NÓMINA ── */}
       {showPayConfirmModal && selectedPayrollToPay && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-card w-full max-w-sm rounded-2xl border border-border p-6 shadow-2xl relative space-y-4">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Wallet className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-3">
+              <Wallet className="w-4 h-4 text-success" />
               Liquidar Nómina
             </h3>
 
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-1.5 text-xs text-slate-700">
+              <div className="p-4 bg-muted border border-border rounded-xl space-y-1.5 text-xs text-foreground">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Profesional:</span>
-                  <span className="font-bold text-slate-800">{selectedPayrollToPay.name}</span>
+                  <span className="text-muted-foreground">Profesional:</span>
+                  <span className="font-bold text-foreground">{selectedPayrollToPay.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Periodo:</span>
-                  <span className="font-bold text-slate-800">{selectedPayrollToPay.period}</span>
+                  <span className="text-muted-foreground">Periodo:</span>
+                  <span className="font-bold text-foreground">{selectedPayrollToPay.period}</span>
                 </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 font-black">
-                  <span className="text-slate-600">Neto a Transferir:</span>
-                  <span className="text-emerald-600 text-sm">${selectedPayrollToPay.netPay.toLocaleString()}</span>
+                <div className="flex justify-between border-t border-border pt-2 font-black">
+                  <span className="text-muted-foreground">Neto a Transferir:</span>
+                  <span className="text-success text-sm">${selectedPayrollToPay.netPay.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -2562,7 +2703,7 @@ export default function FinanceScreen() {
                 <select
                   value={payMethod}
                   onChange={(e: any) => setPayMethod(e.target.value)}
-                  className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none"
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none"
                 >
                   <option value="TRANSFERENCIA">🏦 Transferencia Bancaria</option>
                   <option value="EFECTIVO">💵 Efectivo (Caja Menor)</option>
@@ -2574,13 +2715,13 @@ export default function FinanceScreen() {
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => { setShowPayConfirmModal(false); setSelectedPayrollToPay(null); }}
-                className="px-4 py-2 border border-border text-xs font-bold text-slate-500 rounded-xl hover:bg-slate-100"
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmPay}
-                className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 shadow-sm"
+                className="px-4 py-2 bg-success text-primary-foreground text-xs font-bold rounded-xl hover:bg-success/90 shadow-sm"
               >
                 Confirmar Pago
               </button>

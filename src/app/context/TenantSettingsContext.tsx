@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
+import { applyPalette, DEFAULT_PALETTE, resolvePaletteKey } from '../lib/palettes';
 
 export interface TenantSettings {
   features: {
@@ -10,6 +11,12 @@ export interface TenantSettings {
   };
   branding: {
     primaryColor: string;
+    /**
+     * Identifier of the Spatial UI brand palette applied to the tenant.
+     * One of: "aura" | "bloom" | "ocean" | "sunset" | "berry" | "tropical".
+     * Defaults to "aura" when the backend does not provide it.
+     */
+    palette?: string;
     logoUrl?: string;
   };
   contactInfo?: {
@@ -37,6 +44,7 @@ const defaultSettings: TenantSettings = {
   },
   branding: {
     primaryColor: '#ec4899', // Pink default
+    palette: DEFAULT_PALETTE,
   },
   contactInfo: {
     name: '',
@@ -69,18 +77,39 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     // Try to restore cached settings first
     try {
       const cached = localStorage.getItem('tenant_settings');
-      return cached ? JSON.parse(cached) : defaultSettings;
+      if (cached) {
+        const parsed = JSON.parse(cached) as TenantSettings;
+        // Migrate older cached payloads that pre-date the palette field.
+        if (!parsed.branding) {
+          parsed.branding = { ...defaultSettings.branding };
+        }
+        if (!parsed.branding.palette) {
+          parsed.branding.palette = DEFAULT_PALETTE;
+        }
+        return parsed;
+      }
     } catch {
-      return defaultSettings;
+      // fall through to defaults
     }
+    return defaultSettings;
   });
   const [loading, setLoading] = useState(true);
 
-  const applyBranding = (color: string) => {
-    if (!color) return;
-    document.documentElement.style.setProperty('--primary', color);
-    // Set a matching ring/focus shade with opacity
-    document.documentElement.style.setProperty('--ring', `${color}33`);
+  /**
+   * Pushes the active palette + primary color into the document root.
+   *
+   * Order matters: we always resolve the palette FIRST so that the brand
+   * tokens (--primary-glow, --success, --warning, --error, etc.) are in
+   * place. The tenant-specific primary color and matching focus ring are
+   * then written as inline custom properties, intentionally overriding
+   * the palette's default so admins can still pick a custom brand hue.
+   */
+  const applyBranding = (paletteKey: string | undefined, color: string) => {
+    applyPalette(resolvePaletteKey(paletteKey));
+    if (color) {
+      // Set a matching ring/focus shade with opacity
+      document.documentElement.style.setProperty('--ring', `${color}33`);
+    }
   };
 
   const sanitizeSettingsForCache = (data: TenantSettings): TenantSettings => {
@@ -88,6 +117,12 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     if (sanitized.whatsapp) {
       delete sanitized.whatsapp.apiToken;
     }
+    // Make sure a cached payload always carries a palette key so the next
+    // page load can re-apply it without a server roundtrip.
+    if (!sanitized.branding) {
+      sanitized.branding = { ...defaultSettings.branding };
+    }
+    sanitized.branding.palette = resolvePaletteKey(sanitized.branding.palette);
     return sanitized;
   };
 
@@ -98,13 +133,21 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('fetchSettings response raw:', res);
       const data = res?.branding ? res : (res?.data || defaultSettings);
       console.log('fetchSettings data parsed:', data);
-      setSettings(data);
-      localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(data)));
-      applyBranding(data.branding.primaryColor);
+      const normalized: TenantSettings = {
+        ...data,
+        branding: {
+          ...defaultSettings.branding,
+          ...(data.branding || {}),
+          palette: resolvePaletteKey(data.branding?.palette),
+        },
+      };
+      setSettings(normalized);
+      localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(normalized)));
+      applyBranding(normalized.branding.palette, normalized.branding.primaryColor);
     } catch (err) {
       console.error('Error fetching tenant settings:', err);
       // Keep cached settings as fallback
-      applyBranding(settings.branding.primaryColor);
+      applyBranding(settings.branding.palette, settings.branding.primaryColor);
     } finally {
       setLoading(false);
     }
@@ -117,7 +160,7 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       // Revert to default branding on logout
       setSettings(defaultSettings);
       localStorage.removeItem('tenant_settings');
-      applyBranding(defaultSettings.branding.primaryColor);
+      applyBranding(defaultSettings.branding.palette, defaultSettings.branding.primaryColor);
       setLoading(false);
     }
   }, [user]);
@@ -131,9 +174,17 @@ export const TenantSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       if (!data || !data.branding) {
         throw new Error("La respuesta del servidor no contiene la configuración de marca (branding).");
       }
-      setSettings(data);
-      localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(data)));
-      applyBranding(data.branding.primaryColor);
+      const normalized: TenantSettings = {
+        ...data,
+        branding: {
+          ...defaultSettings.branding,
+          ...(data.branding || {}),
+          palette: resolvePaletteKey(data.branding?.palette),
+        },
+      };
+      setSettings(normalized);
+      localStorage.setItem('tenant_settings', JSON.stringify(sanitizeSettingsForCache(normalized)));
+      applyBranding(normalized.branding.palette, normalized.branding.primaryColor);
     } catch (err) {
       console.error('Error updating tenant settings:', err);
       throw err;

@@ -168,13 +168,68 @@ function getStartHourFloat(dateStr: string) {
   return d.getHours() + d.getMinutes() / 60;
 }
 
+interface OverlapInfo {
+  column: number;
+  totalColumns: number;
+}
+
+function computeOverlapColumns(appointments: Appointment[], weekDates: Date[], dayIdx: number): Map<string, OverlapInfo> {
+  const dayAppts = appointments
+    .filter((a) => getDayIndex(a.dateTime, weekDates) === dayIdx)
+    .map((a) => ({ id: a.id, start: getStartHourFloat(a.dateTime), end: getStartHourFloat(a.dateTime) + a.duration / 60 }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const result = new Map<string, OverlapInfo>();
+  if (dayAppts.length === 0) return result;
+
+  const components: { start: number; end: number; items: typeof dayAppts }[] = [];
+  for (const item of dayAppts) {
+    const last = components[components.length - 1];
+    if (last && item.start < last.end) {
+      last.items.push(item);
+      last.end = Math.max(last.end, item.end);
+    } else {
+      components.push({ start: item.start, end: item.end, items: [item] });
+    }
+  }
+
+  for (const comp of components) {
+    const cols: { end: number; ids: string[] }[] = [];
+    for (const item of comp.items) {
+      let placed = false;
+      for (let c = 0; c < cols.length; c++) {
+        if (cols[c].end <= item.start) {
+          cols[c].end = item.end;
+          cols[c].ids.push(item.id);
+          result.set(item.id, { column: c, totalColumns: cols.length });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        cols.push({ end: item.end, ids: [item.id] });
+        result.set(item.id, { column: cols.length - 1, totalColumns: cols.length });
+      }
+    }
+    const maxCols = cols.length;
+    for (const col of cols) {
+      for (const id of col.ids) {
+        const info = result.get(id);
+        if (info) info.totalColumns = maxCols;
+      }
+    }
+  }
+
+  return result;
+}
+
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  CONFIRMADA:           { bg: "bg-emerald-500/10",  border: "border-emerald-500/20", text: "text-emerald-400", dot: "bg-emerald-500" },
-  COMPLETADA:           { bg: "bg-sky-500/10",       border: "border-sky-500/20",     text: "text-sky-400",     dot: "bg-sky-500" },
-  PENDIENTE:            { bg: "bg-amber-500/10",     border: "border-amber-500/20",   text: "text-amber-400",   dot: "bg-amber-500" },
-  CANCELADA_CON_CARGO:  { bg: "bg-red-500/10",       border: "border-red-500/20",     text: "text-red-400",     dot: "bg-red-400" },
-  CANCELADA_SIN_CARGO:  { bg: "bg-white/5",          border: "border-white/10",       text: "text-muted-foreground", dot: "bg-slate-400" },
-  NO_ASISTIO:           { bg: "bg-white/5 border-dashed border-red-500/30", border: "border-red-500/20", text: "text-red-300", dot: "bg-red-500" },
+  CONFIRMADA:           { bg: "bg-success/10",      border: "border-success/20",     text: "text-success",     dot: "bg-success" },
+  COMPLETADA:           { bg: "bg-secondary/10",    border: "border-secondary/20",   text: "text-secondary",   dot: "bg-secondary" },
+  PENDIENTE:            { bg: "bg-warning/10",      border: "border-warning/20",     text: "text-warning",     dot: "bg-warning" },
+  CANCELADA_CON_CARGO:  { bg: "bg-error/10",        border: "border-error/20",       text: "text-error",       dot: "bg-error" },
+  CANCELADA_SIN_CARGO:  { bg: "bg-muted",            border: "border-border",         text: "text-muted-foreground", dot: "bg-muted-foreground" },
+  NO_ASISTIO:           { bg: "bg-muted border-dashed border-error/30", border: "border-error/20", text: "text-error", dot: "bg-error" },
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -534,7 +589,7 @@ export default function CalendarScreen({
     <div className="flex flex-col h-full overflow-hidden select-none">
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0" style={{ background: 'rgba(18, 17, 24, 0.75)', backdropFilter: 'blur(16px)' }}>
+      <div className="flex items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-muted/50 border border-border p-1 rounded-xl">
             <button
@@ -589,10 +644,10 @@ export default function CalendarScreen({
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-4 text-[11px] font-semibold text-muted-foreground">
             {[
-              { label: "Confirmada", color: "bg-emerald-500" },
-              { label: "Pendiente", color: "bg-amber-400" },
-              { label: "Completada", color: "bg-sky-500" },
-              { label: "Inasistencia", color: "bg-red-500" },
+              { label: "Confirmada", color: "bg-success" },
+              { label: "Pendiente", color: "bg-warning" },
+              { label: "Completada", color: "bg-secondary" },
+              { label: "Inasistencia", color: "bg-error" },
             ].map(({ label, color }) => (
               <span key={label} className="flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-full ${color} inline-block flex-shrink-0`} />
@@ -695,10 +750,10 @@ export default function CalendarScreen({
               {HOURS.map((hour) => (
                 <div key={`row-${hour}`} className="contents">
                   {/* Hour label */}
-                  <div
-                    className="border-r border-b border-white/10 flex items-start justify-end pr-3 pt-2 flex-shrink-0 bg-white/5"
-                    style={{ height: CELL_H }}
-                  >
+                    <div
+                      className="border-r border-b border-border flex items-start justify-end pr-3 pt-2 flex-shrink-0 bg-muted"
+                      style={{ height: CELL_H }}
+                    >
                     <span className="text-[11px] text-muted-foreground font-bold tabular-nums">
                       {hour < 12 ? `${hour}:00` : hour === 12 ? "12:00" : `${hour - 12}:00`}
                       <span className="ml-0.5 text-[9px] opacity-60">{hour < 12 ? "am" : "pm"}</span>
@@ -713,7 +768,7 @@ export default function CalendarScreen({
                       return (
                         <div
                           key={`cell-${hour}-${di}`}
-                          className={`border-r border-b border-white/5 last:border-r-0 relative cursor-pointer transition-all duration-150 group ${
+                          className={`border-r border-b border-border last:border-r-0 relative cursor-pointer transition-all duration-150 group ${
                             isHovered
                               ? "bg-primary/10"
                               : todayCol
@@ -742,7 +797,7 @@ export default function CalendarScreen({
                       return (
                         <div
                           key={`cell-cabin-${hour}-${ci}`}
-                          className={`border-r border-b border-white/5 last:border-r-0 relative cursor-pointer transition-all duration-150 group ${
+                          className={`border-r border-b border-border last:border-r-0 relative cursor-pointer transition-all duration-150 group ${
                             isHovered ? "bg-primary/10" : "hover:bg-primary/8"
                           }`}
                           style={{ height: CELL_H }}
@@ -775,8 +830,18 @@ export default function CalendarScreen({
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground font-medium">Cargando citas...</span>
                 </div>
-              ) : (
-                appointments.map((appt) => {
+              ) : (() => {
+                const overlapMap = new Map<string, OverlapInfo>();
+                if (viewMode === "weekly") {
+                  for (let di = 0; di < 7; di++) {
+                    const dayGroups = computeOverlapColumns(appointments, weekDates, di);
+                    dayGroups.forEach((v, k) => overlapMap.set(k, v));
+                  }
+                }
+                console.log("[Calendar] overlapMap size:", overlapMap.size, "appointments:", appointments.length);
+                overlapMap.forEach((v, k) => console.log("[Calendar] ", k, "->", v));
+
+                return appointments.map((appt) => {
                   const startHr = getStartHourFloat(appt.dateTime);
                   const durHrs = appt.duration / 60;
                   const style = STATUS_STYLE[appt.status] ?? STATUS_STYLE.PENDIENTE;
@@ -786,6 +851,15 @@ export default function CalendarScreen({
                   if (viewMode === "weekly") {
                     const dayIndex = getDayIndex(appt.dateTime, weekDates);
                     if (dayIndex < 0 || dayIndex > 6) return null;
+
+                    const overlap = overlapMap.get(appt.id);
+                    const col = overlap?.column ?? 0;
+                    const total = overlap?.totalColumns ?? 1;
+                    const dayPct = 100 / 7;
+                    const pad = 0.4;
+                    const gapPct = 0.3;
+                    const slotW = (dayPct - pad * 2 - gapPct * (total - 1)) / total;
+                    const leftPct = dayIndex * dayPct + pad + col * (slotW + gapPct);
 
                     return (
                       <div
@@ -799,8 +873,8 @@ export default function CalendarScreen({
                         style={{
                           top: (startHr - 8) * CELL_H + 3,
                           height: Math.max(durHrs * CELL_H - 6, 28),
-                          left: `calc(${dayIndex} * 100% / 7 + 4px)`,
-                          width: `calc(100% / 7 - 8px)`,
+                          left: `${leftPct}%`,
+                          width: `${slotW}%`,
                         }}
                       >
                         <div className="flex items-start gap-1.5">
@@ -809,7 +883,7 @@ export default function CalendarScreen({
                             <div className="text-[11px] font-bold leading-tight truncate flex items-center gap-1">
                               <span>{appt.patient?.fullName}</span>
                               {(!appt.patient?.consentSigned || !appt.patient?.medicalHistory) && (
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
+                                <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
                               )}
                             </div>
                             {appt.service && (
@@ -858,7 +932,7 @@ export default function CalendarScreen({
                             <div className="text-[11px] font-bold leading-tight truncate flex items-center gap-1">
                               <span>{appt.patient?.fullName}</span>
                               {(!appt.patient?.consentSigned || !appt.patient?.medicalHistory) && (
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
+                                <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" title="Paciente con documentos pendientes: Ficha Dermatofuncional / Consentimiento" />
                               )}
                             </div>
                             {appt.service && (
@@ -875,8 +949,8 @@ export default function CalendarScreen({
                       </div>
                     );
                   }
-                })
-              )}
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -886,7 +960,7 @@ export default function CalendarScreen({
       {showSlideOver && (
         <>
           <div
-            className="fixed inset-0 bg-[#0f172a]/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-popover/50 backdrop-blur-sm z-40"
             onClick={closeSlideOver}
           />
           <div
@@ -920,7 +994,7 @@ export default function CalendarScreen({
 
                 {/* Error */}
                 {error && (
-                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                  <div className="flex items-start gap-3 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>{error}</span>
                   </div>
@@ -942,7 +1016,7 @@ export default function CalendarScreen({
                     />
                   </div>
                   {searchQuery.trim().length >= 2 && !selectedPatientId && (
-                    <div className="mt-1.5 border border-border/80 rounded-xl bg-[#1e152a] max-h-48 overflow-y-auto shadow-2xl divide-y divide-border/40 z-50 relative">
+                    <div className="mt-1.5 border border-border/80 rounded-xl bg-popover max-h-48 overflow-y-auto shadow-2xl divide-y divide-border/40 z-50 relative">
                       {patients.map((p) => (
                         <div
                           key={p.id}
@@ -963,7 +1037,7 @@ export default function CalendarScreen({
                           setQuickPhone("");
                           setShowQuickRegister(true);
                         }}
-                        className="px-4 py-3 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-2 bg-white/5"
+                        className="px-4 py-3 text-xs font-bold text-primary hover:bg-primary/10 cursor-pointer transition-colors flex items-center gap-2 bg-muted"
                       >
                         <Plus className="w-3.5 h-3.5" /> Registrar "{searchQuery}" como nuevo paciente (Registro Rápido)
                       </div>
@@ -971,11 +1045,11 @@ export default function CalendarScreen({
                   )}
                   {selectedPatientId && selectedPatientObj && (
                     <div className="mt-2.5 space-y-1">
-                      <p className="text-xs text-emerald-500 font-bold flex items-center gap-1">
+                      <p className="text-xs text-success font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Paciente seleccionado: {selectedPatientObj.fullName}
                       </p>
                       {(!selectedPatientObj.consentSigned || !selectedPatientObj.medicalHistory) && (
-                        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-xs mt-1">
+                        <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/20 rounded-xl text-warning text-xs mt-1">
                           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                           <div>
                             <span className="font-bold">Documentos pendientes:</span>
@@ -1188,7 +1262,7 @@ export default function CalendarScreen({
       {showDetailModal && selectedAppointment && (
         <>
           <div
-            className="fixed inset-0 bg-[#0f172a]/50 backdrop-blur-sm z-40 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-popover/50 backdrop-blur-sm z-40 flex items-center justify-center p-4"
             onClick={() => { setShowDetailModal(false); setSelectedAppointment(null); }}
           >
             <div
@@ -1303,15 +1377,15 @@ export default function CalendarScreen({
                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] block mb-1">
                     Tratamiento / Servicio
                   </span>
-                  <span className="text-sm font-bold text-violet-500 block">
+                  <span className="text-sm font-bold text-secondary block">
                     {selectedAppointment.service?.name || "Consulta General"}
                   </span>
                 </div>
 
                 {(!selectedAppointment.patient?.consentSigned || !selectedAppointment.patient?.medicalHistory) && (
-                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 space-y-1.5 animate-pulse">
+                  <div className="p-3.5 bg-warning/10 border border-warning/20 rounded-xl text-warning space-y-1.5 animate-pulse">
                     <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-wider">
-                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
                       <span>Documentación Pendiente</span>
                     </div>
                     <ul className="text-[10px] font-semibold list-disc list-inside space-y-0.5 pl-1.5 opacity-90">
@@ -1332,7 +1406,7 @@ export default function CalendarScreen({
                         onSelectPatient(selectedAppointment.patientId);
                       }
                     }}
-                    className="px-4 py-2.5 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-600 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/10"
+                    className="px-4 py-2.5 text-xs font-bold bg-warning text-foreground hover:bg-warning/90 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-warning/20"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Completar Expediente / Firma
@@ -1341,7 +1415,7 @@ export default function CalendarScreen({
                 {selectedAppointment.status !== "NO_ASISTIO" && selectedAppointment.status !== "COMPLETADA" && (
                   <button
                     onClick={() => handleMarkNoShow(selectedAppointment.id)}
-                    className="px-4 py-2.5 text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2.5 text-xs font-bold bg-error/10 text-error hover:bg-error/20 border border-error/20 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Marcar Inasistencia

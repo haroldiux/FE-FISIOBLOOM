@@ -169,9 +169,9 @@ export default function PatientPortalScreen() {
 
   if (loadingTenant) {
     return (
-      <div className="min-h-screen w-full bg-[#0b0f19] flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-[#d946ef] mb-4" />
-        <p className="text-sm font-bold tracking-widest text-slate-400 uppercase animate-pulse">
+      <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center text-foreground">
+        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+        <p className="text-sm font-bold tracking-widest text-muted-foreground uppercase animate-pulse">
           Cargando Portal de Reservas...
         </p>
       </div>
@@ -180,10 +180,10 @@ export default function PatientPortalScreen() {
 
   if (tenantError) {
     return (
-      <div className="min-h-screen w-full bg-[#0b0f19] flex flex-col items-center justify-center text-white p-6 text-center">
-        <AlertTriangle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+      <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center text-foreground p-6 text-center">
+        <AlertTriangle className="w-16 h-16 text-error mb-4 animate-bounce" />
         <h2 className="text-xl font-black mb-2">Error de Conexión</h2>
-        <p className="text-slate-450 max-w-md text-sm leading-relaxed mb-6">
+        <p className="text-muted-foreground max-w-md text-sm leading-relaxed mb-6">
           {tenantError}
         </p>
       </div>
@@ -191,21 +191,21 @@ export default function PatientPortalScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-[#090d16] via-[#0f172a] to-[#1e112a] text-white py-12 px-4 flex justify-center items-center font-sans">
-      <div className="w-full max-w-xl bg-[#0f172a]/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen text-foreground py-12 px-4 flex justify-center items-center font-sans" style={{ background: 'var(--gradient-portal)' }}>
+      <div className="w-full max-w-xl bg-card/80 backdrop-blur-xl border border-border rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
         {/* Decorative ambient lights */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-fuchsia-600/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 rounded-full bg-cyan-600/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 rounded-full bg-secondary/20 blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="text-center mb-8 border-b border-slate-800 pb-6 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-fuchsia-500/20 animate-pulse">
-            <Sparkles className="w-5 h-5 text-white" />
+        <div className="text-center mb-8 border-b border-border pb-6 relative z-10">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-primary/20 animate-pulse" style={{ background: 'var(--gradient-auth)' }}>
+            <Sparkles className="w-5 h-5 text-primary-foreground" />
           </div>
-          <h1 className="text-xl md:text-2xl font-black tracking-wide bg-gradient-to-r from-white via-slate-100 to-slate-350 bg-clip-text text-transparent">
+          <h1 className="text-xl md:text-2xl font-black tracking-wide text-foreground">
             {tenantName.toUpperCase()}
           </h1>
-          <p className="text-slate-400 text-xs mt-1.5 font-bold tracking-wider uppercase">
+          <p className="text-muted-foreground text-xs mt-1.5 font-bold tracking-wider uppercase">
             Reserva de Tratamientos en Línea
           </p>
         </div>
@@ -213,18 +213,18 @@ export default function PatientPortalScreen() {
         {/* Steps Bar */}
         {step < 4 && (
           <div className="flex items-center justify-between mb-8 text-xs font-black relative z-10 px-4">
-            <div className={`flex flex-col items-center gap-1.5 ${step >= 1 ? 'text-fuchsia-400' : 'text-slate-500'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-700'}`}>1</span>
+            <div className={`flex flex-col items-center gap-1.5 ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-primary bg-primary/10' : 'border-border'}`}>1</span>
               <span>Servicio</span>
             </div>
-            <div className="w-full h-0.5 bg-slate-800 mx-2 -mt-4" />
-            <div className={`flex flex-col items-center gap-1.5 ${step >= 2 ? 'text-fuchsia-400' : 'text-slate-500'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-700'}`}>2</span>
+            <div className="w-full h-0.5 bg-border mx-2 -mt-4" />
+            <div className={`flex flex-col items-center gap-1.5 ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-primary bg-primary/10' : 'border-border'}`}>2</span>
               <span>Horario</span>
             </div>
-            <div className="w-full h-0.5 bg-slate-800 mx-2 -mt-4" />
-            <div className={`flex flex-col items-center gap-1.5 ${step >= 3 ? 'text-fuchsia-400' : 'text-slate-500'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-700'}`}>3</span>
+            <div className="w-full h-0.5 bg-border mx-2 -mt-4" />
+            <div className={`flex flex-col items-center gap-1.5 ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-primary bg-primary/10' : 'border-border'}`}>3</span>
               <span>Tus Datos</span>
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function PatientPortalScreen() {
 
         {/* Error message */}
         {errorMsg && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-semibold flex items-center gap-3 mb-6 relative z-10">
+          <div className="p-4 bg-error/10 border border-error/20 rounded-2xl text-error text-xs font-semibold flex items-center gap-3 mb-6 relative z-10">
             <AlertTriangle className="w-5 h-5 flex-shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -242,33 +242,33 @@ export default function PatientPortalScreen() {
         {step === 1 && (
           <div className="space-y-6 relative z-10">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block">
                 Selecciona el Tratamiento
               </label>
               {loadingServices ? (
                 <div className="py-12 flex justify-center items-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-fuchsia-500" />
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                <div id="tour-portal-services" className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                   {services.map((svc) => (
                     <div
                       key={svc.id}
                       onClick={() => setSelectedServiceId(svc.id)}
                       className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-center ${
                         selectedServiceId === svc.id
-                          ? "border-fuchsia-500 bg-fuchsia-500/5 shadow-md shadow-fuchsia-500/5"
-                          : "border-slate-800 bg-[#131b2e]/60 hover:bg-[#131b2e] hover:border-slate-700"
+                          ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                          : "border-border bg-card/60 hover:bg-card hover:border-primary/40"
                       }`}
                     >
                       <div>
-                        <h3 className="text-xs font-black text-white">{svc.name}</h3>
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-fuchsia-400" /> {svc.defaultDuration} min
+                        <h3 className="text-xs font-black text-foreground">{svc.name}</h3>
+                        <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-primary" /> {svc.defaultDuration} min
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-black text-cyan-400">${svc.defaultPrice}</span>
+                        <span className="text-xs font-black text-secondary">${svc.defaultPrice}</span>
                       </div>
                     </div>
                   ))}
@@ -276,12 +276,13 @@ export default function PatientPortalScreen() {
               )}
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-800">
+            <div className="flex justify-end pt-4 border-t border-border">
               <button
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={!selectedServiceId}
-                className="flex items-center gap-1.5 px-6 py-3 bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-fuchsia-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-6 py-3 text-primary-foreground text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'var(--gradient-auth)' }}
               >
                 Continuar
                 <ChevronRight className="w-4 h-4" />
@@ -294,15 +295,15 @@ export default function PatientPortalScreen() {
         {step === 2 && (
           <div className="space-y-6 relative z-10">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block">
                 Selecciona al Especialista
               </label>
               {loadingProfessionals ? (
                 <div className="py-4 flex justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-fuchsia-500" />
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div id="tour-portal-profs" className="grid grid-cols-2 gap-3">
                   {professionals.map((prof) => (
                     <div
                       key={prof.id}
@@ -312,16 +313,16 @@ export default function PatientPortalScreen() {
                       }}
                       className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-3 ${
                         selectedProfessionalId === prof.id
-                          ? "border-fuchsia-500 bg-fuchsia-500/5"
-                          : "border-slate-800 bg-[#131b2e]/60 hover:bg-[#131b2e]"
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card/60 hover:bg-card"
                       }`}
                     >
-                      <div className="w-7 h-7 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-secondary/20 text-secondary flex items-center justify-center flex-shrink-0">
                         <UserIcon className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-2xs font-black text-white truncate">{prof.name}</h3>
-                        <p className="text-[9px] text-slate-400 uppercase mt-0.5">{prof.role}</p>
+                        <h3 className="text-2xs font-black text-foreground truncate">{prof.name}</h3>
+                        <p className="text-[9px] text-muted-foreground uppercase mt-0.5">{prof.role}</p>
                       </div>
                     </div>
                   ))}
@@ -330,12 +331,13 @@ export default function PatientPortalScreen() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block">
                 Selecciona Fecha de Reserva
               </label>
               <div className="relative">
-                <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fuchsia-400 pointer-events-none" />
+                <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
                 <input
+                  id="tour-portal-date"
                   type="date"
                   value={selectedDate}
                   min={new Date().toISOString().split("T")[0]}
@@ -343,26 +345,26 @@ export default function PatientPortalScreen() {
                     setSelectedDate(e.target.value);
                     setSelectedSlot("");
                   }}
-                  className="w-full pl-11 pr-4 py-3 bg-[#131b2e]/60 border border-slate-800 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-fuchsia-500 cursor-pointer"
+                  className="w-full pl-11 pr-4 py-3 bg-card/60 border border-border rounded-2xl text-xs font-bold text-foreground focus:outline-none focus:border-primary cursor-pointer"
                 />
               </div>
             </div>
 
             {selectedDate && selectedProfessionalId && (
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block">
                   Horarios Disponibles
                 </label>
                 {loadingSlots ? (
                   <div className="py-6 flex justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-fuchsia-500" />
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
                 ) : slots.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-800 rounded-2xl bg-[#131b2e]/20 text-slate-500 text-xs font-semibold">
+                  <div className="text-center py-6 border border-dashed border-border rounded-2xl bg-card/30 text-muted-foreground text-xs font-semibold">
                     No hay horarios disponibles para este especialista en la fecha seleccionada.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2.5 max-h-[140px] overflow-y-auto pr-1">
+                  <div id="tour-portal-slots" className="grid grid-cols-4 gap-2.5 max-h-[140px] overflow-y-auto pr-1">
                     {slots.map((slot) => (
                       <button
                         key={slot}
@@ -370,8 +372,8 @@ export default function PatientPortalScreen() {
                         onClick={() => setSelectedSlot(slot)}
                         className={`py-2 px-1 text-center text-xs font-black rounded-xl border transition-all ${
                           selectedSlot === slot
-                            ? "bg-fuchsia-500 border-fuchsia-500 text-white shadow-md shadow-fuchsia-500/10"
-                            : "border-slate-800 bg-[#131b2e]/40 text-slate-350 hover:bg-[#131b2e] hover:border-slate-700"
+                            ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
+                            : "border-border bg-card/40 text-muted-foreground hover:bg-card hover:border-primary/40"
                         }`}
                       >
                         {slot}
@@ -382,11 +384,11 @@ export default function PatientPortalScreen() {
               </div>
             )}
 
-            <div className="flex justify-between pt-4 border-t border-slate-800">
+            <div className="flex justify-between pt-4 border-t border-border">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-5 py-3 border border-slate-800 text-xs font-black text-slate-400 rounded-xl hover:bg-slate-800/40 transition-colors"
+                className="px-5 py-3 border border-border text-xs font-black text-muted-foreground rounded-xl hover:bg-muted transition-colors"
               >
                 Volver
               </button>
@@ -394,7 +396,8 @@ export default function PatientPortalScreen() {
                 type="button"
                 onClick={() => setStep(3)}
                 disabled={!selectedSlot}
-                className="flex items-center gap-1.5 px-6 py-3 bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-fuchsia-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-6 py-3 text-primary-foreground text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'var(--gradient-auth)' }}
               >
                 Continuar
                 <ChevronRight className="w-4 h-4" />
@@ -406,18 +409,18 @@ export default function PatientPortalScreen() {
         {/* STAGE 3: Contact details form */}
         {step === 3 && (
           <form onSubmit={handleBookingSubmit} className="space-y-6 relative z-10">
-            <div className="p-4 bg-[#131b2e]/40 border border-slate-800 rounded-2xl space-y-2.5">
-              <h4 className="text-[10px] font-black text-slate-450 uppercase tracking-widest border-b border-slate-800 pb-1.5">
+            <div className="p-4 bg-card/40 border border-border rounded-2xl space-y-2.5">
+              <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-1.5">
                 Resumen de tu Reserva
               </h4>
-              <p className="text-xs font-black text-white">{getSelectedService()?.name}</p>
-              <div className="grid grid-cols-2 gap-4 text-[10px] text-slate-400 font-semibold pt-1">
+              <p className="text-xs font-black text-foreground">{getSelectedService()?.name}</p>
+              <div className="grid grid-cols-2 gap-4 text-[10px] text-muted-foreground font-semibold pt-1">
                 <div className="flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
+                  <UserIcon className="w-3.5 h-3.5 text-secondary" />
                   <span>{getSelectedProf()?.name}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-fuchsia-400" />
+                  <Clock className="w-3.5 h-3.5 text-primary" />
                   <span>{selectedDate} a las {selectedSlot} hs</span>
                 </div>
               </div>
@@ -425,68 +428,73 @@ export default function PatientPortalScreen() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 block">
                   Nombre Completo *
                 </label>
                 <div className="relative">
-                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
+                    id="tour-portal-fullname"
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Ej. Sofía Hernández"
-                    className="w-full pl-11 pr-4 py-3 bg-[#131b2e]/60 border border-slate-800 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-fuchsia-500"
+                    className="w-full pl-11 pr-4 py-3 bg-card/60 border border-border rounded-2xl text-xs font-bold text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 block">
                   Teléfono celular *
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
+                    id="tour-portal-phone"
                     type="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Ej. +52 55 1234 5678"
-                    className="w-full pl-11 pr-4 py-3 bg-[#131b2e]/60 border border-slate-800 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-fuchsia-500"
+                    className="w-full pl-11 pr-4 py-3 bg-card/60 border border-border rounded-2xl text-xs font-bold text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 block">
                   Correo electrónico (Opcional)
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
+                    id="tour-portal-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Ej. sofia@mail.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#131b2e]/60 border border-slate-800 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-fuchsia-500"
+                    className="w-full pl-11 pr-4 py-3 bg-card/60 border border-border rounded-2xl text-xs font-bold text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between pt-4 border-t border-slate-800">
+            <div className="flex justify-between pt-4 border-t border-border">
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="px-5 py-3 border border-slate-800 text-xs font-black text-slate-400 rounded-xl hover:bg-slate-800/40 transition-colors"
+                className="px-5 py-3 border border-border text-xs font-black text-muted-foreground rounded-xl hover:bg-muted transition-colors"
               >
                 Volver
               </button>
               <button
+                id="tour-portal-submit"
                 type="submit"
                 disabled={submitting || !fullName || !phone}
-                className="flex items-center gap-1.5 px-6 py-3 bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-fuchsia-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-6 py-3 text-primary-foreground text-xs font-black rounded-xl hover:opacity-95 transition-all shadow-md shadow-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'var(--gradient-auth)' }}
               >
                 {submitting ? (
                   <>
@@ -507,20 +515,20 @@ export default function PatientPortalScreen() {
         {/* STAGE 4: Success message */}
         {step === 4 && (
           <div className="text-center space-y-6 py-6 relative z-10 animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-450 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+            <div className="w-16 h-16 rounded-full bg-success/10 text-success flex items-center justify-center mx-auto mb-4 border border-success/20 shadow-lg shadow-success/10">
               <UserCheck className="w-8 h-8" />
             </div>
             
-            <h2 className="text-lg md:text-xl font-black text-emerald-400">
+            <h2 className="text-lg md:text-xl font-black text-success">
               ¡Reserva Recibida con Éxito!
             </h2>
             
-            <p className="text-slate-350 text-xs md:text-sm leading-relaxed max-w-sm mx-auto">
-              Hola <span className="font-bold text-white">{fullName}</span>, hemos agendado tu cita para <span className="font-bold text-white">{getSelectedService()?.name}</span> con el profesional <span className="font-bold text-white">{getSelectedProf()?.name}</span>.
+            <p className="text-muted-foreground text-xs md:text-sm leading-relaxed max-w-sm mx-auto">
+              Hola <span className="font-bold text-foreground">{fullName}</span>, hemos agendado tu cita para <span className="font-bold text-foreground">{getSelectedService()?.name}</span> con el profesional <span className="font-bold text-foreground">{getSelectedProf()?.name}</span>.
             </p>
 
-            <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl text-slate-400 text-xs leading-normal max-w-sm mx-auto text-left space-y-2">
-              <span className="font-black text-emerald-400 block tracking-wider uppercase text-[10px]">
+            <div className="p-4 bg-success/5 border border-success/20 rounded-2xl text-muted-foreground text-xs leading-normal max-w-sm mx-auto text-left space-y-2">
+              <span className="font-black text-success block tracking-wider uppercase text-[10px]">
                 Pasos a Seguir:
               </span>
               <p>1. Recibirás un mensaje de WhatsApp en tu número registrado para validar tu cita.</p>
@@ -539,7 +547,7 @@ export default function PatientPortalScreen() {
                 setPhone("");
                 setEmail("");
               }}
-              className="mt-6 px-6 py-2.5 bg-slate-800 text-white text-xs font-black rounded-xl hover:bg-slate-700 transition-colors cursor-pointer"
+              className="mt-6 px-6 py-2.5 bg-muted text-foreground text-xs font-black rounded-xl hover:bg-muted/80 transition-colors cursor-pointer"
             >
               Hacer Otra Reserva
             </button>

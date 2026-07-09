@@ -70,13 +70,13 @@ const UNITS = ["unidad", "sesión", "ml", "g", "kit", "ampolla"];
 
 const categoryBadge: Record<string, string> = {
   TRATAMIENTO: "bg-primary/10 text-primary",
-  PRODUCTO: "bg-amber-100 text-amber-700 border-amber-200",
+  PRODUCTO: "bg-warning/10 text-warning border border-warning/20",
 };
 
 const movementTypeBadges: Record<string, { label: string; style: string }> = {
-  STOCK_IN: { label: "Entrada (+)", style: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-  STOCK_OUT: { label: "Ajuste / Merma (-)", style: "bg-rose-50 text-rose-700 border-rose-100" },
-  SESSION_CONSUMPTION: { label: "Consumo Cita (-)", style: "bg-indigo-50 text-indigo-700 border-indigo-100" },
+  STOCK_IN: { label: "Entrada (+)", style: "bg-success/10 text-success border border-success/20" },
+  STOCK_OUT: { label: "Ajuste / Merma (-)", style: "bg-error/10 text-error border border-error/20" },
+  SESSION_CONSUMPTION: { label: "Consumo Cita (-)", style: "bg-secondary/10 text-secondary border border-secondary/20" },
 };
 
 // ── Product Modal ─────────────────────────────────────────────────────────────
@@ -118,9 +118,9 @@ function ProductModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-slate-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
           <h2 className="text-base font-bold text-foreground">
             {product ? "Editar Producto" : "Nuevo Producto / Tratamiento"}
           </h2>
@@ -209,9 +209,9 @@ function ProductModal({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-700 font-medium">{error}</p>
+            <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+              <p className="text-xs text-error font-medium">{error}</p>
             </div>
           )}
 
@@ -286,9 +286,9 @@ function AdjustStockModal({ product, onSave, onClose }: AdjustStockModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-slate-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
           <h2 className="text-base font-bold text-foreground">
             Ajustar Stock: {product.name}
           </h2>
@@ -342,9 +342,9 @@ function AdjustStockModal({ product, onSave, onClose }: AdjustStockModalProps) {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-700 font-medium">{error}</p>
+            <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+              <p className="text-xs text-error font-medium">{error}</p>
             </div>
           )}
 
@@ -684,7 +684,7 @@ export default function InventoryScreen() {
     <div className="p-6 space-y-5">
       {/* Header and Sub-tabs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-border pb-4 gap-4">
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
+        <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
           <button
             onClick={() => setActiveSubTab("STOCK")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
@@ -744,9 +744,9 @@ export default function InventoryScreen() {
       )}
 
       {productToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-2xl border border-slate-300 shadow-2xl p-6 flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4">
+        <div className="fixed inset-0 bg-foreground/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-sm rounded-2xl border border-border shadow-2xl p-6 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-error/20 flex items-center justify-center text-error mb-4">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-2">Desactivar Producto</h3>
@@ -766,7 +766,7 @@ export default function InventoryScreen() {
                   setProductToDelete(null);
                   await handleDeleteConfirm(id);
                 }}
-                className="flex-1 px-4 py-2.5 bg-red-650 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer bg-red-600"
+                className="flex-1 px-4 py-2.5 bg-destructive hover:bg-destructive/90 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Desactivar
               </button>
@@ -777,13 +777,13 @@ export default function InventoryScreen() {
 
       {/* Low stock alert */}
       {activeSubTab === "STOCK" && lowStock.length > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-          <TrendingDown className="w-5 h-5 text-amber-600 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-4 bg-warning/10 border border-warning/20 rounded-2xl">
+          <TrendingDown className="w-5 h-5 text-warning flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-bold text-amber-800">
+            <p className="text-sm font-bold text-warning">
               {lowStock.length} producto{lowStock.length > 1 ? "s" : ""} con stock bajo (&lt; 5 unidades)
             </p>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-warning/80 mt-0.5">
               {lowStock.map((p) => `${p.name} (${p.stock})`).join(" · ")}
             </p>
           </div>
@@ -805,7 +805,7 @@ export default function InventoryScreen() {
                 Suma de precio de venta * stock de todos los insumos activos
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0 text-emerald-400">
+            <div className="w-12 h-12 rounded-2xl bg-success/10 flex items-center justify-center flex-shrink-0 text-success">
               <DollarSign className="w-6 h-6" />
             </div>
           </div>
@@ -815,14 +815,14 @@ export default function InventoryScreen() {
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
                 Pérdidas Acumuladas por Mermas
               </span>
-              <span className="text-2xl font-extrabold text-rose-500 block">
+              <span className="text-2xl font-extrabold text-error block">
                 ${getTotalLossFromMovements().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-muted-foreground block font-medium">
                 Pérdidas de almacén registradas por mermas manuales
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center flex-shrink-0 text-rose-400">
+            <div className="w-12 h-12 rounded-2xl bg-error/10 flex items-center justify-center flex-shrink-0 text-error">
               <TrendingDown className="w-6 h-6" />
             </div>
           </div>
@@ -830,9 +830,9 @@ export default function InventoryScreen() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-700 font-medium">{error}</p>
+        <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-xs text-error font-medium">{error}</p>
         </div>
       )}
 
@@ -906,11 +906,11 @@ export default function InventoryScreen() {
                           >
                             <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
-                           <button
-                             onClick={() => setProductToDelete(product)}
-                             disabled={deletingId === product.id}
-                             className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-muted-foreground transition-colors"
-                           >
+                            <button
+                              onClick={() => setProductToDelete(product)}
+                              disabled={deletingId === product.id}
+                              className="p-1.5 rounded-lg hover:bg-error/10 hover:text-error text-muted-foreground transition-colors"
+                            >
                             {deletingId === product.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
@@ -924,10 +924,10 @@ export default function InventoryScreen() {
                     <div className="flex items-end justify-between mt-4">
                       <div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stock</p>
-                        <p className={`text-sm font-bold mt-0.5 ${product.stock < 5 ? "text-amber-600" : "text-foreground"}`}>
+                        <p className={`text-sm font-bold mt-0.5 ${product.stock < 5 ? "text-warning" : "text-foreground"}`}>
                           {product.stock} {product.unit}
                           {product.stock < 5 && (
-                            <span className="ml-1.5 text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold border border-amber-200">
+                            <span className="ml-1.5 text-[9px] bg-warning/10 text-warning px-1.5 py-0.5 rounded-full font-bold border border-warning/20">
                               Bajo
                             </span>
                           )}
@@ -1020,7 +1020,7 @@ export default function InventoryScreen() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/50 border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <tr className="bg-muted/40 border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                       <th className="px-6 py-4">Fecha</th>
                       <th className="px-6 py-4">Producto / Insumo</th>
                       <th className="px-6 py-4">Tipo</th>
@@ -1048,23 +1048,23 @@ export default function InventoryScreen() {
                       }
 
                       return (
-                        <tr key={m.id} className="hover:bg-slate-50/30 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-500 font-medium">
+                        <tr key={m.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-muted-foreground font-medium">
                             {formattedDate}
                           </td>
                           <td className="px-6 py-4">
-                            <p className="font-bold text-slate-800">{m.product?.name || "Insumo Eliminado"}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{m.product?.category}</p>
+                            <p className="font-bold text-foreground">{m.product?.name || "Insumo Eliminado"}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{m.product?.category}</p>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${typeBadge.style}`}>
                               {typeBadge.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">
+                          <td className="px-6 py-4 whitespace-nowrap font-bold text-foreground">
                             {m.quantity} {m.product?.unit || "unid."}
                           </td>
-                          <td className="px-6 py-4 text-slate-600 font-medium max-w-xs truncate" title={detailText}>
+                          <td className="px-6 py-4 text-muted-foreground font-medium max-w-xs truncate" title={detailText}>
                             {detailText}
                           </td>
                         </tr>

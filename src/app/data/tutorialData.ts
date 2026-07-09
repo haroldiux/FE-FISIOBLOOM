@@ -22,6 +22,8 @@ export interface TourStep {
   position?: "top" | "bottom" | "left" | "right" | "center";
   mode?: "view" | "interactive";
   advanceOn?: { event: string; selector: string };
+  targetScreen?: string;
+  targetTab?: string;
 }
 
 export interface ScreenGuide {
@@ -324,21 +326,21 @@ export const VIEW_TOURS: Record<string, TourStep[]> = {
   ],
   portal: [
     {
-      selector: ".portal-services-grid",
+      selector: "#tour-portal-services",
       title: "Paso 1: Elige tu Tratamiento",
       content: "Selecciona el servicio clínico o estético que deseas agendar desde nuestro catálogo público en línea.",
       position: "bottom"
     },
     {
-      selector: ".portal-slots-calendar",
+      selector: "#tour-portal-date",
       title: "Paso 2: Fecha y Profesional",
-      content: "Elige al especialista de tu preferencia y visualiza los horarios y días disponibles en tiempo real.",
+      content: "Elige al especialista de tu preferencia, selecciona un día y visualiza los horarios disponibles en tiempo real.",
       position: "top"
     },
     {
-      selector: ".portal-submit-booking",
+      selector: "#tour-portal-submit",
       title: "Paso 3: Reserva Web",
-      content: "Completa tus datos de contacto y confirma la cita. Se agendará en la consola del centro clínico automáticamente.",
+      content: "Completa tus datos de contacto en el formulario y confirma la cita. Se agendará en la consola del centro clínico automáticamente.",
       position: "top"
     }
   ]
@@ -589,6 +591,66 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-service-form-submit",
       title: "Paso 4: Guardar Servicio",
       content: "Guarda el tratamiento. Quedará disponible en la agenda del calendario y en el terminal POS.",
+      position: "top"
+    }
+  ],
+  "offline-photo-sync": [
+    {
+      selector: "#tour-tab-galeria",
+      title: "Paso 1: Muro de Evolución",
+      content: "Dirígete a la pestaña de Galería de Fotos dentro de la ficha del paciente.",
+      position: "bottom"
+    },
+    {
+      selector: "#tour-patients-gallery-sync-banner",
+      title: "Paso 2: Cola de Fotos Offline",
+      content: "Si subiste imágenes sin conexión, aparecerá este aviso informando que se encuentran guardadas localmente en el navegador.",
+      position: "bottom"
+    },
+    {
+      selector: "#tour-patients-gallery-sync-btn",
+      title: "Paso 3: Sincronizar Galería",
+      content: "Haz clic en 'Sincronizar ahora'. El sistema subirá las fotos en cola al servidor y las anexará permanentemente a la ficha.",
+      position: "left"
+    }
+  ],
+  "whatsapp-integration": [
+    {
+      selector: "#tour-config-tabs",
+      title: "Paso 1: Pestañas de Ajustes",
+      content: "Abre el menú de configuración y selecciona la pestaña de WhatsApp.",
+      position: "bottom"
+    },
+    {
+      selector: "#tour-config-whatsapp-form",
+      title: "Paso 2: Credenciales de WhatsApp",
+      content: "Escribe tu API Token y número emisor de Meta. Esto habilitará el daemon de recordatorios y confirmación automática.",
+      position: "top"
+    },
+    {
+      selector: "#tour-config-whatsapp-form button[type='submit']",
+      title: "Paso 3: Guardar y Activar Webhook",
+      content: "Presiona 'Guardar' para conectar el webhook. Si el paciente responde '1' (Confirmar) o '2' (Cancelar), la cita se actualizará automáticamente en tu agenda.",
+      position: "top"
+    }
+  ],
+  "payroll-settlement": [
+    {
+      selector: "#tour-finance-tabs",
+      title: "Paso 1: Barra de Finanzas",
+      content: "Navega a la sección de Finanzas en la barra superior.",
+      position: "bottom"
+    },
+    {
+      selector: "#tour-finance-payroll-tab",
+      title: "Paso 2: Módulo de Nóminas",
+      content: "Selecciona la pestaña de Nóminas en el panel de control.",
+      position: "bottom"
+    },
+    {
+      selector: "#tour-pos-payroll",
+      title: "Paso 3: Liquidar Comisiones",
+      content: "Revisa las comisiones automáticas del 10% acumuladas por citas completadas. Selecciona el período y presiona 'Liquidar' para archivar el pago.",
       position: "top"
     }
   ]

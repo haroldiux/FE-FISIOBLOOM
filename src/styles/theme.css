@@ -51,6 +51,38 @@
   --glass-border: rgba(255, 255, 255, 0.22);
   --glass-overlay: rgba(255, 255, 255, 0.08);
   --glass-shadow: rgba(0, 0, 0, 0.25);
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Spatial UI — Brand palette tokens (default: Aura)
+     These new variables are palette-driven. Each .palette-<key> class on
+     <html> overrides them. Existing UI tokens (--primary, --secondary…)
+     are kept untouched for backward compatibility.
+     ════════════════════════════════════════════════════════════════════════ */
+  --primary-glow: rgba(45, 212, 191, 0.45);
+  --secondary: #A78BFA;
+  --secondary-glow: rgba(167, 139, 250, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FBBF24;
+  --warning-glow: rgba(251, 191, 36, 0.40);
+  --error: #FB7185;
+  --error-glow: rgba(251, 113, 133, 0.40);
+  --palette-bg-page: #030712;
+  --palette-bg-surface: rgba(17, 24, 39, 0.55);
+  --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
+  --palette-name: "Aura";
+
+  /* Spatial login — primary brand gradient (logo + login orbs accent) */
+  --gradient-login: linear-gradient(135deg, var(--primary) 0%, #c026d3 100%);
+
+  /* Tutorial spotlight — dim color used to mask the page during guided tours */
+  --spotlight-dim: rgba(15, 23, 42, 0.7);
+
+  /* PatientPortal — multi-stop ambient background (deep cosmic → midnight → violet) */
+  --gradient-portal: linear-gradient(to top right, #090d16 0%, #0f172a 50%, #1e112a 100%);
+
+  /* PatientPortal — fuchsia→cyan brand button gradient */
+  --gradient-auth: linear-gradient(to right, var(--primary) 0%, #06b6d4 100%);
 }
 
 .dark {
@@ -97,6 +129,116 @@
   --glass-shadow: rgba(0, 0, 0, 0.65);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SPATIAL UI — PALETTE OVERRIDES
+   Each palette class lives on <html> alongside `.dark` / `.light` and
+   rewrites the brand color tokens. Backgrounds (.palette-bg-*) are
+   provided as variables so future migrations can swap the global page
+   tint without rewriting dozens of components.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Aura (default — Teal + Violet) ───────────────────────────────────────── */
+.palette-aura {
+  --primary-glow: rgba(45, 212, 191, 0.45);
+  --secondary: #A78BFA;
+  --secondary-glow: rgba(167, 139, 250, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FBBF24;
+  --warning-glow: rgba(251, 191, 36, 0.40);
+  --error: #FB7185;
+  --error-glow: rgba(251, 113, 133, 0.40);
+  --palette-bg-page: #030712;
+  --palette-bg-surface: rgba(17, 24, 39, 0.55);
+  --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
+  --palette-name: "Aura";
+}
+
+/* ── Bloom (Pink + Mauve) ─────────────────────────────────────────────────── */
+.palette-bloom {
+  --primary-glow: rgba(244, 114, 182, 0.45);
+  --secondary: #C084FC;
+  --secondary-glow: rgba(192, 132, 252, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FBBF24;
+  --warning-glow: rgba(251, 191, 36, 0.40);
+  --error: #FB7185;
+  --error-glow: rgba(251, 113, 133, 0.40);
+  --palette-bg-page: #1A1016;
+  --palette-bg-surface: rgba(45, 30, 40, 0.58);
+  --palette-bg-surface-elevated: rgba(70, 45, 60, 0.55);
+  --palette-name: "Bloom";
+}
+
+/* ── Ocean (Cyan + Coral) ─────────────────────────────────────────────────── */
+.palette-ocean {
+  --primary-glow: rgba(34, 211, 238, 0.45);
+  --secondary: #FB923C;
+  --secondary-glow: rgba(251, 146, 60, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FDE047;
+  --warning-glow: rgba(253, 224, 71, 0.40);
+  --error: #F87171;
+  --error-glow: rgba(248, 113, 113, 0.40);
+  --palette-bg-page: #02101A;
+  --palette-bg-surface: rgba(8, 30, 45, 0.58);
+  --palette-bg-surface-elevated: rgba(15, 50, 70, 0.55);
+  --palette-name: "Ocean";
+}
+
+/* ── Sunset (Peach + Lavender) ────────────────────────────────────────────── */
+.palette-sunset {
+  --primary-glow: rgba(253, 186, 116, 0.45);
+  --secondary: #C4B5FD;
+  --secondary-glow: rgba(196, 181, 253, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FCD34D;
+  --warning-glow: rgba(252, 211, 77, 0.40);
+  --error: #FCA5A5;
+  --error-glow: rgba(252, 165, 165, 0.40);
+  --palette-bg-page: #0F172A;
+  --palette-bg-surface: rgba(30, 41, 59, 0.58);
+  --palette-bg-surface-elevated: rgba(51, 65, 85, 0.55);
+  --palette-name: "Sunset";
+}
+
+/* ── Berry (Red berry + Plum) ─────────────────────────────────────────────── */
+.palette-berry {
+  --primary-glow: rgba(248, 113, 113, 0.45);
+  --secondary: #E879F9;
+  --secondary-glow: rgba(232, 121, 249, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FBBF24;
+  --warning-glow: rgba(251, 191, 36, 0.40);
+  --error: #FB7185;
+  --error-glow: rgba(251, 113, 133, 0.40);
+  --palette-bg-page: #120410;
+  --palette-bg-surface: rgba(40, 15, 30, 0.58);
+  --palette-bg-surface-elevated: rgba(65, 25, 50, 0.55);
+  --palette-name: "Berry";
+}
+
+/* ── Tropical (Mango + Fuchsia) ───────────────────────────────────────────── */
+.palette-tropical {
+  --primary-glow: rgba(251, 146, 60, 0.45);
+  --secondary: #E879F9;
+  --secondary-glow: rgba(232, 121, 249, 0.40);
+  --success: #34D399;
+  --success-glow: rgba(52, 211, 153, 0.40);
+  --warning: #FDE047;
+  --warning-glow: rgba(253, 224, 71, 0.40);
+  --error: #FB7185;
+  --error-glow: rgba(251, 113, 133, 0.40);
+  --palette-bg-page: #180828;
+  --palette-bg-surface: rgba(40, 20, 55, 0.58);
+  --palette-bg-surface-elevated: rgba(65, 35, 85, 0.55);
+  --palette-name: "Tropical";
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -136,6 +278,20 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Spatial UI brand palette tokens → exposed as Tailwind utility classes. */
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-glow: var(--secondary-glow);
+  --color-success: var(--success);
+  --color-success-glow: var(--success-glow);
+  --color-warning: var(--warning);
+  --color-warning-glow: var(--warning-glow);
+  --color-error: var(--error);
+  --color-error-glow: var(--error-glow);
+  --color-palette-bg-page: var(--palette-bg-page);
+  --color-palette-bg-surface: var(--palette-bg-surface);
+  --color-palette-bg-surface-elevated: var(--palette-bg-surface-elevated);
 }
 
 @layer base {

@@ -25,10 +25,14 @@ import {
   ChevronDown,
   MapPin,
   Phone,
+  Palette,
 } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTenantSettings } from "../context/TenantSettingsContext";
+import { PALETTES, PaletteKey, applyPalette, getPaletteNames, resolvePaletteKey } from "../lib/palettes";
+import { useTutorial } from "../context/TutorialContext";
+import { enrichStep } from "../components/TutorialTour";
 
 // ── WhatsApp Types ─────────────────────────────────────────────────────────────
 
@@ -101,10 +105,10 @@ const DAYS = [
 const ROLES = ["ADMIN", "PHYSIO", "AESTHETICIAN", "RECEPTIONIST"];
 
 const roleBadge: Record<string, string> = {
-  ADMIN: "bg-red-500/10 text-red-400 border border-red-500/20",
-  PHYSIO: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  AESTHETICIAN: "bg-violet-500/10 text-violet-400 border border-violet-500/20",
-  RECEPTIONIST: "bg-white/5 text-muted-foreground border border-white/10",
+  ADMIN: "bg-error/10 text-error border border-error/20",
+  PHYSIO: "bg-secondary/10 text-secondary border border-secondary/20",
+  AESTHETICIAN: "bg-primary/10 text-primary border border-primary/20",
+  RECEPTIONIST: "bg-muted text-muted-foreground border border-border",
 };
 
 const roleLabel: Record<string, string> = {
@@ -206,9 +210,9 @@ function WorkingHoursEditor({
       })}
 
       {error && (
-        <div className="flex items-center gap-2 p-2.5 bg-red-50 border border-red-200 rounded-xl">
-          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-700">{error}</p>
+        <div className="flex items-center gap-2 p-2.5 bg-error/10 border border-error/20 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-xs text-error">{error}</p>
         </div>
       )}
 
@@ -281,7 +285,7 @@ function BranchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-bold text-foreground">
@@ -294,7 +298,7 @@ function BranchModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+            <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
               {error}
             </div>
           )}
@@ -386,7 +390,7 @@ function ProfessionalModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-bold text-foreground">Nuevo Profesional</h2>
@@ -446,9 +450,9 @@ function ProfessionalModal({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <p className="text-xs text-red-700">{error}</p>
+            <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
 
@@ -480,6 +484,19 @@ export default function ConfigScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"professionals" | "clinic" | "whatsapp" | "branches">("professionals");
 
+  // Tutorial tab sync watcher
+  const { activeTour, currentStep } = useTutorial();
+  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
+
+  useEffect(() => {
+    if (activeStep?.targetTab) {
+      const lowerTab = activeStep.targetTab.toLowerCase();
+      if (["professionals", "clinic", "whatsapp", "branches"].includes(lowerTab)) {
+        setActiveTab(lowerTab as any);
+      }
+    }
+  }, [activeStep]);
+
   // WhatsApp State
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
   const [waLogs, setWaLogs] = useState<WhatsAppLog[]>([]);
@@ -491,7 +508,9 @@ export default function ConfigScreen() {
 
   // Tenant Settings & Feature Flags State
   const { settings: tenantSettings, updateSettings } = useTenantSettings();
-  const [primaryColor, setPrimaryColor] = useState(tenantSettings.branding.primaryColor);
+  const [activePalette, setActivePalette] = useState<PaletteKey>(
+    resolvePaletteKey(tenantSettings.branding.palette)
+  );
   const [savingTenantSettings, setSavingTenantSettings] = useState(false);
 
   // Clinic Contact Info State
@@ -509,7 +528,7 @@ export default function ConfigScreen() {
   const [showBranchModal, setShowBranchModal] = useState(false);
 
   useEffect(() => {
-    setPrimaryColor(tenantSettings.branding.primaryColor);
+    setActivePalette(resolvePaletteKey(tenantSettings.branding.palette));
     if (tenantSettings.contactInfo) {
       setContactInfo({
         name: tenantSettings.contactInfo.name || '',
@@ -551,7 +570,7 @@ export default function ConfigScreen() {
       await updateSettings({
         branding: {
           ...tenantSettings.branding,
-          primaryColor
+          palette: activePalette,
         },
         contactInfo
       });
@@ -739,7 +758,7 @@ export default function ConfigScreen() {
             className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
               activeTab === id
                 ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -749,9 +768,9 @@ export default function ConfigScreen() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
-          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-700">{error}</p>
+        <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl mb-4">
+          <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+          <p className="text-xs text-error">{error}</p>
           <button onClick={() => setError(null)} className="ml-auto"><X className="w-3 h-3" /></button>
         </div>
       )}
@@ -806,7 +825,7 @@ export default function ConfigScreen() {
                           {roleLabel[pro.role] || pro.role}
                         </span>
                         {!pro.isActive && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-error/10 text-error">
                             Inactivo
                           </span>
                         )}
@@ -824,14 +843,14 @@ export default function ConfigScreen() {
                             <Clock className="w-3 h-3" />
                             Horarios
                           </button>
-                          <button
-                            onClick={() => handleToggleActive(pro)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all spring-hover ${
-                              pro.isActive
-                                ? "border border-red-500/30 text-red-400 hover:bg-red-500/10"
-                                : "border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                            }`}
-                          >
+                        <button
+                          onClick={() => handleToggleActive(pro)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all spring-hover ${
+                            pro.isActive
+                              ? "border border-error/30 text-error hover:bg-error/10"
+                              : "border border-success/30 text-success hover:bg-success/10"
+                          }`}
+                        >
                             {pro.isActive ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                             {pro.isActive ? "Desactivar" : "Activar"}
                           </button>
@@ -974,24 +993,147 @@ export default function ConfigScreen() {
               </div>
 
               <div className="border-t border-border pt-4">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">
-                  Color Primario Corporativo (Branding)
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-10 h-10 border border-border rounded-xl cursor-pointer bg-transparent"
-                  />
-                  <input
-                    type="text"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="px-3 py-2 text-xs border border-border rounded-lg bg-background w-28 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
+                <div className="flex items-center gap-2 mb-2">
+                  <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Paleta de Marca (Spatial UI)
+                  </label>
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                  Elige una de las 6 paletas del sistema. Cambia acentos, alertas y el aura
+                  de la interfaz.
+                </p>
+                <div
+                  id="tour-config-palette-selector"
+                  className="grid grid-cols-2 md:grid-cols-3 gap-2.5"
+                >
+                  {getPaletteNames().map((key) => {
+                    const palette = PALETTES[key];
+                    const isActive = activePalette === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { setActivePalette(key); applyPalette(key); }}
+                        aria-pressed={isActive}
+                        className={`relative text-left p-3 rounded-2xl border transition-all duration-300 spring-hover cursor-pointer overflow-hidden ${
+                          isActive
+                            ? "border-primary bg-primary/10 shadow-md shadow-primary/20"
+                            : "border-border bg-background/40 hover:border-primary/40 hover:bg-background/70"
+                        }`}
+                      >
+                        {/* Gradient swatch */}
+                        <div
+                          className="w-full h-12 rounded-xl mb-2 border border-white/10"
+                          style={{
+                            background: `linear-gradient(135deg, ${palette.tokens.primary} 0%, ${palette.tokens.secondary} 100%)`,
+                            boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.08), 0 6px 18px -8px ${palette.tokens.primaryGlow}`,
+                          }}
+                        >
+                          <div className="w-full h-full flex items-center justify-end pr-2">
+                            <div className="flex gap-1">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-white/30"
+                                style={{ background: palette.tokens.success }}
+                                aria-hidden
+                              />
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-white/30"
+                                style={{ background: palette.tokens.warning }}
+                                aria-hidden
+                              />
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-white/30"
+                                style={{ background: palette.tokens.error }}
+                                aria-hidden
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p
+                              className={`text-xs font-black uppercase tracking-wider truncate ${
+                                isActive ? "text-primary" : "text-foreground"
+                              }`}
+                            >
+                              {palette.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">
+                              {palette.description}
+                            </p>
+                          </div>
+                          {isActive && (
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center">
+                              <Check className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {tenantSettings.features.portalPaciente && (
+                <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Enlace del Portal de Reserva Online</h3>
+                    <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                      Comparte este enlace en tus redes sociales (Instagram, WhatsApp) para que tus pacientes reserven directamente.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <input
+                      readOnly
+                      value={`${window.location.origin}/?portal=true&tenant=${tenantSettings.slug || "aura"}${localStorage.getItem("branchId") ? `&branch=${localStorage.getItem("branchId")}` : ""}`}
+                      className="flex-1 px-3 py-2.5 text-xs font-mono border border-border rounded-xl bg-muted text-muted-foreground focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const slug = tenantSettings.slug || "aura";
+                        const branchId = localStorage.getItem("branchId") || "";
+                        const url = `${window.location.origin}/?portal=true&tenant=${slug}${branchId ? `&branch=${branchId}` : ""}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success("Enlace copiado al portapapeles.");
+                      }}
+                      className="px-4 py-2.5 bg-primary/10 text-primary text-xs font-bold rounded-xl hover:bg-primary hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      Copiar Enlace
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-xl border border-border">
+                    <div className="w-16 h-16 bg-white p-1 rounded-lg border border-border flex items-center justify-center flex-shrink-0 select-none">
+                      <svg className="w-full h-full text-black" viewBox="0 0 100 100">
+                        <rect x="0" y="0" width="25" height="25" />
+                        <rect x="10" y="10" width="5" height="5" fill="white" />
+                        <rect x="75" y="0" width="25" height="25" />
+                        <rect x="85" y="10" width="5" height="5" fill="white" />
+                        <rect x="0" y="75" width="25" height="25" />
+                        <rect x="10" y="85" width="5" height="5" fill="white" />
+                        <rect x="40" y="40" width="20" height="20" />
+                        <rect x="50" y="50" width="5" height="5" fill="white" />
+                        <rect x="30" y="10" width="10" height="5" />
+                        <rect x="60" y="15" width="5" height="10" />
+                        <rect x="15" y="45" width="15" height="5" />
+                        <rect x="10" y="60" width="5" height="5" />
+                        <rect x="45" y="75" width="5" height="15" />
+                        <rect x="80" y="45" width="10" height="10" />
+                        <rect x="70" y="70" width="15" height="5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Código QR del Centro</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Imprime este código y colócalo en tu recepción para que los clientes reserven con su teléfono móvil.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={handleSaveTenantSettings}
@@ -1033,7 +1175,7 @@ export default function ConfigScreen() {
                   <div className="p-3 bg-muted/30 rounded-xl">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Motor</p>
                     <div className="flex items-center gap-1.5">
-                      {waStatus?.redisActive ? <Wifi className="w-3.5 h-3.5 text-emerald-500" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500" />}
+                      {waStatus?.redisActive ? <Wifi className="w-3.5 h-3.5 text-success" /> : <WifiOff className="w-3.5 h-3.5 text-warning" />}
                       <span className="text-xs font-bold text-foreground">{waStatus?.redisActive ? 'BullMQ' : 'Memoria'}</span>
                     </div>
                   </div>
@@ -1075,8 +1217,8 @@ export default function ConfigScreen() {
                         className="flex-shrink-0 ml-4"
                       >
                         {waSettings[key]
-                          ? <ToggleRight className="w-8 h-8 text-emerald-500" />
-                          : <ToggleLeft className="w-8 h-8 text-slate-300" />}
+                          ? <ToggleRight className="w-8 h-8 text-success" />
+                          : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
                       </button>
                     </div>
                   ))}
@@ -1130,7 +1272,7 @@ export default function ConfigScreen() {
                       {showApiToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {!waSettings.apiToken && (
-                      <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                      <p className="text-[10px] text-warning mt-1 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> Sin token: los recordatorios quedan en modo simulado (solo logs).
                       </p>
                     )}
@@ -1159,9 +1301,9 @@ export default function ConfigScreen() {
                     className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background resize-none"
                   />
                 </div>
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Vista previa del mensaje</p>
-                  <p className="text-xs text-emerald-800 dark:text-emerald-300">{previewMessage}</p>
+                <div className="p-3 bg-success/10 border border-success/20 rounded-xl">
+                  <p className="text-[10px] font-bold text-success uppercase tracking-wider mb-1">Vista previa del mensaje</p>
+                  <p className="text-xs text-success">{previewMessage}</p>
                 </div>
 
                 {/* Actions */}
@@ -1176,14 +1318,14 @@ export default function ConfigScreen() {
                   <button
                     onClick={handleSendTestReminder}
                     disabled={waTestSending}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-foreground text-white text-sm font-bold rounded-xl hover:bg-foreground/90 transition-all disabled:opacity-50"
                   >
                     {waTestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                     Enviar prueba
                   </button>
                 </div>
                 {waTestResult && (
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{waTestResult}</p>
+                  <p className="text-sm font-semibold text-foreground">{waTestResult}</p>
                 )}
               </div>
 
@@ -1202,9 +1344,9 @@ export default function ConfigScreen() {
                     {waLogs.map((log) => (
                       <div key={log.id} className="flex items-start gap-3 px-5 py-3">
                         <span className={`text-[9px] font-bold px-2 py-1 rounded-full mt-0.5 flex-shrink-0 ${
-                          log.status === 'ENVIADO' ? 'bg-emerald-100 text-emerald-700'
-                          : log.status === 'ERROR' ? 'bg-red-100 text-red-700'
-                          : 'bg-amber-100 text-amber-700'
+                          log.status === 'ENVIADO' ? 'bg-success/10 text-success'
+                          : log.status === 'ERROR' ? 'bg-error/10 text-error'
+                          : 'bg-warning/10 text-warning'
                         }`}>{log.status}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-foreground">{log.patientName} <span className="font-normal text-muted-foreground">({log.phone})</span></p>
@@ -1269,8 +1411,8 @@ export default function ConfigScreen() {
                       </h3>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         branch.isActive
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-red-100 text-red-800"
+                          ? "bg-success/10 text-success"
+                          : "bg-error/10 text-error"
                       }`}>
                         {branch.isActive ? "Activo" : "Inactivo"}
                       </span>
@@ -1303,15 +1445,15 @@ export default function ConfigScreen() {
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => handleToggleBranchActive(branch)}
-                      className={`p-2 rounded-lg border transition-all cursor-pointer ${
-                        branch.isActive
-                          ? "border-red-500/20 text-red-500 hover:bg-red-500/10"
-                          : "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10"
-                      }`}
-                      title={branch.isActive ? "Desactivar" : "Activar"}
-                    >
+                      <button
+                        onClick={() => handleToggleBranchActive(branch)}
+                        className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                          branch.isActive
+                            ? "border-error/20 text-error hover:bg-error/10"
+                            : "border-success/20 text-success hover:bg-success/10"
+                        }`}
+                        title={branch.isActive ? "Desactivar" : "Activar"}
+                      >
                       {branch.isActive ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                     </button>
                   </div>

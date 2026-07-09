@@ -24,12 +24,6 @@ interface TutorialContextType {
   openHelpCenter: () => void;
   closeHelpCenter: () => void;
 
-  // Inspect Mode State
-  isInspectMode: boolean;
-  toggleInspectMode: () => void;
-  inspectItem: InspectItem | null;
-  setInspectItem: (item: InspectItem | null) => void;
-
   // User Onboarding Progress Tracking
   completedTours: string[];
   seenOnboardings: string[];
@@ -45,8 +39,6 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
   const [currentStep, setCurrentStep] = useState<number>(0);
 
   const [isHelpCenterOpen, setIsHelpCenterOpen] = useState<boolean>(false);
-  const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
-  const [inspectItem, setInspectItemState] = useState<InspectItem | null>(null);
 
   const [completedTours, setCompletedTours] = useState<string[]>([]);
   const [seenOnboardings, setSeenOnboardings] = useState<string[]>([]);
@@ -93,7 +85,6 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
       setActiveTourKey(`view_${screenKey}`);
       setCurrentStep(0);
       setIsHelpCenterOpen(false);
-      setIsInspectMode(false);
     } else {
       console.warn(`No tour defined for view: ${screenKey}`);
     }
@@ -106,7 +97,6 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
       setActiveTourKey(`workflow_${workflowKey}`);
       setCurrentStep(0);
       setIsHelpCenterOpen(false);
-      setIsInspectMode(false);
     } else {
       console.warn(`No tour defined for workflow: ${workflowKey}`);
     }
@@ -119,7 +109,6 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
       setActiveTourKey(`onboarding_${roleKey}`);
       setCurrentStep(0);
       setIsHelpCenterOpen(false);
-      setIsInspectMode(false);
     } else {
       console.warn(`No tour defined for onboarding role: ${roleKey}`);
     }
@@ -157,28 +146,11 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
 
   const openHelpCenter = () => {
     setIsHelpCenterOpen(true);
-    setIsInspectMode(false);
     setActiveTour(null);
   };
 
   const closeHelpCenter = () => {
     setIsHelpCenterOpen(false);
-  };
-
-  const toggleInspectMode = () => {
-    setIsInspectMode((prev) => {
-      const newVal = !prev;
-      if (newVal) {
-        setActiveTour(null);
-        setIsHelpCenterOpen(false);
-      }
-      return newVal;
-    });
-    setInspectItemState(null);
-  };
-
-  const setInspectItem = (item: InspectItem | null) => {
-    setInspectItemState(item);
   };
 
   return (
@@ -197,11 +169,6 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
         isHelpCenterOpen,
         openHelpCenter,
         closeHelpCenter,
-
-        isInspectMode,
-        toggleInspectMode,
-        inspectItem,
-        setInspectItem,
 
         completedTours,
         seenOnboardings,

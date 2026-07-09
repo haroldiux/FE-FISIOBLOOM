@@ -78,11 +78,11 @@ const EMPTY_DATA: DashboardData = {
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const statusConfig: Record<string, { label: string; cls: string; Icon: React.ComponentType<any> }> = {
-  CONFIRMADA: { label: "Confirmada", cls: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20", Icon: CheckCircle2 },
-  PENDIENTE: { label: "En Espera", cls: "bg-amber-500/10 text-amber-400 border border-amber-500/20", Icon: Timer },
-  COMPLETADA: { label: "Completada", cls: "bg-blue-500/10 text-blue-400 border border-blue-500/20", Icon: Activity },
-  CANCELADA_CON_CARGO: { label: "Cancelada", cls: "bg-red-500/10 text-red-400 border border-red-500/20", Icon: XCircle },
-  CANCELADA_SIN_CARGO: { label: "Cancelada S/C", cls: "bg-slate-500/10 text-slate-400 border border-slate-500/20", Icon: XCircle },
+  CONFIRMADA: { label: "Confirmada", cls: "bg-success/10 text-success border border-success/20", Icon: CheckCircle2 },
+  PENDIENTE: { label: "En Espera", cls: "bg-warning/10 text-warning border border-warning/20", Icon: Timer },
+  COMPLETADA: { label: "Completada", cls: "bg-secondary/10 text-secondary border border-secondary/20", Icon: Activity },
+  CANCELADA_CON_CARGO: { label: "Cancelada", cls: "bg-error/10 text-error border border-error/20", Icon: XCircle },
+  CANCELADA_SIN_CARGO: { label: "Cancelada S/C", cls: "bg-muted text-muted-foreground border border-border", Icon: XCircle },
 };
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function KPICard({
   return (
     <div
       ref={ref}
-      className="glass-panel spring-hover rounded-2xl border border-white/10 dark:border-white/5 p-5 flex items-center gap-4 shadow-lg"
+      className="glass-panel spring-hover rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg"
       style={{ opacity: 0 }}
     >
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
@@ -225,42 +225,42 @@ export default function DashboardScreen({
         {/* Bento KPI cards Grid Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           <div className="md:col-span-3">
-            <div className="animate-pulse bg-card/40 rounded-2xl border border-white/5 p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex-shrink-0" />
+            <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
+              <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-2.5 bg-white/5 rounded-full w-20" />
-                <div className="h-6 bg-white/10 rounded-full w-12" />
-                <div className="h-2 bg-white/5 rounded-full w-24" />
+                <div className="h-2.5 bg-muted rounded-full w-20" />
+                <div className="h-6 bg-muted-foreground/20 rounded-full w-12" />
+                <div className="h-2 bg-muted rounded-full w-24" />
               </div>
             </div>
           </div>
           <div className="md:col-span-5">
-            <div className="animate-pulse bg-card/40 rounded-2xl border border-white/5 p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex-shrink-0" />
+            <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
+              <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-2.5 bg-white/5 rounded-full w-28" />
-                <div className="h-6 bg-white/10 rounded-full w-24" />
-                <div className="h-2 bg-white/5 rounded-full w-36" />
+                <div className="h-2.5 bg-muted rounded-full w-28" />
+                <div className="h-6 bg-muted-foreground/20 rounded-full w-24" />
+                <div className="h-2 bg-muted rounded-full w-36" />
               </div>
             </div>
           </div>
           <div className="md:col-span-2">
-            <div className="animate-pulse bg-card/40 rounded-2xl border border-white/5 p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex-shrink-0" />
+            <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
+              <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-2.5 bg-white/5 rounded-full w-16" />
-                <div className="h-6 bg-white/10 rounded-full w-10" />
-                <div className="h-2 bg-white/5 rounded-full w-20" />
+                <div className="h-2.5 bg-muted rounded-full w-16" />
+                <div className="h-6 bg-muted-foreground/20 rounded-full w-10" />
+                <div className="h-2 bg-muted rounded-full w-20" />
               </div>
             </div>
           </div>
           <div className="md:col-span-2">
-            <div className="animate-pulse bg-card/40 rounded-2xl border border-white/5 p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex-shrink-0" />
+            <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
+              <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-2.5 bg-white/5 rounded-full w-24" />
-                <div className="h-6 bg-white/10 rounded-full w-8" />
-                <div className="h-2 bg-white/5 rounded-full w-16" />
+                <div className="h-2.5 bg-muted rounded-full w-24" />
+                <div className="h-6 bg-muted-foreground/20 rounded-full w-8" />
+                <div className="h-2 bg-muted rounded-full w-16" />
               </div>
             </div>
           </div>
@@ -269,41 +269,41 @@ export default function DashboardScreen({
         {/* Row 2: Chart + Retouch Alerts Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Chart Skeleton */}
-          <div className="col-span-12 lg:col-span-5 bg-card/40 rounded-2xl border border-white/5 p-5 space-y-4 animate-pulse">
+          <div className="col-span-12 lg:col-span-5 bg-card/40 rounded-2xl border border-border p-5 space-y-4 animate-pulse">
             <div className="flex justify-between items-center">
               <div className="space-y-2">
-                <div className="h-3.5 bg-white/10 rounded-full w-32" />
-                <div className="h-2.5 bg-white/5 rounded-full w-16" />
+                <div className="h-3.5 bg-muted-foreground/20 rounded-full w-32" />
+                <div className="h-2.5 bg-muted rounded-full w-16" />
               </div>
-              <div className="w-8 h-8 rounded-xl bg-white/10" />
+              <div className="w-8 h-8 rounded-xl bg-muted-foreground/20" />
             </div>
-            <div className="h-[180px] bg-black/10 rounded-2xl flex items-end p-4 gap-3">
-              <div className="h-[40%] bg-white/5 w-full rounded-t-lg" />
-              <div className="h-[60%] bg-white/10 w-full rounded-t-lg" />
-              <div className="h-[50%] bg-white/5 w-full rounded-t-lg" />
-              <div className="h-[80%] bg-white/10 w-full rounded-t-lg" />
-              <div className="h-[90%] bg-white/10 w-full rounded-t-lg" />
-              <div className="h-[70%] bg-white/5 w-full rounded-t-lg" />
-              <div className="h-[30%] bg-white/5 w-full rounded-t-lg" />
+            <div className="h-[180px] bg-foreground/5 rounded-2xl flex items-end p-4 gap-3">
+              <div className="h-[40%] bg-muted w-full rounded-t-lg" />
+              <div className="h-[60%] bg-muted-foreground/20 w-full rounded-t-lg" />
+              <div className="h-[50%] bg-muted w-full rounded-t-lg" />
+              <div className="h-[80%] bg-muted-foreground/20 w-full rounded-t-lg" />
+              <div className="h-[90%] bg-muted-foreground/20 w-full rounded-t-lg" />
+              <div className="h-[70%] bg-muted w-full rounded-t-lg" />
+              <div className="h-[30%] bg-muted w-full rounded-t-lg" />
             </div>
           </div>
 
           {/* Today's Appointments Skeleton */}
-          <div className="col-span-12 lg:col-span-7 bg-card/40 rounded-2xl border border-white/5 p-5 space-y-4 animate-pulse">
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+          <div className="col-span-12 lg:col-span-7 bg-card/40 rounded-2xl border border-border p-5 space-y-4 animate-pulse">
+            <div className="flex justify-between items-center border-b border-border pb-4">
               <div className="space-y-2">
-                <div className="h-3.5 bg-white/10 rounded-full w-24" />
-                <div className="h-2.5 bg-white/5 rounded-full w-20" />
+                <div className="h-3.5 bg-muted-foreground/20 rounded-full w-24" />
+                <div className="h-2.5 bg-muted rounded-full w-20" />
               </div>
-              <div className="w-8 h-8 rounded-xl bg-white/10" />
+              <div className="w-8 h-8 rounded-xl bg-muted-foreground/20" />
             </div>
             <div className="space-y-3.5 pt-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                  <div className="h-3 bg-white/10 rounded-full w-12" />
-                  <div className="h-3.5 bg-white/10 rounded-full w-28" />
-                  <div className="h-3 bg-white/5 rounded-full w-32" />
-                  <div className="h-5 bg-white/10 rounded-full w-20" />
+                <div key={i} className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0">
+                  <div className="h-3 bg-muted-foreground/20 rounded-full w-12" />
+                  <div className="h-3.5 bg-muted-foreground/20 rounded-full w-28" />
+                  <div className="h-3 bg-muted rounded-full w-32" />
+                  <div className="h-5 bg-muted-foreground/20 rounded-full w-20" />
                 </div>
               ))}
             </div>
@@ -333,7 +333,7 @@ export default function DashboardScreen({
             value={`$${data.todayRevenue.toLocaleString()}`}
             subtitle="Ingresos netos facturados hoy"
             Icon={DollarSign}
-            colorClass="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+            colorClass="bg-success/10 text-success border border-success/20"
             delay={80}
           />
         </div>
@@ -343,7 +343,7 @@ export default function DashboardScreen({
             value={data.activePatients}
             subtitle="Fichas vigentes"
             Icon={Users}
-            colorClass="bg-violet-500/10 text-violet-500 border border-violet-500/20"
+            colorClass="bg-secondary/10 text-secondary border border-secondary/20"
             delay={160}
           />
         </div>
@@ -353,7 +353,7 @@ export default function DashboardScreen({
             value={data.packagesExpiringSoon}
             subtitle="Vencen pronto"
             Icon={Package}
-            colorClass="bg-amber-500/10 text-amber-500 border border-amber-500/20"
+            colorClass="bg-warning/10 text-warning border border-warning/20"
             delay={240}
           />
         </div>
@@ -391,7 +391,7 @@ export default function DashboardScreen({
                 />
                 <Tooltip
                   formatter={(value: number) => [`$${value.toLocaleString()}`, "Ingresos"]}
-                  cursor={{ fill: "rgba(255, 255, 255, 0.08)", radius: 8 }}
+                  cursor={{ fill: "var(--muted)", radius: 8 }}
                   contentStyle={{
                     background: "var(--card)",
                     border: "1.5px solid var(--glass-border)",
@@ -427,20 +427,20 @@ export default function DashboardScreen({
                   const targetDate = new Date(retouch.scheduledDate);
                   const daysDiff = Math.ceil((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                   
-                  let badgeColor = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                  let badgeColor = "bg-secondary/10 text-secondary border border-secondary/20";
                   let textDays = `Faltan ${daysDiff} días`;
                   if (daysDiff < 0) {
-                    badgeColor = "bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse";
+                    badgeColor = "bg-error/10 text-error border border-error/20 animate-pulse";
                     textDays = `Vencido hace ${Math.abs(daysDiff)} días`;
                   } else if (daysDiff <= 5) {
-                    badgeColor = "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                    badgeColor = "bg-warning/10 text-warning border border-warning/20";
                     textDays = `Próximo (en ${daysDiff} días)`;
                   }
 
                   return (
                     <div
                       key={retouch.id}
-                      className="p-3.5 border border-white/5 rounded-2xl flex flex-col justify-between gap-3 hover:border-primary/25 transition-all bg-white/5 hover:bg-white/10 spring-hover shadow-md"
+                      className="p-3.5 border border-border rounded-2xl flex flex-col justify-between gap-3 hover:border-primary/25 transition-all bg-muted hover:bg-muted/80 spring-hover shadow-md"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -458,7 +458,7 @@ export default function DashboardScreen({
                       <div className="flex items-center gap-1.5 pt-1">
                         <button
                           onClick={() => setRetouchToDismiss(retouch.id)}
-                          className="flex-1 text-[10px] font-bold py-1.5 border border-white/10 text-muted-foreground rounded-lg hover:bg-red-500/20 hover:text-red-200 transition-all"
+                          className="flex-1 text-[10px] font-bold py-1.5 border border-border text-muted-foreground rounded-lg hover:bg-error/20 hover:text-error transition-all"
                           title="Desestimar retoque"
                         >
                           Desestimar
@@ -469,7 +469,7 @@ export default function DashboardScreen({
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm text-[10px] font-bold"
+                          className="px-2 py-1.5 bg-success hover:bg-success/80 text-white rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm text-[10px] font-bold"
                           title="Enviar recordatorio de retoque por WhatsApp"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
@@ -542,7 +542,7 @@ export default function DashboardScreen({
                   return (
                     <tr
                       key={i}
-                      className="appt-row border-b border-border/40 hover:bg-white/5 transition-colors"
+                      className="appt-row border-b border-border/40 hover:bg-muted transition-colors"
                       style={{ opacity: 0 }}
                     >
                       <td className="px-5 py-4">
@@ -557,7 +557,7 @@ export default function DashboardScreen({
                         <p className="text-sm font-bold text-foreground">{appt.patient}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-sm text-muted-foreground font-semibold bg-white/5 px-3 py-1 rounded-xl border border-white/5">
+                          <span className="text-sm text-muted-foreground font-semibold bg-muted px-3 py-1 rounded-xl border border-border">
                           {appt.treatment}
                         </span>
                       </td>
@@ -582,8 +582,8 @@ export default function DashboardScreen({
       {/* Modal Confirmación Desestimar Retoque */}
       {retouchToDismiss && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-panel w-full max-w-sm border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 text-amber-400">
+          <div className="glass-panel w-full max-w-sm border border-border rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-warning">
               <AlertTriangle className="w-6 h-6" />
               <h3 className="text-sm font-black uppercase tracking-wider text-foreground">¿Desestimar Retoque?</h3>
             </div>
@@ -594,14 +594,14 @@ export default function DashboardScreen({
               <button
                 disabled={dismissingId !== null}
                 onClick={() => setRetouchToDismiss(null)}
-                className="text-[11px] font-bold px-4 py-2 border border-white/10 text-muted-foreground rounded-lg hover:bg-white/5 transition-all spring-hover"
+                className="text-[11px] font-bold px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-muted transition-all spring-hover"
               >
                 Cancelar
               </button>
               <button
                 disabled={dismissingId !== null}
                 onClick={() => handleDismissRetouch(retouchToDismiss)}
-                className="text-[11px] font-bold px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all flex items-center gap-1 shadow-sm"
+                className="text-[11px] font-bold px-4 py-2 bg-destructive hover:bg-destructive/90 text-white rounded-lg transition-all flex items-center gap-1 shadow-sm"
               >
                 {dismissingId ? (
                   <>

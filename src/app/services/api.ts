@@ -40,7 +40,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch (e) {
       // No JSON payload
     }
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage) as any;
+    error.status = response.status;
+    error.response = response;
+    throw error;
   }
 
   if (response.status === 204) {

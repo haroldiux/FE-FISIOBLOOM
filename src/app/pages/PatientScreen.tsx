@@ -30,6 +30,8 @@ import { api, API_URL } from "../services/api";
 import { toast } from "sonner";
 const SERVER_URL = API_URL.replace(/\/api$/, "");
 import { animate } from "animejs";
+import { useTutorial } from "../context/TutorialContext";
+import { enrichStep } from "../components/TutorialTour";
 
 type PatientTab = "historial" | "evolucion" | "consentimiento" | "galeria" | "facturacion";
 
@@ -179,6 +181,19 @@ export default function PatientScreen({
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<PatientTab>("evolucion");
 
+  // Tutorial tab sync watcher
+  const { activeTour, currentStep } = useTutorial();
+  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
+
+  useEffect(() => {
+    if (activeStep?.targetTab) {
+      const lowerTab = activeStep.targetTab.toLowerCase();
+      if (["historial", "evolucion", "consentimiento", "galeria", "facturacion"].includes(lowerTab)) {
+        setActiveTab(lowerTab as PatientTab);
+      }
+    }
+  }, [activeStep]);
+
   // Register session modal
   const [showModal, setShowModal] = useState(false);
   const [pendingAppointments, setPendingAppointments] = useState<any[]>([]);
@@ -208,6 +223,7 @@ export default function PatientScreen({
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newMedicalHistory, setNewMedicalHistory] = useState("");
+  const [signConsentNow, setSignConsentNow] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -550,13 +566,42 @@ export default function PatientScreen({
 
         const createdPatient = result.patient || result;
 
+        let consentSavedSuccessfully = false;
+        if (signConsentNow) {
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const signatureBase64 = canvas.toDataURL("image/png");
+            try {
+              await api.post(`/patients/${createdPatient.id}/consent`, {
+                serviceId: "general",
+                signatureData: signatureBase64,
+              });
+              consentSavedSuccessfully = true;
+            } catch (e) {
+              console.warn("Error al registrar consentimiento en API, guardando en local storage offline:", e);
+              const localConsentsKey = `offline_consents_${createdPatient.id}`;
+              const localConsents = [{
+                id: `offline-${Date.now()}`,
+                patientId: createdPatient.id,
+                serviceId: "general",
+                service: { id: "general", name: "Consentimiento General" },
+                signatureData: signatureBase64,
+                signedAt: new Date().toISOString(),
+              }];
+              localStorage.setItem(localConsentsKey, JSON.stringify(localConsents));
+              localStorage.setItem(`consent_signed_${createdPatient.id}`, "true");
+              consentSavedSuccessfully = true;
+            }
+          }
+        }
+
         setPatientList((prev) => [
           {
             id: createdPatient.id,
             fullName: createdPatient.fullName,
             phone: createdPatient.phone,
             email: createdPatient.email,
-            consentSigned: createdPatient.consentSigned || false,
+            consentSigned: consentSavedSuccessfully || createdPatient.consentSigned || false,
           },
           ...prev,
         ].sort((a, b) => a.fullName.localeCompare(b.fullName)));
@@ -571,6 +616,7 @@ export default function PatientScreen({
       setNewPhone("");
       setNewEmail("");
       setNewMedicalHistory("");
+      setSignConsentNow(false);
     } catch (err: any) {
       setCreateError(err.message || "Error al procesar el paciente.");
     } finally {
@@ -655,7 +701,7 @@ export default function PatientScreen({
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#0f172a";
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim() || "#0f172a";
 
     const pos = getEventPos(e, canvas);
     ctx.beginPath();
@@ -748,7 +794,7 @@ export default function PatientScreen({
       const localConsentsRaw = localStorage.getItem(localConsentsKey);
       const localConsents: ConsentDocumentItem[] = localConsentsRaw ? JSON.parse(localConsentsRaw) : [];
 
-      const selectedServiceName = patient.treatmentPackages
+      const selectedServiceName = selectedConsentServiceId === "general" ? "Consentimiento General" : patient.treatmentPackages
         .flatMap((pkg) => pkg.lines)
         .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
         ?.serviceName || 
@@ -783,6 +829,12 @@ export default function PatientScreen({
 
   const getConsentText = (serviceName: string) => {
     const name = serviceName.toLowerCase();
+    if (name === "general" || name.includes("general")) {
+      return `CONSENTIMIENTO INFORMADO GENERAL - REGISTRO CLÍNICO Y TRATAMIENTOS
+Yo, ${patient?.fullName || "el paciente"}, en pleno uso de mis facultades, autorizo el registro de mi historial clínico, evolución física y la realización de tratamientos generales de fisioterapia y estética en BLOOM SKIN.
+He sido informado de manera comprensible sobre las normas del centro, el manejo confidencial de mis datos clínicos y la necesidad de declarar con veracidad cualquier condición médica, antecedente o contraindicación.
+Doy mi consentimiento para que se registren mediciones antropométricas y fotografías evolutivas únicamente con fines de seguimiento profesional y control de mi tratamiento.`;
+    }
     if (name.includes("laser") || name.includes("láser") || name.includes("depila") || name.includes("soprano")) {
       return `CONSENTIMIENTO INFORMADO PARA TRATAMIENTO DE DEPILACIÓN LÁSER
 Yo, ${patient?.fullName}, en pleno uso de mis facultades, autorizo la realización del tratamiento de Depilación Láser en BLOOM SKIN.
@@ -830,7 +882,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
   return (
     <div className="flex h-full overflow-hidden">
       {/* ══ LEFT — Patient List ══════════════════════════════════════════════ */}
-      <aside id="tour-patients-list" className="w-[280px] flex-shrink-0 border-r border-border flex flex-col" style={{ background: 'rgba(18, 17, 24, 0.55)', backdropFilter: 'blur(20px)' }}>
+      <aside id="tour-patients-list" className="w-[280px] flex-shrink-0 border-r border-border flex flex-col" style={{ background: 'var(--card)', backdropFilter: 'blur(20px)' }}>
 
         <div className="p-4 border-b border-border flex items-center gap-2">
           <div className="relative flex-1">
@@ -839,7 +891,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               value={listSearch}
               onChange={(e) => setListSearch(e.target.value)}
               placeholder="Buscar paciente..."
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background"
+              className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <button
@@ -848,7 +900,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               setCreateError(null);
               setShowCreateModal(true);
             }}
-            className="flex-shrink-0 p-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
+            className="flex-shrink-0 p-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
             title="Nuevo Paciente"
           >
             <Plus className="w-4 h-4" />
@@ -879,12 +931,12 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     onClick={() => handleSelectPatient(p.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all border-l-4 ${
                       isSelected
-                        ? "bg-primary/8 border-l-primary"
+                        ? "bg-primary/10 border-l-primary"
                         : "border-l-transparent hover:bg-muted/60"
                     }`}
                   >
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${
-                      isSelected ? "bg-primary text-white" : "bg-slate-100 text-slate-600"
+                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                     }`}>
                       {initials}
                     </div>
@@ -898,8 +950,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {p.consentSigned || localStorage.getItem(`consent_signed_${p.id}`) === "true"
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        : <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        ? <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                        : <AlertTriangle className="w-3.5 h-3.5 text-warning" />
                       }
                       {isSelected && <ChevronRight className="w-3.5 h-3.5 text-primary" />}
                     </div>
@@ -910,7 +962,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-border bg-black/10">
+        <div className="px-4 py-3 border-t border-border bg-background/30">
           <p className="text-[11px] text-muted-foreground font-semibold">
             {filteredList.length} paciente{filteredList.length !== 1 ? "s" : ""} {listSearch ? "encontrado" : "registrado"}{filteredList.length !== 1 ? "s" : ""}
           </p>
@@ -937,10 +989,10 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
           </div>
         ) : patient ? (
           <>
-            <div className="bg-card border-b border-slate-400 px-6 py-5 flex-shrink-0">
+            <div className="bg-card border-b border-border px-6 py-5 flex-shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-black text-lg">
+                  <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-lg">
                     {patient.fullName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
                   </div>
                   <div>
@@ -963,8 +1015,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       </button>
                       <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider ${
                         patient.consentSigned || localStorage.getItem(`consent_signed_${patient.id}`) === "true"
-                          ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
-                          : "text-amber-700 bg-amber-50 border border-amber-200"
+                          ? "text-success bg-success/10 border border-success/20"
+                          : "text-warning bg-warning/10 border border-warning/20"
                       }`}>
                         {patient.consentSigned || localStorage.getItem(`consent_signed_${patient.id}`) === "true" ? "Consentimiento Firmado" : "Pendiente de Firma"}
                       </span>
@@ -990,9 +1042,9 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     const totalUsed = pkg.lines.reduce((s, l) => s + l.usedSessions, 0);
                     const totalSess = pkg.lines.reduce((s, l) => s + l.totalSessions, 0);
                     return (
-                      <div key={pkg.id} className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider truncate max-w-[160px]">{pkg.packageName}</p>
-                        <p className="text-xs font-bold text-emerald-800 mt-0.5">{totalUsed}/{totalSess} sesiones</p>
+                      <div key={pkg.id} className="bg-success/10 border border-success/20 rounded-xl px-3 py-2">
+                        <p className="text-[10px] font-black text-success uppercase tracking-wider truncate max-w-[160px]">{pkg.packageName}</p>
+                        <p className="text-xs font-bold text-success mt-0.5">{totalUsed}/{totalSess} sesiones</p>
                       </div>
                     );
                   })}
@@ -1003,7 +1055,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               </div>
             </div>
 
-            <div className="flex border-b border-slate-400 bg-card px-6 gap-1 flex-shrink-0">
+            <div className="flex border-b border-border bg-card px-6 gap-1 flex-shrink-0">
               {tabs.map(({ id, label, Icon }) => (
                 <button
                   key={id}
@@ -1024,8 +1076,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             <div className="flex-1 overflow-y-auto p-6 [&::-webkit-scrollbar]:hidden">
 
               {activeTab === "historial" && (
-                <div className="bg-card rounded-2xl border border-slate-300 p-6 max-w-3xl flex flex-col space-y-4">
-                  <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                <div className="bg-card rounded-2xl border border-border p-6 max-w-3xl flex flex-col space-y-4">
+                  <div className="flex justify-between items-center border-b border-border pb-3">
                     <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Antecedentes Médicos y Ficha Clínica</h3>
                     {!isEditingHistory ? (
                       <button
@@ -1033,7 +1085,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           setEditedHistory(patient.medicalHistory || "");
                           setIsEditingHistory(true);
                         }}
-                        className="flex items-center gap-1 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/10"
+                        className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/10"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         Editar Ficha
@@ -1043,7 +1095,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         <button
                           onClick={handleSaveMedicalHistory}
                           disabled={historySubmitting}
-                          className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 bg-success text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-success/90 transition-colors disabled:opacity-50"
                         >
                           {historySubmitting ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -1055,7 +1107,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         <button
                           onClick={() => setIsEditingHistory(false)}
                           disabled={historySubmitting}
-                          className="flex items-center gap-1 bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-slate-300 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 bg-muted text-muted-foreground text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-muted/80 transition-colors disabled:opacity-50"
                         >
                           Cancelar
                         </button>
@@ -1068,7 +1120,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       value={editedHistory}
                       onChange={(e) => setEditedHistory(e.target.value)}
                       placeholder="Registra antecedentes patológicos, cirugías previas, alergias, tipo de piel, contraindicaciones..."
-                      className="w-full min-h-[300px] p-4 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background font-sans leading-relaxed"
+                      className="w-full min-h-[300px] p-4 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground font-sans leading-relaxed"
                       disabled={historySubmitting}
                     />
                   ) : (
@@ -1097,13 +1149,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
               {activeTab === "evolucion" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                  <div id="tour-patients-history" className="lg:col-span-2 bg-card rounded-2xl border border-slate-300 p-6 flex flex-col">
+                  <div id="tour-patients-history" className="lg:col-span-2 bg-card rounded-2xl border border-border p-6 flex flex-col">
                     <div className="flex justify-between items-center mb-5">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Evolución de Sesiones</h3>
                       <button
                         id="tour-session-modal-trigger"
                         onClick={() => { setError(null); setShowModal(true); }}
-                        className="flex-items-center gap-2 bg-primary text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
+                        className="flex-items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Registrar Sesión
@@ -1126,13 +1178,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           if (item.type === "SESSION") {
                             const isLaser = item.measurements?.laser || item.measurements?.nozzles || item.measurements?.shots;
                             return (
-                              <div key={item.id} className="bg-card border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow relative overflow-hidden">
-                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isLaser ? 'bg-violet-500' : 'bg-primary'}`} />
+                              <div key={item.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow relative overflow-hidden">
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isLaser ? 'bg-secondary' : 'bg-primary'}`} />
                                 <div className="pl-2 flex justify-between items-start flex-wrap gap-2">
                                   <div>
-                                    <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                                    <h4 className="font-bold text-foreground text-sm flex items-center gap-1.5">
                                       {isLaser ? '⚡' : '💆'} {item.packageLine?.serviceName || "Tratamiento"}
-                                      <span className="px-2.5 py-0.5 text-[10px] font-black bg-slate-100 text-slate-600 rounded-full">
+                                      <span className="px-2.5 py-0.5 text-[10px] font-black bg-muted text-muted-foreground rounded-full">
                                         Sesión #{item.sessionNumber}
                                       </span>
                                     </h4>
@@ -1144,40 +1196,40 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                 {item.measurements && (
                                   <div className="pl-2 flex flex-wrap gap-2 pt-1">
                                     {item.measurements.laser && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-violet-700 bg-violet-50 border border-violet-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-secondary bg-secondary/10 border border-secondary/20 rounded-xl">
                                         <span>⚡</span> Láser: {item.measurements.laser}
                                       </span>
                                     )}
                                     {item.measurements.nozzles && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-secondary bg-secondary/10 border border-secondary/20 rounded-xl">
                                         <span>🔍</span> Cabezal: {item.measurements.nozzles}
                                       </span>
                                     )}
                                     {item.measurements.shots !== undefined && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-xl">
                                         <span>🎯</span> Disparos: {Number(item.measurements.shots).toLocaleString()}
                                       </span>
                                     )}
                                     {item.measurements.weight && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-success bg-success/10 border border-success/20 rounded-xl">
                                         <span>⚖️</span> Peso: {item.measurements.weight} kg
                                       </span>
                                     )}
                                     {item.measurements.waist && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-secondary bg-secondary/10 border border-secondary/20 rounded-xl">
                                         <span>📏</span> Cintura: {item.measurements.waist} cm
                                       </span>
                                     )}
                                     {item.measurements.hip && (
-                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-xl">
+                                      <span className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold text-warning bg-warning/10 border border-warning/20 rounded-xl">
                                         <span>🍑</span> Cadera: {item.measurements.hip} cm
                                       </span>
                                     )}
                                   </div>
                                 )}
-                                <div className="pl-2 bg-slate-50 rounded-xl p-3.5 border border-slate-100">
-                                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Nota Evolutiva</p>
-                                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                                <div className="pl-2 bg-muted rounded-xl p-3.5 border border-border">
+                                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">Nota Evolutiva</p>
+                                  <p className="text-xs text-foreground leading-relaxed font-medium">
                                     {item.evolutionNotes || "Sin observaciones."}
                                   </p>
                                 </div>
@@ -1186,24 +1238,24 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           } else {
                             const targetDate = new Date(item.scheduledDate);
                             const daysDiff = Math.ceil((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                            let retouchBadge = "bg-violet-100 text-violet-800 border-violet-200";
+                            let retouchBadge = "bg-secondary/10 text-secondary border-secondary/20";
                             let retouchLabel = `Programado para el ${targetDate.toLocaleDateString("es-MX")} (en ${daysDiff} días)`;
 
                             if (item.status === "COMPLETED") {
-                              retouchBadge = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                              retouchBadge = "bg-success/10 text-success border-success/20";
                               retouchLabel = "Retoque Completado";
                             } else if (item.status === "WAIVED") {
-                              retouchBadge = "bg-slate-100 text-slate-600 border-slate-200";
+                              retouchBadge = "bg-muted text-muted-foreground border-border";
                               retouchLabel = "Retoque Desestimado por el Paciente";
                             } else if (daysDiff < 0) {
-                              retouchBadge = "bg-red-100 text-red-800 border-red-200 animate-pulse";
+                              retouchBadge = "bg-error/10 text-error border-error/20 animate-pulse";
                               retouchLabel = `Retoque Vencido hace ${Math.abs(daysDiff)} días`;
                             }
 
                             return (
-                              <div key={item.id} className="border-l-4 border-violet-500 bg-violet-50/20 rounded-r-xl p-4 space-y-2 shadow-sm">
+                              <div key={item.id} className="border-l-4 border-secondary bg-secondary/10 rounded-r-xl p-4 space-y-2 shadow-sm">
                                 <div className="flex justify-between items-center text-xs flex-wrap gap-2">
-                                  <span className="font-bold text-violet-950 flex items-center gap-1.5">
+                                  <span className="font-bold text-foreground flex items-center gap-1.5">
                                     🔄 Retoque Clínico: {item.service?.name || "Tratamiento Especial"}
                                   </span>
                                   <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${retouchBadge}`}>
@@ -1216,7 +1268,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                       onClick={() => {
                                         setRetouchToDismiss(item);
                                       }}
-                                      className="text-[10px] font-bold px-2.5 py-1 border border-border text-slate-500 rounded-lg hover:bg-slate-100"
+                                      className="text-[10px] font-bold px-2.5 py-1 border border-border text-muted-foreground rounded-lg hover:bg-muted"
                                     >
                                       Desestimar
                                     </button>
@@ -1230,17 +1282,17 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     )}
                   </div>
 
-                  <div className="bg-card rounded-2xl border border-slate-300 p-6 space-y-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-slate-200 pb-3">Resumen de Medidas</h3>
+                  <div className="bg-card rounded-2xl border border-border p-6 space-y-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-border pb-3">Resumen de Medidas</h3>
                     {timeline.length === 0 ? (
                       <p className="text-xs text-muted-foreground">Registra sesiones para ver la evolución de medidas corporales.</p>
                     ) : (
                       <div className="space-y-2">
-                        <div className="grid grid-cols-4 text-[10px] font-black text-muted-foreground uppercase tracking-wider pb-1 border-b border-slate-100">
+                        <div className="grid grid-cols-4 text-[10px] font-black text-muted-foreground uppercase tracking-wider pb-1 border-b border-border">
                           <span>Ses.</span><span>Peso</span><span>Cintura</span><span>Cadera</span>
                         </div>
                         {timeline.map((s, idx) => (
-                          <div key={s.id} className="grid grid-cols-4 text-xs font-bold text-foreground border-b border-slate-100 py-1.5 animate-fade-in">
+                          <div key={s.id} className="grid grid-cols-4 text-xs font-bold text-foreground border-b border-border py-1.5 animate-fade-in">
                             <span className="text-muted-foreground">#{timeline.length - idx}</span>
                             <span>{s.measurements?.weight ?? "—"}</span>
                             <span>{s.measurements?.waist ?? "—"}</span>
@@ -1255,32 +1307,32 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
               {activeTab === "consentimiento" && (
                 <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start animate-fade-in">
-                  <div className="xl:col-span-2 bg-card rounded-2xl border border-slate-300 p-6 flex flex-col space-y-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-slate-200 pb-3">
+                  <div className="xl:col-span-2 bg-card rounded-2xl border border-border p-6 flex flex-col space-y-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-border pb-3">
                       Consentimientos Firmados
                     </h3>
                     
                     {patient.consentDocuments && patient.consentDocuments.length > 0 ? (
                       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden">
                         {patient.consentDocuments.map((doc) => (
-                          <div key={doc.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col space-y-3 shadow-sm hover:border-slate-300 transition-colors">
+                          <div key={doc.id} className="bg-muted border border-border rounded-2xl p-4 flex flex-col space-y-3 shadow-sm hover:border-primary/30 transition-colors">
                             <div className="flex justify-between items-start flex-wrap gap-2">
                               <div>
-                                <h4 className="font-bold text-slate-800 text-xs">{doc.service.name}</h4>
+                                <h4 className="font-bold text-foreground text-xs">{doc.service.name}</h4>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
                                   Firmado: {new Date(doc.signedAt).toLocaleDateString("es-MX")} · {new Date(doc.signedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                               </div>
                               <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${
                                 doc.id.startsWith("offline")
-                                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  ? "bg-warning/10 text-warning border-warning/20"
+                                  : "bg-success/10 text-success border-success/20"
                               }`}>
                                 {doc.id.startsWith("offline") ? "Local Offline" : "Sincronizado"}
                               </span>
                             </div>
                             
-                            <div className="bg-white border border-slate-100 rounded-xl p-2 flex justify-center items-center h-24 shadow-inner">
+                            <div className="bg-card border border-border rounded-xl p-2 flex justify-center items-center h-24 shadow-inner">
                               <img
                                 src={doc.signatureData}
                                 alt="Firma del paciente"
@@ -1291,7 +1343,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                      <div className="text-center py-10 border-2 border-dashed border-border rounded-2xl bg-muted/30">
                         <FileSignature className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground font-semibold">
                           Aún no hay consentimientos firmados.
@@ -1300,14 +1352,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     )}
                   </div>
 
-                  <div id="tour-patients-consent" className="xl:col-span-3 bg-card rounded-2xl border border-slate-300 p-6 flex flex-col space-y-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-slate-200 pb-3 flex items-center gap-1.5">
+                  <div id="tour-patients-consent" className="xl:col-span-3 bg-card rounded-2xl border border-border p-6 flex flex-col space-y-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-widest border-b border-border pb-3 flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-primary" />
                       Firmar Nuevo Consentimiento
                     </h3>
 
                     {consentError && (
-                      <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-semibold">
+                      <div className="flex items-center gap-3 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                         <span>{consentError}</span>
                       </div>
@@ -1327,6 +1379,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         className="w-full px-3 py-2.5 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
                       >
                         <option value="" disabled>Selecciona el servicio</option>
+                        <option value="general">Consentimiento Informado General (Clínica)</option>
                         {patient.treatmentPackages.flatMap((pkg) =>
                           pkg.lines.map((line) => (
                             <option key={line.id} value={line.serviceId || line.id}>
@@ -1349,13 +1402,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
                         Documento de Consentimiento Clínico
                       </label>
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 max-h-40 overflow-y-auto leading-relaxed whitespace-pre-line font-medium border-l-4 border-l-primary shadow-inner">
+                      <div className="bg-muted border border-border rounded-xl p-4 text-xs text-muted-foreground max-h-40 overflow-y-auto leading-relaxed whitespace-pre-line font-medium border-l-4 border-l-primary shadow-inner">
                         {selectedConsentServiceId ? (
                           getConsentText(
                             patient.treatmentPackages.flatMap((pkg) => pkg.lines)
                               .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
                               ?.serviceName || 
-                            (selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
+                            (selectedConsentServiceId === "general" ? "General" :
+                             selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
                              selectedConsentServiceId === "fallback-cavitacion" ? "Cavitación Corporal" :
                              selectedConsentServiceId === "fallback-facial" ? "Tratamiento Facial" :
                              selectedConsentServiceId === "fallback-rehab" ? "Fisioterapia" : "Servicio")
@@ -1378,7 +1432,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         </span>
                       </div>
 
-                      <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 p-2 relative overflow-hidden flex justify-center items-center">
+                      <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-2 relative overflow-hidden flex justify-center items-center">
                         <canvas
                           ref={canvasRef}
                           id="tour-patients-consent-canvas"
@@ -1391,7 +1445,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           onTouchStart={startDrawing}
                           onTouchMove={draw}
                           onTouchEnd={stopDrawing}
-                          className="bg-white rounded-xl shadow-inner cursor-crosshair max-w-full"
+                          className="bg-card rounded-xl shadow-inner cursor-crosshair max-w-full"
                         />
                       </div>
                     </div>
@@ -1401,9 +1455,9 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         type="checkbox"
                         checked={acceptTerms}
                         onChange={(e) => setAcceptTerms(e.target.checked)}
-                        className="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                        className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
                       />
-                      <span className="text-xs text-slate-600 font-medium">
+                      <span className="text-xs text-muted-foreground font-medium">
                         Declaro que he leído y comprendido la información del tratamiento seleccionado y acepto firmar digitalmente este consentimiento.
                       </span>
                     </label>
@@ -1412,7 +1466,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       <button
                         type="button"
                         onClick={clearCanvas}
-                        className="flex items-center gap-1.5 px-4 py-2.5 border border-slate-300 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-50 transition-colors"
+                        className="flex items-center gap-1.5 px-4 py-2.5 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         Limpiar Lienzo
@@ -1422,7 +1476,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         id="tour-patients-consent-submit"
                         onClick={handleSaveConsent}
                         disabled={isSigning || !selectedConsentServiceId || !acceptTerms}
-                        className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSigning ? (
                           <>
@@ -1444,18 +1498,19 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               {activeTab === "galeria" && (
                 <div className="space-y-8 animate-fade-in">
                   {photos.some((p) => p.isPendingSync) && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-center justify-between shadow-xs">
+                    <div id="tour-patients-gallery-sync-banner" className="p-4 bg-warning/10 border border-warning/20 text-warning rounded-xl flex items-center justify-between shadow-xs">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 animate-pulse" />
+                        <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 animate-pulse" />
                         <div>
                           <p className="text-xs font-bold">Tienes fotografías pendientes de sincronizar</p>
-                          <p className="text-[10px] text-amber-700 mt-0.5">Se guardaron localmente debido a problemas de conexión.</p>
+                          <p className="text-[10px] text-warning/80 mt-0.5">Se guardaron localmente debido a problemas de conexión.</p>
                         </div>
                       </div>
                       <button
+                        id="tour-patients-gallery-sync-btn"
                         onClick={() => handleSyncPhotos(patient!.id)}
                         disabled={isUploading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-[10px] font-bold rounded-lg hover:bg-amber-700 transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-warning text-warning-foreground text-[10px] font-bold rounded-lg hover:bg-warning/90 transition-colors cursor-pointer"
                       >
                         {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                         Sincronizar ahora
@@ -1463,14 +1518,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     </div>
                   )}
 
-                  <div className="bg-card rounded-2xl border border-slate-300 p-6 shadow-sm">
+                  <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
                     <h3 className="text-sm font-bold text-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
                       <Camera className="w-4 h-4 text-primary" />
                       Añadir Nueva Fotografía al Expediente
                     </h3>
 
                     {photoUploadError && (
-                      <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-semibold mb-4">
+                      <div className="flex items-center gap-3 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold mb-4">
                         <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                         <span>{photoUploadError}</span>
                       </div>
@@ -1483,8 +1538,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         </label>
                         <div
                           onClick={() => fileInputRef.current?.click()}
-                          className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all min-h-[180px] bg-slate-50/50 hover:bg-slate-50 hover:border-primary ${
-                            photoPreview ? "border-primary/50" : "border-slate-300"
+                          className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all min-h-[180px] bg-muted/30 hover:bg-muted hover:border-primary ${
+                            photoPreview ? "border-primary/50" : "border-border"
                           }`}
                         >
                           <input
@@ -1502,17 +1557,17 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                 alt="Preview"
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <p className="text-white text-xs font-bold">Cambiar Imagen</p>
+                              <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <p className="text-foreground text-xs font-bold">Cambiar Imagen</p>
                               </div>
                             </div>
                           ) : (
                             <div className="text-center space-y-2">
-                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                                 <Upload className="w-5 h-5" />
                               </div>
                               <div>
-                                <p className="text-xs font-bold text-slate-700">Haz clic para subir o arrastra</p>
+                                <p className="text-xs font-bold text-foreground">Haz clic para subir o arrastra</p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">Formatos aceptados: PNG, JPG, JPEG</p>
                               </div>
                             </div>
@@ -1533,7 +1588,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                 className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl border-2 transition-all ${
                                   selectedPhotoType === "before"
                                     ? "border-primary bg-primary/5 text-primary"
-                                    : "border-slate-200 text-muted-foreground hover:bg-slate-50"
+                                    : "border-border text-muted-foreground hover:bg-muted"
                                 }`}
                               >
                                 Antes (Control Inicial)
@@ -1544,7 +1599,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                 className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl border-2 transition-all ${
                                   selectedPhotoType === "after"
                                     ? "border-primary bg-primary/5 text-primary"
-                                    : "border-slate-200 text-muted-foreground hover:bg-slate-50"
+                                    : "border-border text-muted-foreground hover:bg-muted"
                                 }`}
                               >
                                 Después (Evolutivo)
@@ -1561,12 +1616,12 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                               value={photoNotes}
                               onChange={(e) => setPhotoNotes(e.target.value)}
                               placeholder="Ej. Vista lateral abdomen, sesión 4..."
-                              className="w-full px-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                              className="w-full px-3 py-2.5 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                             />
                           </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                        <div className="flex justify-end gap-3 pt-4 border-t border-border">
                           {photoPreview && (
                             <button
                               type="button"
@@ -1575,7 +1630,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                 setPhotoFile(null);
                                 if (fileInputRef.current) fileInputRef.current.value = "";
                               }}
-                              className="px-4 py-2.5 border border-slate-300 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-50 transition-colors"
+                              className="px-4 py-2.5 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted transition-colors"
                             >
                               Limpiar
                             </button>
@@ -1584,7 +1639,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             id="tour-gallery-submit"
                             type="submit"
                             disabled={isUploading || !photoFile}
-                            className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isUploading ? (
                               <>
@@ -1604,19 +1659,19 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   </div>
 
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    <div className="bg-card rounded-2xl border border-slate-300 p-6 flex flex-col space-y-4 shadow-sm">
-                      <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
-                        <h3 className="text-sm font-black text-rose-700 uppercase tracking-widest flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <div className="bg-card rounded-2xl border border-border p-6 flex flex-col space-y-4 shadow-sm">
+                      <div className="border-b border-border pb-3 flex justify-between items-center">
+                        <h3 className="text-sm font-black text-error uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-error" />
                           Control Inicial (Antes)
                         </h3>
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
                           {photos.filter((p) => p.type === "before").length} foto(s)
                         </span>
                       </div>
 
                       {photos.filter((p) => p.type === "before").length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                        <div className="text-center py-12 border-2 border-dashed border-border rounded-2xl bg-muted/30">
                           <ImageIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
                           <p className="text-xs text-muted-foreground font-semibold">
                             Sin fotografías de control inicial.
@@ -1627,13 +1682,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           {photos
                             .filter((p) => p.type === "before")
                             .map((photo) => (
-                              <div key={photo.id} className="group bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md hover:border-slate-300 transition-all flex flex-col relative">
+                              <div key={photo.id} className="group bg-muted border border-border rounded-2xl overflow-hidden hover:shadow-md hover:border-primary/30 transition-all flex flex-col relative">
                                 <div 
                                   onClick={() => {
                                     setLightboxPhoto(photo);
                                     setComparisonMode(false);
                                   }}
-                                  className="relative h-48 bg-slate-100 flex items-center justify-center overflow-hidden cursor-pointer"
+                                  className="relative h-48 bg-muted flex items-center justify-center overflow-hidden cursor-pointer"
                                 >
                                   <img
                                     src={photo.url ? `${SERVER_URL}${photo.url}` : photo.photoData}
@@ -1641,7 +1696,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                   />
                                   {photo.isPendingSync && (
-                                    <div className="absolute top-2 left-2 px-2 py-1 bg-amber-500/90 text-white text-[9px] font-black rounded-lg shadow-sm">
+                                    <div className="absolute top-2 left-2 px-2 py-1 bg-warning/90 text-primary-foreground text-[9px] font-black rounded-lg shadow-sm">
                                       PENDIENTE SYNC
                                     </div>
                                   )}
@@ -1650,14 +1705,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                       e.stopPropagation();
                                       handleDeletePhoto(photo.id);
                                     }}
-                                    className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl shadow-sm transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                    className="absolute top-2 right-2 p-1.5 bg-card/90 hover:bg-error/10 text-muted-foreground hover:text-error rounded-xl shadow-sm transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                                     title="Eliminar Foto"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                                 <div className="p-3 flex-1 flex flex-col justify-between">
-                                  <p className="text-xs font-bold text-slate-700 line-clamp-2">
+                                  <p className="text-xs font-bold text-foreground line-clamp-2">
                                     {photo.notes || "Sin descripción"}
                                   </p>
                                   <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground font-semibold">
@@ -1671,19 +1726,19 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       )}
                     </div>
 
-                    <div className="bg-card rounded-2xl border border-slate-300 p-6 flex flex-col space-y-4 shadow-sm">
-                      <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
-                        <h3 className="text-sm font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <div className="bg-card rounded-2xl border border-border p-6 flex flex-col space-y-4 shadow-sm">
+                      <div className="border-b border-border pb-3 flex justify-between items-center">
+                        <h3 className="text-sm font-black text-success uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-success" />
                           Control Evolutivo (Después)
                         </h3>
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
                           {photos.filter((p) => p.type === "after").length} foto(s)
                         </span>
                       </div>
 
                       {photos.filter((p) => p.type === "after").length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                        <div className="text-center py-12 border-2 border-dashed border-border rounded-2xl bg-muted/30">
                           <ImageIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
                           <p className="text-xs text-muted-foreground font-semibold">
                             Sin fotografías de control evolutivo.
@@ -1694,13 +1749,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           {photos
                             .filter((p) => p.type === "after")
                             .map((photo) => (
-                              <div key={photo.id} className="group bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md hover:border-slate-300 transition-all flex flex-col relative">
+                              <div key={photo.id} className="group bg-muted border border-border rounded-2xl overflow-hidden hover:shadow-md hover:border-primary/30 transition-all flex flex-col relative">
                                 <div 
                                   onClick={() => {
                                     setLightboxPhoto(photo);
                                     setComparisonMode(false);
                                   }}
-                                  className="relative h-48 bg-slate-100 flex items-center justify-center overflow-hidden cursor-pointer"
+                                  className="relative h-48 bg-muted flex items-center justify-center overflow-hidden cursor-pointer"
                                 >
                                   <img
                                     src={photo.url ? `${SERVER_URL}${photo.url}` : photo.photoData}
@@ -1708,7 +1763,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                   />
                                   {photo.isPendingSync && (
-                                    <div className="absolute top-2 left-2 px-2 py-1 bg-amber-500/90 text-white text-[9px] font-black rounded-lg shadow-sm">
+                                    <div className="absolute top-2 left-2 px-2 py-1 bg-warning/90 text-primary-foreground text-[9px] font-black rounded-lg shadow-sm">
                                       PENDIENTE SYNC
                                     </div>
                                   )}
@@ -1717,14 +1772,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                                       e.stopPropagation();
                                       handleDeletePhoto(photo.id);
                                     }}
-                                    className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl shadow-sm transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                    className="absolute top-2 right-2 p-1.5 bg-card/90 hover:bg-error/10 text-muted-foreground hover:text-error rounded-xl shadow-sm transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                                     title="Eliminar Foto"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                                 <div className="p-3 flex-1 flex flex-col justify-between">
-                                  <p className="text-xs font-bold text-slate-700 line-clamp-2">
+                                  <p className="text-xs font-bold text-foreground line-clamp-2">
                                     {photo.notes || "Sin descripción"}
                                   </p>
                                   <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground font-semibold">
@@ -1742,7 +1797,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               )}
 
               {activeTab === "facturacion" && (
-                <div className="bg-card rounded-2xl border border-slate-300 p-10 text-center">
+                <div className="bg-card rounded-2xl border border-border p-10 text-center">
                   <Receipt className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground font-medium">Historial de facturas del paciente en desarrollo.</p>
                 </div>
@@ -1753,7 +1808,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-[#0f172a]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
             ref={modalRef}
             id="tour-session-modal"
@@ -1778,7 +1833,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             <form onSubmit={handleCompleteSession} className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 [&::-webkit-scrollbar]:hidden">
                 {error && (
-                  <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-semibold">
+                  <div className="flex items-center gap-3 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                     <span>{error}</span>
                   </div>
@@ -1789,7 +1844,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     Cita a Completar
                   </label>
                   {pendingAppointments.length === 0 ? (
-                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 font-semibold">
+                    <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 font-semibold">
                       No hay citas pendientes/confirmadas para este paciente.
                     </p>
                   ) : (
@@ -1832,8 +1887,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
                 <div className="space-y-4">
                   {selectedLineId && (
-                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between shadow-inner">
-                      <span className="text-xs font-bold text-slate-700">
+                    <div className="bg-muted border border-border rounded-xl p-3 flex items-center justify-between shadow-inner">
+                      <span className="text-xs font-bold text-foreground">
                         Tipo de Servicio:
                       </span>
                       <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${
@@ -1843,8 +1898,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
                         patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
                           .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila")
-                          ? "bg-violet-100 text-violet-700 border border-violet-200"
-                          : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                          ? "bg-secondary/10 text-secondary border border-secondary/20"
+                          : "bg-success/10 text-success border border-success/20"
                       }`}>
                         {patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
                           .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("laser") ||
@@ -1865,8 +1920,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
                     patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
                       .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila")) ? (
-                    <div id="tour-session-modal-laser" className="space-y-3 bg-violet-50/20 border border-violet-100/50 rounded-2xl p-4">
-                      <h4 className="text-[10px] font-black text-violet-700 uppercase tracking-wider">
+                    <div id="tour-session-modal-laser" className="space-y-3 bg-secondary/10 border border-secondary/20 rounded-2xl p-4">
+                      <h4 className="text-[10px] font-black text-secondary uppercase tracking-wider">
                         ⚡ Parámetros Técnicos Láser
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -1877,7 +1932,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={laser}
                             onChange={(e) => setLaser(e.target.value)}
                             placeholder="Ej. 12 J, 10Hz"
-                            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                         <div>
@@ -1887,7 +1942,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={nozzles}
                             onChange={(e) => setNozzles(e.target.value)}
                             placeholder="Ej. Spot 2cm"
-                            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                         <div>
@@ -1897,7 +1952,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={shots}
                             onChange={(e) => setShots(e.target.value)}
                             placeholder="Ej. 3200"
-                            className="w-full px-3 py-2 text-xs border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                       </div>
@@ -1911,8 +1966,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
                     patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
                       .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila"))) ? (
-                    <div id="tour-session-modal-measurements" className="space-y-3 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl p-4">
-                      <h4 className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+                    <div id="tour-session-modal-measurements" className="space-y-3 bg-success/10 border border-success/20 rounded-2xl p-4">
+                      <h4 className="text-[10px] font-black text-success uppercase tracking-wider">
                         📏 Mediciones Corporales
                       </h4>
                       <div className="grid grid-cols-3 gap-2">
@@ -1924,7 +1979,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={weight}
                             onChange={(e) => setWeight(e.target.value)}
                             placeholder="Ej. 65.5"
-                            className="w-full px-3 py-2 text-xs border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                         <div>
@@ -1935,7 +1990,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={waist}
                             onChange={(e) => setWaist(e.target.value)}
                             placeholder="Ej. 78"
-                            className="w-full px-3 py-2 text-xs border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                         <div>
@@ -1946,7 +2001,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             value={hip}
                             onChange={(e) => setHip(e.target.value)}
                             placeholder="Ej. 95"
-                            className="w-full px-3 py-2 text-xs border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
+                            className="w-full px-3 py-2 text-xs border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                       </div>
@@ -1982,7 +2037,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   type="submit"
                   disabled={submitting}
                   id="tour-session-modal-submit"
-                  className="flex-1 py-3 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex-1 py-3 text-sm font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : "Guardar Sesión"}
                 </button>
@@ -1993,8 +2048,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-lg rounded-2xl border border-slate-300 shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-border flex justify-between items-center flex-shrink-0">
               <h3 className="text-base font-black text-foreground uppercase tracking-widest">
                 {isEditingPatient ? "Editar Datos del Paciente" : "Registrar Nuevo Paciente"}
@@ -2009,8 +2064,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             
             <form onSubmit={handleCreatePatient} className="flex-1 overflow-y-auto p-6 space-y-4 [&::-webkit-scrollbar]:hidden">
               {createError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <div className="p-3.5 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
                   <span>{createError}</span>
                 </div>
               )}
@@ -2026,7 +2081,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   value={newFullName}
                   onChange={(e) => setNewFullName(e.target.value)}
                   placeholder="Ej. Ana María Rodríguez"
-                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                 />
               </div>
 
@@ -2041,7 +2096,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
                     placeholder="Ej. 5551234567"
-                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                    className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2053,7 +2108,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     placeholder="Ej. ana@correo.com"
-                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                    className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
@@ -2068,9 +2123,63 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   value={newMedicalHistory}
                   onChange={(e) => setNewMedicalHistory(e.target.value)}
                   placeholder="Ej. Sin cirugías previas, padece de alergia cutánea leve, piel mixta..."
-                  className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground resize-none leading-relaxed"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground resize-none leading-relaxed"
                 />
               </div>
+
+              {!isEditingPatient && (
+                <div className="pt-2 border-t border-border space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer select-none py-1">
+                    <input
+                      type="checkbox"
+                      checked={signConsentNow}
+                      onChange={(e) => setSignConsentNow(e.target.checked)}
+                      className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
+                    />
+                    <span className="text-xs font-bold text-foreground">
+                      Fichar Firma de Consentimiento General Ahora
+                    </span>
+                  </label>
+
+                  {signConsentNow && (
+                    <div className="space-y-2.5 p-3.5 bg-muted rounded-2xl border border-border animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line font-medium p-3 bg-card border border-border rounded-xl max-h-28 overflow-y-auto [&::-webkit-scrollbar]:hidden shadow-inner">
+                        {getConsentText("general")}
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">
+                            Firma del Paciente
+                          </label>
+                          <button
+                            type="button"
+                            onClick={clearCanvas}
+                            className="text-[9px] text-primary font-black hover:underline"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                        <div className="border-2 border-dashed border-border rounded-xl bg-card p-1 relative overflow-hidden flex justify-center items-center">
+                          <canvas
+                            ref={canvasRef}
+                            width={450}
+                            height={120}
+                            onMouseDown={startDrawing}
+                            onMouseMove={draw}
+                            onMouseUp={stopDrawing}
+                            onMouseLeave={stopDrawing}
+                            onTouchStart={startDrawing}
+                            onTouchMove={draw}
+                            onTouchEnd={stopDrawing}
+                            className="bg-card rounded-lg cursor-crosshair max-w-full h-[120px]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="pt-4 border-t border-border flex gap-3">
                 <button
@@ -2085,7 +2194,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   id="tour-patient-form-submit"
                   type="submit"
                   disabled={createSubmitting}
-                  className="flex-1 py-3 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 text-sm font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                 >
                   {createSubmitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
@@ -2101,16 +2210,16 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
       {/* ══ Lightbox & Before-After Slider Modal ══ */}
       {lightboxPhoto && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl flex flex-col max-h-[95vh] text-white">
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl bg-card rounded-3xl border border-border shadow-2xl flex flex-col max-h-[95vh] text-foreground">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-800 flex justify-between items-center flex-shrink-0">
+            <div className="p-5 border-b border-border flex justify-between items-center flex-shrink-0">
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
                   {comparisonMode ? "Comparación Evolutiva" : "Galería Clínica"}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {patient?.fullName} · {comparisonMode ? "Desliza para ver la evolución" : (lightboxPhoto.type === "before" ? "Control Inicial (Antes)" : "Control Evolutivo (Después)")}
                 </p>
               </div>
@@ -2129,8 +2238,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                       comparisonMode
-                        ? "bg-primary border-primary text-white"
-                        : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80"
                     }`}
                   >
                     ⚖️ Comparar Antes/Después
@@ -2142,9 +2251,9 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     setLightboxPhoto(null);
                     setComparisonMode(false);
                   }}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
+                  className="p-1.5 bg-muted hover:bg-muted/80 rounded-xl transition-all"
                 >
-                  <X className="w-5 h-5 text-slate-400" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -2153,7 +2262,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             <div className="flex-1 p-6 flex flex-col justify-center items-center overflow-hidden min-h-[400px]">
               {comparisonMode && sliderPhotoBefore && sliderPhotoAfter ? (
                 /* Comparison Slider overlay view */
-                <div className="relative w-full max-w-2xl aspect-square sm:aspect-video rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden flex items-center justify-center">
+                <div className="relative w-full max-w-2xl aspect-square sm:aspect-video rounded-2xl border border-border bg-background overflow-hidden flex items-center justify-center">
                   
                   {/* Before Image (underneath) */}
                   <img
@@ -2161,7 +2270,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     alt="Antes"
                     className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
                   />
-                  <div className="absolute bottom-4 left-4 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-[10px] font-black text-rose-400 border border-rose-500/30 rounded-lg select-none">
+                  <div className="absolute bottom-4 left-4 px-2.5 py-1 bg-background/70 backdrop-blur-sm text-[10px] font-black text-error border border-error/30 rounded-lg select-none">
                     ANTES
                   </div>
 
@@ -2179,17 +2288,17 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         height: "100%",
                       }}
                     />
-                    <div className="absolute bottom-4 left-4 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-[10px] font-black text-emerald-400 border border-emerald-500/30 rounded-lg select-none whitespace-nowrap" style={{ left: "calc(100% - 100px)" }}>
+                    <div className="absolute bottom-4 left-4 px-2.5 py-1 bg-background/70 backdrop-blur-sm text-[10px] font-black text-success border border-success/30 rounded-lg select-none whitespace-nowrap" style={{ left: "calc(100% - 100px)" }}>
                       DESPUÉS
                     </div>
                   </div>
 
                   {/* Split handler line */}
                   <div
-                    className="absolute inset-y-0 w-[2px] bg-white cursor-ew-resize flex items-center justify-center pointer-events-none"
+                    className="absolute inset-y-0 w-[2px] bg-foreground cursor-ew-resize flex items-center justify-center pointer-events-none"
                     style={{ left: `${comparisonPos}%` }}
                   >
-                    <div className="w-8 h-8 rounded-full bg-white shadow-xl border border-slate-300 flex items-center justify-center text-slate-800 text-xs font-bold select-none pointer-events-auto">
+                    <div className="w-8 h-8 rounded-full bg-foreground shadow-xl border border-border flex items-center justify-center text-background text-xs font-bold select-none pointer-events-auto">
                       ↔
                     </div>
                   </div>
@@ -2219,7 +2328,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         setLightboxPhoto(list[list.length - 1]); // loop to end
                       }
                     }}
-                    className="absolute left-2 p-3 bg-slate-800/80 hover:bg-slate-700 rounded-full transition-all z-10"
+                    className="absolute left-2 p-3 bg-muted/80 hover:bg-muted rounded-full transition-all z-10 text-foreground"
                   >
                     ←
                   </button>
@@ -2227,7 +2336,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   <img
                     src={lightboxPhoto.url ? `${SERVER_URL}${lightboxPhoto.url}` : lightboxPhoto.photoData}
                     alt={lightboxPhoto.notes || "Foto"}
-                    className="max-w-full max-h-full object-contain rounded-2xl border border-slate-800 bg-slate-950"
+                    className="max-w-full max-h-full object-contain rounded-2xl border border-border bg-background"
                   />
 
                   {/* Next Button */}
@@ -2241,7 +2350,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         setLightboxPhoto(list[0]); // loop to start
                       }
                     }}
-                    className="absolute right-2 p-3 bg-slate-800/80 hover:bg-slate-700 rounded-full transition-all z-10"
+                    className="absolute right-2 p-3 bg-muted/80 hover:bg-muted rounded-full transition-all z-10 text-foreground"
                   >
                     →
                   </button>
@@ -2251,12 +2360,12 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
             {/* Footer with Notes */}
             {!comparisonMode && (
-              <div className="p-6 border-t border-slate-800 bg-slate-950/50 rounded-b-3xl">
-                <p className="text-xs font-semibold text-slate-400">Descripción / Notas evolutivas:</p>
-                <p className="text-sm font-medium text-slate-200 mt-1 leading-relaxed">
+              <div className="p-6 border-t border-border bg-background/50 rounded-b-3xl">
+                <p className="text-xs font-semibold text-muted-foreground">Descripción / Notas evolutivas:</p>
+                <p className="text-sm font-medium text-foreground mt-1 leading-relaxed">
                   {lightboxPhoto.notes || "Sin descripción registrada."}
                 </p>
-                <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500 font-bold">
+                <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground font-bold">
                   <span>Fecha: {new Date(lightboxPhoto.uploadedAt).toLocaleDateString("es-MX")}</span>
                   <span>Tipo: {lightboxPhoto.type === "before" ? "Control Inicial (Antes)" : "Control Evolutivo (Después)"}</span>
                 </div>
@@ -2264,14 +2373,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
             )}
             
             {comparisonMode && (
-              <div className="p-6 border-t border-slate-800 bg-slate-950/50 rounded-b-3xl flex justify-between gap-4 flex-wrap">
+              <div className="p-6 border-t border-border bg-background/50 rounded-b-3xl flex justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-[200px]">
-                  <span className="text-[10px] font-bold text-rose-400">ANTES:</span>
-                  <p className="text-xs font-medium text-slate-300 truncate mt-0.5">{sliderPhotoBefore?.notes || "Sin descripción"}</p>
+                  <span className="text-[10px] font-bold text-error">ANTES:</span>
+                  <p className="text-xs font-medium text-foreground truncate mt-0.5">{sliderPhotoBefore?.notes || "Sin descripción"}</p>
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <span className="text-[10px] font-bold text-emerald-400">DESPUÉS:</span>
-                  <p className="text-xs font-medium text-slate-300 truncate mt-0.5">{sliderPhotoAfter?.notes || "Sin descripción"}</p>
+                  <span className="text-[10px] font-bold text-success">DESPUÉS:</span>
+                  <p className="text-xs font-medium text-foreground truncate mt-0.5">{sliderPhotoAfter?.notes || "Sin descripción"}</p>
                 </div>
               </div>
             )}
@@ -2280,8 +2389,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
       )}
       {/* Delete Photo Confirmation Modal */}
       {photoToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border/80 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">¿Eliminar Fotografía?</h3>
             <p className="text-xs text-muted-foreground mb-4">Esta acción no se puede deshacer y la imagen será eliminada de forma permanente del expediente clínico.</p>
             <div className="flex gap-2 justify-end">
@@ -2314,7 +2423,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     setPhotoToDelete(null);
                   }
                 }}
-                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-bold bg-error text-primary-foreground rounded-xl hover:bg-error/90 transition-all cursor-pointer"
               >
                 Eliminar
               </button>
@@ -2325,8 +2434,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
       {/* Waive Retouch Confirmation Modal */}
       {retouchToDismiss && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border/80 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">¿Desestimar Retoque?</h3>
             <p className="text-xs text-muted-foreground mb-4">¿Estás seguro de que deseas desestimar este retoque para el paciente? Esta acción cancelará la programación propuesta.</p>
             <div className="flex gap-2 justify-end">
@@ -2348,7 +2457,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     setRetouchToDismiss(null);
                   }
                 }}
-                className="px-4 py-2 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all cursor-pointer"
+                className="px-4 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all cursor-pointer"
               >
                 Confirmar
               </button>

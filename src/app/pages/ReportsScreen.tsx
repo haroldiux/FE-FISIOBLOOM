@@ -281,7 +281,7 @@ export default function ReportsScreen() {
 
           <button
             onClick={() => window.print()}
-            className="no-print flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 cursor-pointer"
+            className="no-print flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Exportar PDF
@@ -294,13 +294,13 @@ export default function ReportsScreen() {
         {/* KPI 1: Ingresos Netos */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
-            <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-cyan-600" />
+            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-secondary" />
             </div>
             <span className={`flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${
               data.kpis.ingresosNetosDiff >= 0
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                : "bg-red-500/15 text-red-400 border border-red-500/25"
+                ? "bg-success/15 text-success border border-success/25"
+                : "bg-error/15 text-error border border-error/25"
             }`}>
               {data.kpis.ingresosNetosDiff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
               {Math.abs(data.kpis.ingresosNetosDiff)}%
@@ -322,13 +322,13 @@ export default function ReportsScreen() {
         {/* KPI 2: Egresos */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/15 flex items-center justify-center">
-              <TrendingDown className="w-5 h-5 text-rose-600" />
+            <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
+              <TrendingDown className="w-5 h-5 text-error" />
             </div>
             <span className={`flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${
               data.kpis.egresosDiff <= 0
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                : "bg-red-500/15 text-red-400 border border-red-500/25"
+                ? "bg-success/15 text-success border border-success/25"
+                : "bg-error/15 text-error border border-error/25"
             }`}>
               {data.kpis.egresosDiff <= 0 ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
               {Math.abs(data.kpis.egresosDiff)}%
@@ -350,13 +350,13 @@ export default function ReportsScreen() {
         {/* KPI 3: Citas Completadas */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-              <CalendarDays className="w-5 h-5 text-violet-600" />
+            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+              <CalendarDays className="w-5 h-5 text-secondary" />
             </div>
             <span className={`flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${
               data.kpis.citasCompletadasDiff >= 0
-                ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                : "bg-red-50 text-red-600 border border-red-100"
+                ? "bg-success/10 text-success border border-success/20"
+                : "bg-error/10 text-error border border-error/20"
             }`}>
               {data.kpis.citasCompletadasDiff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
               {Math.abs(data.kpis.citasCompletadasDiff)}%
@@ -378,10 +378,10 @@ export default function ReportsScreen() {
         {/* KPI 4: Valor de Almacén */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Package className="w-5 h-5 text-amber-600" />
+            <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+              <Package className="w-5 h-5 text-warning" />
             </div>
-            <span className="flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20">
               Activo
             </span>
           </div>
@@ -405,7 +405,7 @@ export default function ReportsScreen() {
         <div id="tour-reports-charts" className="bg-card rounded-2xl border border-border p-5 shadow-sm lg:col-span-2 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-cyan-600" />
+              <TrendingUp className="w-4 h-4 text-secondary" />
               Evolución Diaria de Ingresos
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -424,8 +424,8 @@ export default function ReportsScreen() {
                 <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none" className="overflow-visible">
                   <defs>
                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.00" />
+                      <stop offset="0%" stopColor="var(--secondary)" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.00" />
                     </linearGradient>
                   </defs>
 
@@ -440,7 +440,7 @@ export default function ReportsScreen() {
                           y1={y}
                           x2={svgWidth - paddingRight}
                           y2={y}
-                          stroke="rgba(148, 163, 184, 0.15)"
+                          stroke="var(--border)"
                           strokeWidth="1"
                         />
                         <text
@@ -465,7 +465,7 @@ export default function ReportsScreen() {
                     <path
                       d={linePathD}
                       fill="none"
-                      stroke="#06b6d4"
+                      stroke="var(--secondary)"
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -498,16 +498,17 @@ export default function ReportsScreen() {
                         y1={paddingTop}
                         x2={points[hoveredLineIdx].x}
                         y2={svgHeight - paddingBottom}
-                        stroke="rgba(6, 182, 212, 0.3)"
+                        stroke="var(--secondary)"
                         strokeWidth="1.5"
                         strokeDasharray="4 4"
+                        opacity="0.5"
                       />
                       <circle
                         cx={points[hoveredLineIdx].x}
                         cy={points[hoveredLineIdx].y}
                         r="6"
-                        fill="#06b6d4"
-                        stroke="white"
+                        fill="var(--secondary)"
+                        stroke="var(--card-foreground)"
                         strokeWidth="2"
                       />
                     </g>
@@ -535,17 +536,17 @@ export default function ReportsScreen() {
                 {/* Floating CSS Tooltip relative to the SVG container */}
                 {hoveredLineIdx !== null && points[hoveredLineIdx] && (
                   <div
-                    className="absolute bg-slate-900/95 text-white px-3 py-2 rounded-xl text-xs shadow-xl pointer-events-none flex flex-col gap-0.5 border border-white/10 z-10 animate-fadeIn"
+                    className="absolute bg-popover text-popover-foreground px-3 py-2 rounded-xl text-xs shadow-xl pointer-events-none flex flex-col gap-0.5 border border-border z-10 animate-fadeIn"
                     style={{
                       left: `${((points[hoveredLineIdx].x) / svgWidth) * 100}%`,
                       top: `${((points[hoveredLineIdx].y) / svgHeight) * 100 - 18}%`,
                       transform: "translate(-50%, -100%)",
                     }}
                   >
-                    <span className="font-semibold text-slate-400">
+                    <span className="font-semibold text-muted-foreground">
                       Día/Mes: {points[hoveredLineIdx].label}
                     </span>
-                    <span className="text-sm font-bold text-cyan-400 font-sans">
+                    <span className="text-sm font-bold text-secondary font-sans">
                       ${points[hoveredLineIdx].value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -559,7 +560,7 @@ export default function ReportsScreen() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-600" />
+              <Layers className="w-4 h-4 text-secondary" />
               Métodos de Pago
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -592,7 +593,7 @@ export default function ReportsScreen() {
 
               {/* Text overlays in the center */}
               <g transform="translate(100, 100)" textAnchor="middle">
-                <text y="-5" className="text-xl font-black fill-slate-800 font-sans leading-none">
+                <text y="-5" className="text-xl font-black fill-foreground font-sans leading-none">
                   {hoveredDonutIdx !== null
                     ? `${data.paymentMethods[hoveredDonutIdx].percentage}%`
                     : "100%"}
@@ -613,7 +614,7 @@ export default function ReportsScreen() {
                 key={idx}
                 className={`p-2 rounded-xl border flex flex-col gap-1 transition-all ${
                   hoveredDonutIdx === idx
-                    ? "bg-slate-50 border-slate-300"
+                    ? "bg-muted border-border"
                     : "bg-background/40 border-border/65"
                 }`}
                 onMouseEnter={() => setHoveredDonutIdx(idx)}
@@ -643,7 +644,7 @@ export default function ReportsScreen() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Percent className="w-4 h-4 text-cyan-600" />
+              <Percent className="w-4 h-4 text-secondary" />
               Tratamientos Más Solicitados
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -659,7 +660,7 @@ export default function ReportsScreen() {
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-semibold">
                     <span className="text-foreground truncate max-w-[80%] flex gap-1.5 items-center">
-                      <span className="text-[10px] w-5 h-5 rounded-full bg-white/5 flex items-center justify-center font-bold text-muted-foreground border border-white/5">
+                      <span className="text-[10px] w-5 h-5 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground border border-border">
                         {idx + 1}
                       </span>
                       {t.name}
@@ -670,7 +671,7 @@ export default function ReportsScreen() {
                   </div>
                   {/* SVG Horizontal Bar */}
                   <svg width="100%" height="8" className="overflow-visible">
-                    <rect width="100%" height="8" rx="4" fill="rgba(148, 163, 184, 0.1)" />
+                    <rect width="100%" height="8" rx="4" fill="var(--muted)" />
                     <rect
                       width={`${percent}%`}
                       height="8"
@@ -680,8 +681,8 @@ export default function ReportsScreen() {
                     />
                     <defs>
                       <linearGradient id="treatmentBarGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#06b6d4" />
-                        <stop offset="100%" stopColor="#14b8a6" />
+                        <stop offset="0%" stopColor="var(--secondary)" />
+                        <stop offset="100%" stopColor="var(--success)" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -695,7 +696,7 @@ export default function ReportsScreen() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Package className="w-4 h-4 text-violet-600" />
+              <Package className="w-4 h-4 text-secondary" />
               Insumos Más Consumidos
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -711,7 +712,7 @@ export default function ReportsScreen() {
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-semibold">
                     <span className="text-foreground truncate max-w-[80%] flex gap-1.5 items-center">
-                      <span className="text-[10px] w-5 h-5 rounded-full bg-white/5 flex items-center justify-center font-bold text-muted-foreground border border-white/5">
+                      <span className="text-[10px] w-5 h-5 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground border border-border">
                         {idx + 1}
                       </span>
                       {s.name}
@@ -722,7 +723,7 @@ export default function ReportsScreen() {
                   </div>
                   {/* SVG Horizontal Bar */}
                   <svg width="100%" height="8" className="overflow-visible">
-                    <rect width="100%" height="8" rx="4" fill="rgba(148, 163, 184, 0.1)" />
+                    <rect width="100%" height="8" rx="4" fill="var(--muted)" />
                     <rect
                       width={`${percent}%`}
                       height="8"
@@ -732,8 +733,8 @@ export default function ReportsScreen() {
                     />
                     <defs>
                       <linearGradient id="supplyBarGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#6366f1" />
+                        <stop offset="0%" stopColor="var(--secondary)" />
+                        <stop offset="100%" stopColor="var(--primary)" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -747,7 +748,7 @@ export default function ReportsScreen() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <TrendingUp className="w-4 h-4 text-success" />
               Ingresos por Sucursal
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -764,7 +765,7 @@ export default function ReportsScreen() {
                   <div key={idx} className="space-y-1.5">
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-foreground truncate max-w-[70%] flex gap-1.5 items-center">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-emerald-500" />
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-success" />
                         {branchName}
                       </span>
                       <span className="text-foreground font-bold font-sans">
@@ -772,9 +773,9 @@ export default function ReportsScreen() {
                       </span>
                     </div>
                     {/* Progress Bar */}
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
                       <div
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                        className="bg-success h-full rounded-full transition-all duration-500"
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -792,7 +793,7 @@ export default function ReportsScreen() {
       <div id="tour-reports-export" className="bg-card rounded-2xl border border-border p-6 shadow-sm">
         <div className="border-b border-border pb-4 mb-5">
           <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-success" />
             Exportar Información Contable
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -856,7 +857,7 @@ export default function ReportsScreen() {
             <button
               type="submit"
               disabled={exporting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-500/10 cursor-pointer disabled:opacity-60"
+              className="w-full bg-success text-primary-foreground hover:bg-success/90 rounded-xl py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-success/20 cursor-pointer disabled:opacity-60"
             >
               {exporting ? (
                 <>
@@ -875,12 +876,12 @@ export default function ReportsScreen() {
 
         {/* Status Messages */}
         {exportSuccess && (
-          <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <div className="mt-4 p-3 bg-success/10 border border-success/20 text-success rounded-xl text-xs font-semibold flex items-center gap-2">
             <span>¡Descarga iniciada con éxito!</span>
           </div>
         )}
         {exportError && (
-          <div className="mt-4 p-3 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <div className="mt-4 p-3 bg-error/10 border border-error/20 text-error rounded-xl text-xs font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
             <span>{exportError}</span>
           </div>
@@ -900,7 +901,7 @@ export default function ReportsScreen() {
             padding: 0 !important;
           }
           .max-w-7xl {
-            max-w: 100% !important;
+            max-width: 100% !important;
             width: 100% !important;
           }
           .bg-card {

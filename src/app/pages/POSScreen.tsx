@@ -71,7 +71,7 @@ interface Invoice {
 
 const categoryColor: Record<string, string> = {
   TRATAMIENTO: "bg-primary",
-  PRODUCTO: "bg-amber-400",
+  PRODUCTO: "bg-warning",
 };
 
 const paymentMethods = [
@@ -79,25 +79,25 @@ const paymentMethods = [
     id: "EFECTIVO",
     label: "Efectivo",
     Icon: Banknote,
-    active: "text-emerald-700 bg-emerald-50 border-emerald-400",
+    active: "text-success bg-success/10 border-success",
   },
   {
     id: "TARJETA",
     label: "Tarjeta",
     Icon: CreditCard,
-    active: "text-blue-700 bg-blue-50 border-blue-400",
+    active: "text-secondary bg-secondary/10 border-secondary",
   },
   {
     id: "TRANSFERENCIA",
     label: "Transferencia",
     Icon: Smartphone,
-    active: "text-violet-700 bg-violet-50 border-violet-400",
+    active: "text-secondary bg-secondary/10 border-secondary",
   },
   {
     id: "BILLETERA_VIRTUAL",
     label: "Billetera Virtual",
     Icon: Wallet,
-    active: "text-amber-700 bg-amber-50 border-amber-400",
+    active: "text-warning bg-warning/10 border-warning",
   },
 ];
 
@@ -129,15 +129,15 @@ function ReceiptModal({
     : `https://serviciosweb.afip.gob.ar/genericos/comprobantes/cae.aspx?id=${invoice.id}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm overflow-y-auto py-8">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden my-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-primary to-primary/80 p-6 text-white text-center">
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+        <div className="bg-gradient-to-br from-primary to-primary/80 p-6 text-primary-foreground text-center">
+          <div className="w-12 h-12 rounded-full bg-primary-foreground/20 flex items-center justify-center mx-auto mb-3">
             <Check className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-bold">¡Pago Registrado!</h2>
-          <p className="text-white/80 text-sm mt-1">Factura #{invoice.id.slice(-8).toUpperCase()}</p>
+          <p className="text-primary-foreground/80 text-sm mt-1">Factura #{invoice.id.slice(-8).toUpperCase()}</p>
         </div>
 
         {/* Content */}
@@ -189,8 +189,8 @@ function ReceiptModal({
           </div>
 
           {hasTax && (
-            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-              <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+            <div className="mt-4 p-4 bg-muted border border-border rounded-xl space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 text-success font-bold">
                 <Check className="w-3.5 h-3.5" />
                 <span>Factura Fiscal Autorizada</span>
               </div>
@@ -220,17 +220,17 @@ function ReceiptModal({
               </div>
 
               {/* Botón Descargar PDF y QR */}
-              <div className="pt-3 border-t border-slate-200 space-y-3 flex flex-col items-center">
+              <div className="pt-3 border-t border-border space-y-3 flex flex-col items-center">
                 <a
                   href={pdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors text-center font-bold rounded-lg block text-xs"
+                  className="w-full py-2 bg-success/10 text-success border border-success/20 hover:bg-success/20 transition-colors text-center font-bold rounded-lg block text-xs"
                 >
                   📄 Descargar PDF Oficial Factura
                 </a>
-                <div className="flex flex-col items-center justify-center p-2 bg-white border border-slate-100 rounded-lg text-[10px] text-muted-foreground text-center w-full">
-                  <div className="w-16 h-16 bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl mb-1 select-none">
+                <div className="flex flex-col items-center justify-center p-2 bg-card border border-border rounded-lg text-[10px] text-muted-foreground text-center w-full">
+                  <div className="w-16 h-16 bg-muted border border-border flex items-center justify-center text-2xl mb-1 select-none">
                     🔲
                   </div>
                   <span className="font-mono break-all text-[9px] max-w-[280px]">
@@ -250,7 +250,7 @@ function ReceiptModal({
             </button>
             <button
               onClick={onClose}
-              className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors"
+              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors"
             >
               Nueva Venta
             </button>
@@ -616,11 +616,11 @@ export default function POSScreen() {
   return (
     <div className="p-6 space-y-4">
       {isOffline && (
-        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm font-semibold shadow-sm">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 animate-pulse" />
+        <div className="flex items-center gap-3 p-4 bg-warning/10 border border-warning/20 rounded-2xl text-warning text-sm font-semibold shadow-sm">
+          <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 animate-pulse" />
           <div>
             <p>Conexión offline activa</p>
-            <p className="text-xs text-amber-600 font-normal mt-0.5">
+            <p className="text-xs text-warning/80 font-normal mt-0.5">
               Cargando catálogo y pacientes locales. Los cobros que realices se guardarán de forma local y se subirán a la nube automáticamente cuando vuelva internet.
             </p>
           </div>
@@ -628,8 +628,8 @@ export default function POSScreen() {
       )}
 
       {offlineQueueCount > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-blue-800 text-sm font-semibold shadow-sm">
-          <Loader2 className="w-5 h-5 text-blue-500 flex-shrink-0 animate-spin" />
+        <div className="flex items-center gap-3 p-4 bg-secondary/10 border border-secondary/20 rounded-2xl text-secondary text-sm font-semibold shadow-sm">
+          <Loader2 className="w-5 h-5 text-secondary flex-shrink-0 animate-spin" />
           <p>Hay {offlineQueueCount} venta(s) guardadas localmente esperando sincronización.</p>
         </div>
       )}
@@ -735,7 +735,7 @@ export default function POSScreen() {
                     key={index}
                     className="flex items-center gap-4 px-5 py-4 border-b border-border/50 hover:bg-background/60 transition-colors group"
                   >
-                    <div className={`w-1.5 h-12 rounded-full flex-shrink-0 ${categoryColor[item.category] ?? "bg-violet-400"}`} />
+                    <div className={`w-1.5 h-12 rounded-full flex-shrink-0 ${categoryColor[item.category] ?? "bg-secondary"}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-foreground">{item.description}</div>
                       <div className="text-xs text-muted-foreground mt-0.5 font-medium">
@@ -774,7 +774,7 @@ export default function POSScreen() {
                     </div>
                     <button
                       onClick={() => removeItem(index)}
-                      className="p-1.5 rounded-xl hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+                      className="p-1.5 rounded-xl hover:bg-error/10 text-muted-foreground hover:text-error transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -898,7 +898,7 @@ export default function POSScreen() {
             </div>
 
             {/* Tipo de Comprobante (Interno vs Fiscal) */}
-            <div className="mb-5 bg-slate-50/50 border border-slate-200 rounded-2xl p-4 space-y-4">
+            <div className="mb-5 bg-muted/50 border border-border rounded-2xl p-4 space-y-4">
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
                   Tipo de Comprobante
@@ -930,13 +930,13 @@ export default function POSScreen() {
               </div>
 
               {isFiscal && (
-                <div className="space-y-3 pt-2 border-t border-slate-200 animate-fade-in">
+                <div className="space-y-3 pt-2 border-t border-border animate-fade-in">
                   <div>
                     <label className="text-[9px] font-bold text-muted-foreground mb-1 block">Proveedor Fiscal</label>
                     <select
                       value={fiscalProvider}
                       onChange={(e) => setFiscalProvider(e.target.value as "SAT" | "AFIP")}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                      className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
                     >
                       <option value="SAT">SAT México (16% IVA)</option>
                       <option value="AFIP">AFIP Argentina (21% IVA)</option>
@@ -952,7 +952,7 @@ export default function POSScreen() {
                       value={taxId}
                       onChange={(e) => setTaxId(e.target.value)}
                       placeholder={fiscalProvider === "SAT" ? "Ej. XAXX010101000" : "Ej. 20-30456789-9"}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                      className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
                     />
                   </div>
                   <div>
@@ -962,7 +962,7 @@ export default function POSScreen() {
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="Nombre del cliente o razón social"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                      className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
                     />
                   </div>
                 </div>
@@ -984,9 +984,9 @@ export default function POSScreen() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-3">
-                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                <p className="text-xs text-red-700 font-medium">{error}</p>
+              <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 rounded-xl mb-3">
+                <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+                <p className="text-xs text-error font-medium">{error}</p>
               </div>
             )}
 
@@ -996,7 +996,7 @@ export default function POSScreen() {
                 onClick={handlePay}
                 className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                   paymentMethod && selectedPatient && cart.length > 0 && !paying && (!isFiscal || taxId.trim())
-                    ? "bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/25"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25"
                     : "bg-muted text-muted-foreground cursor-not-allowed"
                 }`}
               >
