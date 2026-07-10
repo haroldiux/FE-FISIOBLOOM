@@ -75,7 +75,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#030712",
-      bgSurface: "rgba(17, 24, 39, 0.55)",
+      bgSurface: "rgba(17, 24, 39, 0.45)",
       bgSurfaceElevated: "rgba(55, 65, 81, 0.50)",
     },
   },
@@ -97,7 +97,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#1A1016",
-      bgSurface: "rgba(45, 30, 40, 0.58)",
+      bgSurface: "rgba(45, 30, 40, 0.45)",
       bgSurfaceElevated: "rgba(70, 45, 60, 0.55)",
     },
   },
@@ -119,7 +119,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#02101A",
-      bgSurface: "rgba(8, 30, 45, 0.58)",
+      bgSurface: "rgba(8, 30, 45, 0.45)",
       bgSurfaceElevated: "rgba(15, 50, 70, 0.55)",
     },
   },
@@ -141,7 +141,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#0F172A",
-      bgSurface: "rgba(30, 41, 59, 0.58)",
+      bgSurface: "rgba(30, 41, 59, 0.45)",
       bgSurfaceElevated: "rgba(51, 65, 85, 0.55)",
     },
   },
@@ -163,7 +163,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#120410",
-      bgSurface: "rgba(40, 15, 30, 0.58)",
+      bgSurface: "rgba(40, 15, 30, 0.45)",
       bgSurfaceElevated: "rgba(65, 25, 50, 0.55)",
     },
   },
@@ -185,7 +185,7 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
     },
     dark: {
       bgPage: "#180828",
-      bgSurface: "rgba(40, 20, 55, 0.58)",
+      bgSurface: "rgba(40, 20, 55, 0.45)",
       bgSurfaceElevated: "rgba(65, 35, 85, 0.55)",
     },
   },
@@ -258,6 +258,8 @@ export function applyPalette(paletteKey: string): PaletteKey {
     style.setProperty("--primary-glow", tokens.primaryGlow);
     style.setProperty("--secondary", tokens.secondary);
     style.setProperty("--secondary-glow", tokens.secondaryGlow);
+    style.setProperty("--accent", tokens.secondaryGlow);
+    style.setProperty("--accent-foreground", tokens.secondary);
     style.setProperty("--success", tokens.success);
     style.setProperty("--success-glow", tokens.successGlow);
     style.setProperty("--warning", tokens.warning);

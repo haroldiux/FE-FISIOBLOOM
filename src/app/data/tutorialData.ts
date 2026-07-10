@@ -355,7 +355,9 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-calendar-create-btn",
       title: "Paso 1: Abrir Formulario",
       content: "Haz clic en 'Nueva Cita' para desplegar la barra lateral de creación.",
-      position: "left"
+      position: "left",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-calendar-create-btn" }
     },
     {
       selector: "#tour-calendar-drawer-patient",
@@ -385,7 +387,9 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-calendar-drawer-submit",
       title: "Paso 6: Confirmar Agenda",
       content: "Haz clic en 'Guardar'. El sistema validará que no haya colisiones de agenda y creará la cita.",
-      position: "top"
+      position: "top",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-calendar-drawer-submit" }
     }
   ],
   "register-patient": [
@@ -418,8 +422,10 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
     {
       selector: "#tour-patients-list",
       title: "Paso 1: Buscar Paciente",
-      content: "Selecciona al paciente del listado para abrir su ficha.",
-      position: "right"
+      content: "Haz clic en cualquier paciente del listado de la izquierda para cargar su ficha clínica.",
+      position: "right",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-patients-list" }
     },
     {
       selector: "#tour-tab-evolucion",
@@ -460,52 +466,76 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
   ],
   "sign-consent": [
     {
-      selector: "#tour-tab-consentimiento",
-      title: "Paso 1: pestaña Consentimiento",
-      content: "Abre la sección legal dentro del perfil del paciente.",
+      selector: "#tour-sidebar-consents",
+      title: "Paso 1: Módulo de Firmas",
+      content: "Haz clic en el menú 'Firmas' del panel lateral para abrir la vista dedicada.",
+      position: "right",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-sidebar-consents" }
+    },
+    {
+      selector: "#tour-consent-quick-sign",
+      title: "Paso 2: Registrar Nueva Firma",
+      content: "Haz clic en el botón 'Firma Rápida' para abrir el canvas táctil de consentimientos.",
+      position: "bottom",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-consent-quick-sign" }
+    },
+    {
+      selector: "#tour-consent-patient-search",
+      title: "Paso 3: Buscar Paciente",
+      content: "Escribe el nombre del paciente a firmar y selecciónalo de los resultados.",
       position: "bottom"
     },
     {
-      selector: "#tour-patients-consent-service-select",
-      title: "Paso 2: Elegir Tratamiento",
-      content: "Selecciona el servicio clínico que requiere la firma digital informada.",
+      selector: "#tour-consent-service-select",
+      title: "Paso 4: Elegir Tratamiento",
+      content: "Selecciona el tratamiento clínico correspondiente (o Consentimiento General de la clínica).",
       position: "bottom"
     },
     {
-      selector: "#tour-patients-consent-canvas",
-      title: "Paso 3: Canvas de Firma",
+      selector: "#tour-consent-canvas",
+      title: "Paso 5: Canvas de Firma",
       content: "Pídele al paciente que estampe su firma manuscrita digitalizada usando el mouse o pantalla táctil.",
       position: "top"
     },
     {
-      selector: "#tour-patients-consent-submit",
-      title: "Paso 4: Archivar Contrato",
-      content: "Haz clic en 'Guardar Firma'. El documento se guardará como PDF / Imagen inmutable en su expediente.",
+      selector: "#tour-consent-submit",
+      title: "Paso 6: Archivar Contrato",
+      content: "Haz clic en 'Archivar Firma' para guardar legalmente el consentimiento en su ficha.",
       position: "top"
     }
   ],
   "upload-gallery": [
     {
+      selector: "#tour-patients-list",
+      title: "Paso 1: Seleccionar Paciente",
+      content: "Haz clic en cualquier paciente del listado de la izquierda para cargar su ficha clínica y fotos.",
+      position: "right",
+      mode: "interactive",
+      advanceOn: { event: "click", selector: "#tour-patients-list" }
+    },
+    {
       selector: "#tour-tab-galeria",
-      title: "Paso 1: Galería Fotográfica",
+      title: "Paso 2: Galería Fotográfica",
       content: "Abre la pestaña de fotos dentro de la ficha del paciente.",
       position: "bottom"
     },
     {
       selector: "#tour-gallery-file-input",
-      title: "Paso 2: Cargar Archivo",
+      title: "Paso 3: Cargar Archivo",
       content: "Haz clic para seleccionar la fotografía tomada con el dispositivo o cámara de la clínica.",
       position: "top"
     },
     {
       selector: "#tour-gallery-type-select",
-      title: "Paso 3: Categorizar Control",
+      title: "Paso 4: Categorizar Control",
       content: "Selecciona si corresponde a un control 'Antes' (Pre-tratamiento) o 'Después' (Post-tratamiento).",
       position: "top"
     },
     {
       selector: "#tour-gallery-submit",
-      title: "Paso 4: Subir Foto",
+      title: "Paso 5: Subir Foto",
       content: "Guarda la imagen. Se organizará en el muro fotográfico con su respectiva fecha y notas.",
       position: "top"
     }

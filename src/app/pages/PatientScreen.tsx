@@ -216,6 +216,10 @@ export default function PatientScreen({
   const [consentError, setConsentError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [signMethod, setSignMethod] = useState<"digital" | "file">("digital");
+  const [uploadedFileBase64, setUploadedFileBase64] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [selectedConsentForView, setSelectedConsentForView] = useState<any | null>(null);
 
   // Create Patient States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -755,6 +759,23 @@ export default function PatientScreen({
 
   // ── Submit Consent ──────────────────────────────────────────────────────────
 
+  const handleConsentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("El archivo supera el límite de 5MB.");
+      return;
+    }
+
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedFileBase64(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveConsent = async () => {
     if (!patient) return;
     setConsentError(null);
@@ -766,15 +787,29 @@ export default function PatientScreen({
       return;
     }
 
-    if (!acceptTerms) {
+    if (signMethod === "digital" && !acceptTerms) {
       setConsentError("Debes aceptar los términos y condiciones para continuar.");
       setIsSigning(false);
       return;
     }
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const signatureBase64 = canvas.toDataURL("image/png");
+    let signatureBase64 = "";
+    if (signMethod === "digital") {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        setConsentError("El lienzo de firma no está listo.");
+        setIsSigning(false);
+        return;
+      }
+      signatureBase64 = canvas.toDataURL("image/png");
+    } else {
+      if (!uploadedFileBase64) {
+        setConsentError("Debes cargar un archivo de consentimiento escaneado.");
+        setIsSigning(false);
+        return;
+      }
+      signatureBase64 = "scanned:" + uploadedFileBase64;
+    }
 
     try {
       await api.post(`/patients/${patient.id}/consent`, {
@@ -787,6 +822,9 @@ export default function PatientScreen({
       setIsSigning(false);
       setAcceptTerms(false);
       setSelectedConsentServiceId("");
+      setSignMethod("digital");
+      setUploadedFileBase64(null);
+      setUploadedFileName("");
     } catch (err: any) {
       console.warn("Fallo al guardar consentimiento en API, usando fallback offline en LocalStorage:", err);
       
@@ -824,6 +862,9 @@ export default function PatientScreen({
       setIsSigning(false);
       setAcceptTerms(false);
       setSelectedConsentServiceId("");
+      setSignMethod("digital");
+      setUploadedFileBase64(null);
+      setUploadedFileName("");
     }
   };
 
@@ -1332,12 +1373,27 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                               </span>
                             </div>
                             
-                            <div className="bg-card border border-border rounded-xl p-2 flex justify-center items-center h-24 shadow-inner">
-                              <img
-                                src={doc.signatureData}
-                                alt="Firma del paciente"
-                                className="max-h-full max-w-full object-contain"
-                              />
+                            <div 
+                              onClick={() => setSelectedConsentForView({ ...doc, patient: { fullName: patient.fullName, phone: patient.phone } })}
+                              className="bg-card border border-border rounded-xl p-2 flex justify-center items-center h-24 shadow-inner cursor-pointer hover:border-primary transition-all w-full"
+                            >
+                              {doc.signatureData.startsWith("scanned:") ? (
+                                doc.signatureData.includes("application/pdf") ? (
+                                  <span className="text-[10px] text-primary font-black">Documento PDF Escaneado</span>
+                                ) : (
+                                  <img
+                                    src={doc.signatureData.replace("scanned:", "")}
+                                    alt="Documento escaneado"
+                                    className="max-h-full max-w-full object-contain"
+                                  />
+                                )
+                              ) : (
+                                <img
+                                  src={doc.signatureData}
+                                  alt="Firma del paciente"
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1398,85 +1454,151 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       </select>
                     </div>
 
+                    {/* Método de Registro (Firma Digital o Subir Archivo) */}
                     <div>
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
-                        Documento de Consentimiento Clínico
+                        Método de Firma *
                       </label>
-                      <div className="bg-muted border border-border rounded-xl p-4 text-xs text-muted-foreground max-h-40 overflow-y-auto leading-relaxed whitespace-pre-line font-medium border-l-4 border-l-primary shadow-inner">
-                        {selectedConsentServiceId ? (
-                          getConsentText(
-                            patient.treatmentPackages.flatMap((pkg) => pkg.lines)
-                              .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
-                              ?.serviceName || 
-                            (selectedConsentServiceId === "general" ? "General" :
-                             selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
-                             selectedConsentServiceId === "fallback-cavitacion" ? "Cavitación Corporal" :
-                             selectedConsentServiceId === "fallback-facial" ? "Tratamiento Facial" :
-                             selectedConsentServiceId === "fallback-rehab" ? "Fisioterapia" : "Servicio")
-                          )
-                        ) : (
-                          <span className="italic text-muted-foreground">
-                            Selecciona un servicio para visualizar el texto legal de consentimiento informado correspondiente.
+                      <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setSignMethod("digital")}
+                          className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                            signMethod === "digital" 
+                              ? "bg-primary text-primary-foreground shadow-sm" 
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Firma en Pantalla
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSignMethod("file")}
+                          className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                            signMethod === "file" 
+                              ? "bg-primary text-primary-foreground shadow-sm" 
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Subir Escaneado
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Canvas de Firma o Carga de Archivo */}
+                    {signMethod === "digital" ? (
+                      <>
+                        {/* Texto legal de consentimiento */}
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-150">
+                          <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
+                            Documento de Consentimiento Clínico
+                          </label>
+                          <div className="bg-muted border border-border rounded-xl p-4 text-xs text-muted-foreground max-h-40 overflow-y-auto leading-relaxed whitespace-pre-line font-medium border-l-4 border-l-primary shadow-inner">
+                            {selectedConsentServiceId ? (
+                              getConsentText(
+                                patient.treatmentPackages.flatMap((pkg) => pkg.lines)
+                                  .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
+                                  ?.serviceName || 
+                                (selectedConsentServiceId === "general" ? "General" :
+                                 selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
+                                 selectedConsentServiceId === "fallback-cavitacion" ? "Cavitación Corporal" :
+                                 selectedConsentServiceId === "fallback-facial" ? "Tratamiento Facial" :
+                                 selectedConsentServiceId === "fallback-rehab" ? "Fisioterapia" : "Servicio")
+                              )
+                            ) : (
+                              <span className="italic text-muted-foreground">
+                                Selecciona un servicio para visualizar el texto legal de consentimiento informado correspondiente.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                              Firma del Paciente
+                            </label>
+                            <span className="text-[10px] text-muted-foreground font-semibold italic">
+                              Estampe la firma con el mouse o lápiz táctil
+                            </span>
+                          </div>
+
+                          <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-2 relative overflow-hidden flex justify-center items-center">
+                            <canvas
+                              ref={canvasRef}
+                              id="tour-patients-consent-canvas"
+                              width={600}
+                              height={200}
+                              onMouseDown={startDrawing}
+                              onMouseMove={draw}
+                              onMouseUp={stopDrawing}
+                              onMouseLeave={stopDrawing}
+                              onTouchStart={startDrawing}
+                              onTouchMove={draw}
+                              onTouchEnd={stopDrawing}
+                              className="bg-card rounded-xl shadow-inner cursor-crosshair max-w-full"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Checkbox Aceptación */}
+                        <label className="flex items-start gap-3 cursor-pointer select-none py-1">
+                          <input
+                            type="checkbox"
+                            checked={acceptTerms}
+                            onChange={(e) => setAcceptTerms(e.target.checked)}
+                            className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
+                          />
+                          <span className="text-xs text-muted-foreground font-medium">
+                            Declaro que he leído y comprendido la información del tratamiento seleccionado y acepto firmar digitalmente este consentimiento.
                           </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
-                          Firma del Paciente
                         </label>
-                        <span className="text-[10px] text-muted-foreground font-semibold italic">
-                          Estampe la firma con el mouse o lápiz táctil
-                        </span>
+                      </>
+                    ) : (
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                          Cargar Documento Escaneado (PDF o Imagen) *
+                        </label>
+                        <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-6 text-center relative hover:border-primary transition-all">
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleConsentFileChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <div className="space-y-2">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-foreground">
+                                {uploadedFileName || "Haz clic para seleccionar o arrastra el archivo aquí"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                Soporta PDF, PNG, JPG hasta 5MB.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-2 relative overflow-hidden flex justify-center items-center">
-                        <canvas
-                          ref={canvasRef}
-                          id="tour-patients-consent-canvas"
-                          width={600}
-                          height={200}
-                          onMouseDown={startDrawing}
-                          onMouseMove={draw}
-                          onMouseUp={stopDrawing}
-                          onMouseLeave={stopDrawing}
-                          onTouchStart={startDrawing}
-                          onTouchMove={draw}
-                          onTouchEnd={stopDrawing}
-                          className="bg-card rounded-xl shadow-inner cursor-crosshair max-w-full"
-                        />
-                      </div>
-                    </div>
-
-                    <label className="flex items-start gap-3 cursor-pointer select-none py-1">
-                      <input
-                        type="checkbox"
-                        checked={acceptTerms}
-                        onChange={(e) => setAcceptTerms(e.target.checked)}
-                        className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
-                      />
-                      <span className="text-xs text-muted-foreground font-medium">
-                        Declaro que he leído y comprendido la información del tratamiento seleccionado y acepto firmar digitalmente este consentimiento.
-                      </span>
-                    </label>
-
+                    )}
                     <div className="flex gap-3 justify-end pt-2">
-                      <button
-                        type="button"
-                        onClick={clearCanvas}
-                        className="flex items-center gap-1.5 px-4 py-2.5 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Limpiar Lienzo
-                      </button>
+                      {signMethod === "digital" && (
+                        <button
+                          type="button"
+                          onClick={clearCanvas}
+                          className="flex items-center gap-1.5 px-4 py-2.5 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Limpiar Lienzo
+                        </button>
+                      )}
                       <button
                         type="button"
                         id="tour-patients-consent-submit"
                         onClick={handleSaveConsent}
-                        disabled={isSigning || !selectedConsentServiceId || !acceptTerms}
-                        className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isSigning || !selectedConsentServiceId || (signMethod === "digital" && !acceptTerms)}
+                        className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {isSigning ? (
                           <>
@@ -2407,7 +2529,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       const queueKey = `patient_photos_queue_${patient!.id}`;
                       const queuedRaw = localStorage.getItem(queueKey);
                       if (queuedRaw) {
-                        const queued: PatientPhoto[] = JSON.parse(queuedRaw);
+                        const queued: any[] = JSON.parse(queuedRaw);
                         const updated = queued.filter((p) => p.id !== photoToDelete);
                         localStorage.setItem(queueKey, JSON.stringify(updated));
                       }
@@ -2432,34 +2554,84 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
         </div>
       )}
 
-      {/* Waive Retouch Confirmation Modal */}
-      {retouchToDismiss && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">¿Desestimar Retoque?</h3>
-            <p className="text-xs text-muted-foreground mb-4">¿Estás seguro de que deseas desestimar este retoque para el paciente? Esta acción cancelará la programación propuesta.</p>
-            <div className="flex gap-2 justify-end">
+      {/* VISOR DE DOCUMENTO / FIRMA */}
+      {selectedConsentForView && (
+        <div className="fixed inset-0 z-[100] bg-background/50 backdrop-blur-sm flex items-center justify-center animate-fade-in">
+          <div className="bg-card w-full max-w-2xl rounded-3xl border border-border p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2 border-b border-border pb-4">
+              <FileText className="w-5 h-5 text-primary" />
+              Documento de Consentimiento Firmado
+            </h3>
+
+            <button
+              onClick={() => setSelectedConsentForView(null)}
+              className="absolute right-5 top-2 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-xs bg-muted p-4 rounded-2xl border border-border">
+                <div>
+                  <span className="text-muted-foreground font-semibold block text-[10px] uppercase tracking-wider">Paciente</span>
+                  <span className="font-bold text-foreground">{selectedConsentForView.patient?.fullName}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-semibold block text-[10px] uppercase tracking-wider">Tratamiento / Servicio</span>
+                  <span className="font-bold text-foreground">{selectedConsentForView.service?.name || "Consentimiento General"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-semibold block text-[10px] uppercase tracking-wider">Contacto</span>
+                  <span className="font-bold text-foreground font-mono">{selectedConsentForView.patient?.phone || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground font-semibold block text-[10px] uppercase tracking-wider">Fecha y Hora de Firma</span>
+                  <span className="font-bold text-foreground">
+                    {new Date(selectedConsentForView.signedAt).toLocaleString("es-MX")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  {selectedConsentForView.signatureData.startsWith("scanned:") ? "Documento Escaneado" : "Firma Manuscrita Registrada"}
+                </span>
+
+                <div className="border border-border rounded-2xl bg-muted p-4 flex justify-center items-center max-h-[50vh] overflow-y-auto">
+                  {selectedConsentForView.signatureData.startsWith("scanned:") ? (
+                    selectedConsentForView.signatureData.includes("application/pdf") ? (
+                      <embed
+                        src={selectedConsentForView.signatureData.replace("scanned:", "")}
+                        type="application/pdf"
+                        className="w-full h-[400px] rounded-xl border border-border"
+                      />
+                    ) : (
+                      <img
+                        src={selectedConsentForView.signatureData.replace("scanned:", "")}
+                        alt="Documento escaneado"
+                        className="max-w-full max-h-[400px] object-contain rounded-xl shadow-lg border border-border"
+                      />
+                    )
+                  ) : (
+                    <div className="bg-white p-6 rounded-xl border border-border shadow-inner">
+                      <img
+                        src={selectedConsentForView.signatureData}
+                        alt="Firma"
+                        className="h-28 w-auto object-contain filter invert-0"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-border pt-4">
               <button
-                onClick={() => setRetouchToDismiss(null)}
-                className="px-4 py-2 text-xs font-bold border-2 border-border rounded-xl hover:bg-muted text-muted-foreground transition-all cursor-pointer"
+                type="button"
+                onClick={() => setSelectedConsentForView(null)}
+                className="px-5 py-2.5 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
               >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await api.put(`/appointments/retouches/${retouchToDismiss.id}`, { status: "WAIVED" });
-                    toast.success("Retoque desestimado correctamente.");
-                    if (selectedPatientId) loadPatient(selectedPatientId);
-                  } catch (err: any) {
-                    toast.error("Error al desestimar el retoque: " + err.message);
-                  } finally {
-                    setRetouchToDismiss(null);
-                  }
-                }}
-                className="px-4 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all cursor-pointer"
-              >
-                Confirmar
+                Cerrar Visor
               </button>
             </div>
           </div>

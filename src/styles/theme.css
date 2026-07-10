@@ -9,7 +9,7 @@
   */
   --background: #ece9f1; 
   --foreground: #ffffff; /* Text remains white/light for legibility on dark glass! */
-  --card: rgba(30, 26, 38, 0.58); /* Soft smoky charcoal glass (dark!) */
+  --card: rgba(25, 20, 32, 0.78); /* Soft smoky charcoal glass (dark!) */
   --card-foreground: #ffffff;
   --popover: rgba(35, 30, 44, 0.76); /* Dark popovers */
   --popover-foreground: #ffffff;
@@ -68,7 +68,7 @@
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
   --palette-bg-page: #030712;
-  --palette-bg-surface: rgba(17, 24, 39, 0.55);
+  --palette-bg-surface: rgba(17, 24, 39, 0.45);
   --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
   --palette-name: "Aura";
 
@@ -87,11 +87,11 @@
 
 .dark {
   /* Spatial Dark Theme - Deep Cosmic Anthracite Black (watermarked_img_851376909664887668.png inspired) */
-  --background: #0b0a0f; 
+  --background: var(--palette-bg-page); 
   --foreground: #f5eff9;
-  --card: rgba(18, 17, 24, 0.6); /* Premium dark esmerilado glass */
+  --card: var(--palette-bg-surface); /* Premium dark esmerilado glass */
   --card-foreground: #f5eff9;
-  --popover: rgba(15, 14, 20, 0.82);
+  --popover: var(--palette-bg-surface-elevated);
   --popover-foreground: #f5eff9;
   --primary: #d946ef; /* Vibrant Neon Magenta */
   --primary-foreground: #0b0a0f;
@@ -124,7 +124,7 @@
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-ring: #d946ef;
 
-  --glass-border: rgba(255, 255, 255, 0.05); /* Extremely thin Z-separation border */
+  --glass-border: rgba(255, 255, 255, 0.12); /* Extremely thin Z-separation border */
   --glass-overlay: rgba(255, 255, 255, 0.03);
   --glass-shadow: rgba(0, 0, 0, 0.65);
 }
@@ -149,7 +149,7 @@
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
   --palette-bg-page: #030712;
-  --palette-bg-surface: rgba(17, 24, 39, 0.55);
+  --palette-bg-surface: rgba(17, 24, 39, 0.45);
   --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
   --palette-name: "Aura";
 }
@@ -166,7 +166,7 @@
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
   --palette-bg-page: #1A1016;
-  --palette-bg-surface: rgba(45, 30, 40, 0.58);
+  --palette-bg-surface: rgba(45, 30, 40, 0.45);
   --palette-bg-surface-elevated: rgba(70, 45, 60, 0.55);
   --palette-name: "Bloom";
 }
@@ -183,7 +183,7 @@
   --error: #F87171;
   --error-glow: rgba(248, 113, 113, 0.40);
   --palette-bg-page: #02101A;
-  --palette-bg-surface: rgba(8, 30, 45, 0.58);
+  --palette-bg-surface: rgba(8, 30, 45, 0.45);
   --palette-bg-surface-elevated: rgba(15, 50, 70, 0.55);
   --palette-name: "Ocean";
 }
@@ -200,7 +200,7 @@
   --error: #FCA5A5;
   --error-glow: rgba(252, 165, 165, 0.40);
   --palette-bg-page: #0F172A;
-  --palette-bg-surface: rgba(30, 41, 59, 0.58);
+  --palette-bg-surface: rgba(30, 41, 59, 0.45);
   --palette-bg-surface-elevated: rgba(51, 65, 85, 0.55);
   --palette-name: "Sunset";
 }
@@ -217,7 +217,7 @@
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
   --palette-bg-page: #120410;
-  --palette-bg-surface: rgba(40, 15, 30, 0.58);
+  --palette-bg-surface: rgba(40, 15, 30, 0.45);
   --palette-bg-surface-elevated: rgba(65, 25, 50, 0.55);
   --palette-name: "Berry";
 }
@@ -234,7 +234,7 @@
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
   --palette-bg-page: #180828;
-  --palette-bg-surface: rgba(40, 20, 55, 0.58);
+  --palette-bg-surface: rgba(40, 20, 55, 0.45);
   --palette-bg-surface-elevated: rgba(65, 35, 85, 0.55);
   --palette-name: "Tropical";
 }

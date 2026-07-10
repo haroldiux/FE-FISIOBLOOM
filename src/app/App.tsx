@@ -5,6 +5,7 @@ import { api } from "./services/api";
 import LoginScreen from "./components/LoginScreen";
 import CalendarScreen from "./pages/CalendarScreen";
 import PatientScreen from "./pages/PatientScreen";
+import ConsentScreen from "./pages/ConsentScreen";
 import DashboardScreen from "./pages/DashboardScreen";
 import FinanceScreen from "./pages/FinanceScreen";
 import InventoryScreen from "./pages/InventoryScreen";
@@ -48,19 +49,21 @@ import {
   Sun,
   Moon,
   Clock,
+  FileText,
 } from "lucide-react";
 
 // ── Notification Types ────────────────────────────────────────────────────────
 
 interface SystemNotification {
   id: string;
-  type: 'low_stock' | 'expiring_package' | 'overdue_retouch' | 'upcoming_retouch';
+  type: 'low_stock' | 'expiring_package' | 'overdue_retouch' | 'upcoming_retouch' | 'inactive_package';
   severity: 'critical' | 'warning' | 'info';
   title: string;
   message: string;
   entityId?: string;
   entityName?: string;
   createdAt: string;
+  patientId?: string;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -69,6 +72,7 @@ type Screen =
   | "dashboard"
   | "calendar"
   | "patients"
+  | "consents"
   | "pos"
   | "inventory"
   | "services"
@@ -185,6 +189,7 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
     { id: "dashboard", label: "Inicio", Icon: LayoutDashboard },
     { id: "calendar", label: "Citas", Icon: CalendarDays },
     { id: "patients", label: "Pacientes", Icon: Users },
+    { id: "consents", label: "Firmas", Icon: FileText },
     { id: "pos", label: "Finanzas", Icon: Receipt },
     ...(settings.features.inventory ? [{ id: "inventory", label: "Almacén", Icon: Package }] : []),
     { id: "services", label: "Servicios", Icon: Sparkles },
@@ -561,6 +566,7 @@ function Topbar({
                     {notifications.map((notif) => {
                       const Icon = notif.type === 'low_stock' ? PackageX
                         : notif.type === 'expiring_package' ? ShoppingCart
+                        : notif.type === 'inactive_package' ? AlertTriangle
                         : Syringe;
                       const iconBg = notif.severity === 'critical' ? 'bg-destructive/10 text-destructive border border-destructive/10'
                         : notif.severity === 'warning' ? 'bg-warning/10 text-warning border border-warning/10'
@@ -569,7 +575,7 @@ function Topbar({
                         : notif.severity === 'warning' ? 'bg-warning/20 text-warning border border-warning/30'
                         : 'bg-muted text-muted-foreground border border-border';
                       const targetScreen = notif.type === 'low_stock' ? 'inventory'
-                        : notif.type === 'expiring_package' ? 'patients'
+                        : notif.type === 'expiring_package' || notif.type === 'inactive_package' ? 'patients'
                         : 'dashboard';
 
                       return (
@@ -913,6 +919,7 @@ function AppContent() {
               clearSearchSelectedPatientId={() => setSearchSelectedPatientId(null)} 
             />
           )}
+          {screen === "consents" && <ConsentScreen />}
           {screen === "pos" && <FinanceScreen />}
           {screen === "inventory" && <InventoryScreen />}
            {screen === "services" && <ServicesScreen />}

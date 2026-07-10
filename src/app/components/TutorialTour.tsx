@@ -23,6 +23,7 @@ export function enrichStep(step: any): any {
   if (!enriched.targetScreen) {
     if (sel.includes("dashboard")) enriched.targetScreen = "dashboard";
     else if (sel.includes("calendar")) enriched.targetScreen = "calendar";
+    else if (sel.includes("consent")) enriched.targetScreen = "consents";
     else if (sel.includes("patients") || sel.includes("patient") || sel.includes("tab-")) enriched.targetScreen = "patients";
     else if (sel.includes("pos") || sel.includes("finance") || sel.includes("cash") || sel.includes("payroll")) enriched.targetScreen = "pos";
     else if (sel.includes("inventory")) enriched.targetScreen = "inventory";
@@ -299,13 +300,22 @@ export default function TutorialTour({ onNavigate }: TutorialTourProps) {
               <ChevronLeft className="w-3 h-3" />
               Atrás
             </button>
-            <button
-              onClick={nextStep}
-              className="px-4 py-1.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center gap-1 hover:bg-primary/95 shadow-md shadow-primary/25 transition-all"
-            >
-              {currentStep === totalSteps - 1 ? "Entendido" : "Siguiente"}
-              {currentStep < totalSteps - 1 && <ChevronRight className="w-3 h-3" />}
-            </button>
+            
+            {/* Ocultar el botón Siguiente si es interactivo y no es el último paso */}
+            {(!isInteractive || currentStep === totalSteps - 1) && (
+              <button
+                onClick={nextStep}
+                disabled={stepData.selector ? !document.querySelector(stepData.selector) : false}
+                className={`px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all ${
+                  (stepData.selector ? !document.querySelector(stepData.selector) : false)
+                    ? "bg-primary/40 text-primary-foreground/60 cursor-not-allowed shadow-none"
+                    : "bg-primary text-primary-foreground hover:bg-primary/95 shadow-md shadow-primary/25"
+                }`}
+              >
+                {currentStep === totalSteps - 1 ? "Entendido" : "Siguiente"}
+                {currentStep < totalSteps - 1 && <ChevronRight className="w-3 h-3" />}
+              </button>
+            )}
           </div>
         </div>
       </div>
