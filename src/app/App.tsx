@@ -82,6 +82,14 @@ type Screen =
   | "error-404"
   | "error-500";
 
+const SCREEN_PERMISSIONS: Record<string, Screen[]> = {
+  SUPER_ADMIN: ["dashboard", "saas"],
+  ADMIN: ["dashboard", "calendar", "patients", "consents", "pos", "inventory", "services", "reports", "config"],
+  RECEPTIONIST: ["dashboard", "calendar", "patients", "consents", "pos"],
+  PHYSIO: ["dashboard", "calendar", "patients", "consents"],
+  AESTHETICIAN: ["dashboard", "calendar", "patients", "consents"],
+};
+
 // ── Branch Selector ───────────────────────────────────────────────────────────
 
 interface Branch {
@@ -200,6 +208,10 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
     { id: "config", label: "Ajustes", Icon: Settings },
   ];
 
+  const allowedScreens = user ? SCREEN_PERMISSIONS[user.role] || ["dashboard"] : ["dashboard"];
+  const filteredMainNav = mainNav.filter(item => allowedScreens.includes(item.id));
+  const filteredSystemNav = systemNav.filter(item => allowedScreens.includes(item.id));
+
   const NavButton = ({ id, label, Icon }: { id: Screen; label: string; Icon: React.ComponentType<any> }) => {
     const isActive = active === id;
     return (
@@ -243,11 +255,11 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
 
       {/* Nav */}
       <nav className="flex flex-col gap-3 overflow-y-auto [&::-webkit-scrollbar]:hidden py-1">
-        {mainNav.map((item) => <NavButton key={item.id} {...item} />)}
-        {systemNav.length > 0 && (
+        {filteredMainNav.map((item) => <NavButton key={item.id} {...item} />)}
+        {filteredSystemNav.length > 0 && (
           <>
             <div className="w-8 h-[1px] bg-border my-1 self-center flex-shrink-0" />
-            {systemNav.map((item) => <NavButton key={item.id} {...item} />)}
+            {filteredSystemNav.map((item) => <NavButton key={item.id} {...item} />)}
           </>
         )}
       </nav>
@@ -263,10 +275,16 @@ function UserFooterButton({ setActive }: { setActive: (s: Screen) => void }) {
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "A";
+  const hasConfigAccess = user ? SCREEN_PERMISSIONS[user.role]?.includes("config") : false;
+
   return (
     <div id="tour-user-footer" className="mt-auto flex-shrink-0 group/user">
       <button
-        onClick={() => setActive("config")}
+        onClick={() => {
+          if (hasConfigAccess) {
+            setActive("config");
+          }
+        }}
         className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground text-xs font-black shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
       >
         {initials}
@@ -730,10 +748,19 @@ function Error500Screen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
 // ── HELPER DATA DELEGATED TO TUTORIALDATA.TS ──────────────
 
 function AppContent() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { openHelpCenter } = useTutorial();
   const { settings: tenantSettings } = useTenantSettings();
   const [screen, setScreen] = useState<Screen>("dashboard");
+
+  useEffect(() => {
+    if (user) {
+      const allowed = SCREEN_PERMISSIONS[user.role] || ["dashboard"];
+      if (!allowed.includes(screen)) {
+        setScreen("dashboard");
+      }
+    }
+  }, [screen, user]);
   const mainRef = useRef<HTMLElement>(null);
 
   // Theme state and toggle initialization

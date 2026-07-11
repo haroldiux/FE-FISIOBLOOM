@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  MousePointerClick,
 } from "lucide-react";
 import { api } from "../services/api";
 import { animate } from "animejs";
@@ -223,6 +224,60 @@ function computeOverlapColumns(appointments: Appointment[], weekDates: Date[], d
   return result;
 }
 
+function computeCabinOverlapColumns(appointments: Appointment[], currentDate: Date, cabinName: string): Map<string, OverlapInfo> {
+  const cabinAppts = appointments
+    .filter((a) => {
+      const isSame = isSameDay(new Date(a.dateTime), currentDate);
+      const isCabin = (a.cabin || "Ninguna") === cabinName;
+      return isSame && isCabin;
+    })
+    .map((a) => ({ id: a.id, start: getStartHourFloat(a.dateTime), end: getStartHourFloat(a.dateTime) + a.duration / 60 }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const result = new Map<string, OverlapInfo>();
+  if (cabinAppts.length === 0) return result;
+
+  const components: { start: number; end: number; items: typeof cabinAppts }[] = [];
+  for (const item of cabinAppts) {
+    const last = components[components.length - 1];
+    if (last && item.start < last.end) {
+      last.items.push(item);
+      last.end = Math.max(last.end, item.end);
+    } else {
+      components.push({ start: item.start, end: item.end, items: [item] });
+    }
+  }
+
+  for (const comp of components) {
+    const cols: { end: number; ids: string[] }[] = [];
+    for (const item of comp.items) {
+      let placed = false;
+      for (let c = 0; c < cols.length; c++) {
+        if (cols[c].end <= item.start) {
+          cols[c].end = item.end;
+          cols[c].ids.push(item.id);
+          result.set(item.id, { column: c, totalColumns: cols.length });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        cols.push({ end: item.end, ids: [item.id] });
+        result.set(item.id, { column: cols.length - 1, totalColumns: cols.length });
+      }
+    }
+    const maxCols = cols.length;
+    for (const col of cols) {
+      for (const id of col.ids) {
+        const info = result.get(id);
+        if (info) info.totalColumns = maxCols;
+      }
+    }
+  }
+
+  return result;
+}
+
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   CONFIRMADA:           { bg: "bg-success/10",      border: "border-success/20",     text: "text-success",     dot: "bg-success" },
   COMPLETADA:           { bg: "bg-secondary/10",    border: "border-secondary/20",   text: "text-secondary",   dot: "bg-secondary" },
@@ -246,7 +301,7 @@ export default function CalendarScreen({
   onSelectPatient?: (patientId: string) => void;
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState<"weekly" | "cabins">("weekly");
+  const [viewMode, setViewMode] = useState<"weekly" | "cabins" | "agenda">("weekly");
 
   useEffect(() => {
     if (presetAppointmentData) {
@@ -274,6 +329,7 @@ export default function CalendarScreen({
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState("");
   const [cabin, setCabin] = useState("Ninguna");
+  const [status, setStatus] = useState<Appointment["status"]>("PENDIENTE");
 
   // Edit & Detail modal state
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
@@ -395,6 +451,7 @@ export default function CalendarScreen({
     setDate(dayDate.toISOString().slice(0, 10));
     setTime(`${String(hour).padStart(2, "0")}:00`);
     setCabin("Ninguna");
+    setStatus("PENDIENTE");
     setError(null);
     setEditingAppointment(null);
     setShowSlideOver(true);
@@ -404,6 +461,7 @@ export default function CalendarScreen({
     setDate(currentDate.toISOString().slice(0, 10));
     setTime(`${String(hour).padStart(2, "0")}:00`);
     setCabin(cabinName);
+    setStatus("PENDIENTE");
     setError(null);
     setEditingAppointment(null);
     setShowSlideOver(true);
@@ -418,6 +476,7 @@ export default function CalendarScreen({
     setTime("09:00");
     setDuration(60);
     setCabin("Ninguna");
+    setStatus("PENDIENTE");
     setEditingAppointment(null);
   };
 
@@ -443,6 +502,7 @@ export default function CalendarScreen({
       professionalId: selectedProfessionalId,
       dateTime: dateTimeStr,
       duration,
+      status,
       notes,
       cabin: cabin !== "Ninguna" ? cabin : null
     };
@@ -489,6 +549,7 @@ export default function CalendarScreen({
               professional: { name: profObj.name },
               dateTime: dateTimeStr,
               duration,
+              status,
               notes,
               cabin: cabin !== "Ninguna" ? cabin : null
             };
@@ -506,7 +567,7 @@ export default function CalendarScreen({
           duration,
           notes,
           cabin: cabin !== "Ninguna" ? cabin : null,
-          status: "PENDIENTE"
+          status
         };
         currentAppts.push(newAppt);
       }
@@ -525,7 +586,7 @@ export default function CalendarScreen({
 
   const handleMarkNoShow = async (apptId: string) => {
     try {
-      await api.put(`/appointments/${apptId}`, { status: "NO_ASISTIO" });
+      await api.put(`/appointments/${apptId}/status`, { status: "NO_ASISTIO" });
       const apptsData = await api.get<Appointment[]>("/appointments");
       setAppointments(apptsData);
       localStorage.setItem(LOCAL_STORAGE_KEY_APPTS, JSON.stringify(apptsData));
@@ -583,6 +644,14 @@ export default function CalendarScreen({
     setCurrentDate(nextDate);
   };
 
+  const getAvailableStatuses = (currentStatus: Appointment["status"]) => {
+    const nonCritical: Appointment["status"][] = ["PENDIENTE", "CONFIRMADA", "CANCELADA_SIN_CARGO", "NO_ASISTIO"];
+    if (nonCritical.includes(currentStatus)) {
+      return nonCritical;
+    }
+    return [currentStatus, ...nonCritical];
+  };
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -599,7 +668,7 @@ export default function CalendarScreen({
               <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             </button>
             <span className="text-sm font-bold text-foreground min-w-[200px] text-center px-1">
-              {viewMode === "weekly" ? formatMonthYear(weekDates) : formatSingleDay(currentDate)}
+              {(viewMode === "weekly" || viewMode === "agenda") ? formatMonthYear(weekDates) : formatSingleDay(currentDate)}
             </span>
             <button
               onClick={handleNext}
@@ -638,6 +707,16 @@ export default function CalendarScreen({
           >
             Vista Cabinas (Día)
           </button>
+          <button
+            onClick={() => setViewMode("agenda")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              viewMode === "agenda"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Vista Agenda (Lista)
+          </button>
         </div>
 
         {/* Legend + button */}
@@ -667,11 +746,123 @@ export default function CalendarScreen({
       </div>
 
       {/* ── Calendar Grid ── */}
-      <div id="tour-calendar-grid" className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden">
-        <div style={{ minWidth: 700 }}>
+      {viewMode === "agenda" ? (
+        <div className="flex-1 overflow-y-auto pr-2 mt-4 space-y-6">
+          {appointments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center glass-panel rounded-3xl border border-border">
+              <CalendarDays className="w-12 h-12 text-muted-foreground/40 mb-3 animate-pulse" />
+              <p className="text-sm font-bold text-foreground">No hay citas registradas</p>
+              <p className="text-xs text-muted-foreground mt-1">No tienes citas agendadas para esta semana.</p>
+            </div>
+          ) : (
+            // Group appointments by date
+            (() => {
+              const sorted = [...appointments].sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
+              const groups: Record<string, typeof appointments> = {};
+              sorted.forEach((appt) => {
+                const dateKey = new Date(appt.dateTime).toISOString().slice(0, 10);
+                if (!groups[dateKey]) {
+                  groups[dateKey] = [];
+                }
+                groups[dateKey].push(appt);
+              });
 
-          {/* Header */}
-          {viewMode === "weekly" ? (
+              return Object.entries(groups).map(([dateStr, appts]) => {
+                const dayDate = new Date(dateStr + "T00:00:00");
+                const dayLabel = dayDate.toLocaleDateString("es-MX", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric"
+                });
+                const dayLabelCapital = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+
+                return (
+                  <div key={dateStr} className="glass-panel border border-border rounded-3xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                      <h3 className="text-xs font-black text-primary uppercase tracking-[0.15em] flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4" />
+                        {dayLabelCapital}
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {appts.length} {appts.length === 1 ? "cita" : "citas"}
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-border/40">
+                      {appts.map((appt) => {
+                        const style = STATUS_STYLE[appt.status] ?? STATUS_STYLE.PENDIENTE;
+                        const start = new Date(appt.dateTime);
+                        const end = new Date(start.getTime() + appt.duration * 60 * 1000);
+                        const timeStr = `${start.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${end.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+
+                        return (
+                          <div
+                            key={appt.id}
+                            onClick={() => {
+                              setSelectedAppointment(appt);
+                              setShowDetailModal(true);
+                            }}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 first:pt-0 last:pb-0 hover:bg-primary/5 rounded-xl px-3 -mx-3 transition-colors cursor-pointer gap-3"
+                          >
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 text-xs font-black text-foreground/80 flex-shrink-0 bg-muted/60 px-3 py-1.5 rounded-xl border border-border">
+                                <Clock className="w-3.5 h-3.5 text-primary" />
+                                <span>{timeStr}</span>
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-black text-foreground flex items-center gap-1.5">
+                                  <span>{appt.patient?.fullName}</span>
+                                  {(!appt.patient?.consentSigned || !appt.patient?.medicalHistory) && (
+                                    <AlertTriangle className="w-3.5 h-3.5 text-warning" title="Documentación pendiente" />
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[10px] text-muted-foreground font-semibold">
+                                  {appt.service && (
+                                    <span className="text-primary font-black uppercase text-[9px] tracking-wider bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
+                                      {appt.service.name}
+                                    </span>
+                                  )}
+                                  <span>👤 {appt.professional?.name}</span>
+                                  {appt.cabin && <span>🏠 {appt.cabin}</span>}
+                                  <span>⏱ {appt.duration} min</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 justify-end flex-shrink-0">
+                              <span className={`text-[9px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${style.bg} ${style.border} ${style.text}`}>
+                                {appt.status}
+                              </span>
+                              <button
+                                type="button"
+                                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAppointment(appt);
+                                  setShowDetailModal(true);
+                                }}
+                              >
+                                <MousePointerClick className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          )}
+        </div>
+      ) : (
+        <div id="tour-calendar-grid" className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden">
+          <div style={{ minWidth: 700 }}>
+
+            {/* Header */}
+            {viewMode === "weekly" ? (
             <div
               className="grid sticky top-0 bg-card z-20 border-b-2 border-border shadow-sm"
               style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
@@ -837,6 +1028,11 @@ export default function CalendarScreen({
                     const dayGroups = computeOverlapColumns(appointments, weekDates, di);
                     dayGroups.forEach((v, k) => overlapMap.set(k, v));
                   }
+                } else if (viewMode === "cabins") {
+                  CABINS.forEach((cabinName) => {
+                    const cabinGroups = computeCabinOverlapColumns(appointments, currentDate, cabinName);
+                    cabinGroups.forEach((v, k) => overlapMap.set(k, v));
+                  });
                 }
                 console.log("[Calendar] overlapMap size:", overlapMap.size, "appointments:", appointments.length);
                 overlapMap.forEach((v, k) => console.log("[Calendar] ", k, "->", v));
@@ -910,6 +1106,16 @@ export default function CalendarScreen({
                     const cabinIndex = CABINS.indexOf(cabinName);
                     if (cabinIndex === -1) return null;
 
+                    const overlap = overlapMap.get(appt.id);
+                    const col = overlap?.column ?? 0;
+                    const total = overlap?.totalColumns ?? 1;
+
+                    const colWidthPct = 100 / 4;
+                    const pad = 0.4;
+                    const gapPct = 0.3;
+                    const slotW = (colWidthPct - pad * 2 - gapPct * (total - 1)) / total;
+                    const leftPct = cabinIndex * colWidthPct + pad + col * (slotW + gapPct);
+
                     return (
                       <div
                         key={appt.id}
@@ -922,8 +1128,8 @@ export default function CalendarScreen({
                         style={{
                           top: (startHr - 8) * CELL_H + 3,
                           height: Math.max(durHrs * CELL_H - 6, 28),
-                          left: `calc(${cabinIndex} * 100% / 4 + 4px)`,
-                          width: `calc(100% / 4 - 8px)`,
+                          left: `${leftPct}%`,
+                          width: `${slotW}%`,
                         }}
                       >
                         <div className="flex items-start gap-1.5">
@@ -955,6 +1161,7 @@ export default function CalendarScreen({
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Slide-over Form ── */}
       {showSlideOver && (
@@ -1208,6 +1415,26 @@ export default function CalendarScreen({
                   </div>
                 </div>
 
+                {/* ── Status Dropdown (only visible if editing) ── */}
+                {editingAppointment && (
+                  <div>
+                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
+                      Estado de la Cita
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as any)}
+                      className="w-full px-4 py-3 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary transition-colors text-foreground bg-background"
+                    >
+                      {getAvailableStatuses(editingAppointment.status).map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* ── Notes ── */}
                 <div>
                   <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
@@ -1434,6 +1661,7 @@ export default function CalendarScreen({
                         .slice(0, 5)
                     );
                     setDuration(selectedAppointment.duration);
+                    setStatus(selectedAppointment.status);
                     setNotes(selectedAppointment.notes || "");
                     setCabin(selectedAppointment.cabin || "Ninguna");
                     setError(null);

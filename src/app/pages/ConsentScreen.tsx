@@ -453,13 +453,16 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
                     type="text"
                     placeholder="Escribe para buscar paciente..."
                     value={searchPatientQuery}
-                    onChange={(e) => setSearchPatientQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchPatientQuery(e.target.value);
+                      setSelectedPatientId("");
+                    }}
                     className="w-full pl-10 pr-4 py-2.5 text-xs bg-muted border border-border rounded-xl focus:outline-none focus:border-primary text-foreground"
                   />
                 </div>
 
                 {/* Resultados de búsqueda del paciente */}
-                {showSignModal && searchPatientQuery.trim().length > 0 && (
+                {showSignModal && searchPatientQuery.trim().length > 0 && !selectedPatientId && (
                   <div className="absolute left-0 right-0 mt-1.5 bg-popover border border-border rounded-xl shadow-xl max-h-36 overflow-y-auto z-50 divide-y divide-border animate-in fade-in slide-in-from-top-1 duration-150">
                     {loadingPatients ? (
                       <div className="p-3 text-center text-xs text-muted-foreground">Buscando...</div>
@@ -621,6 +624,39 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
                       </div>
                     </div>
                   </div>
+
+                  {uploadedFileBase64 && (
+                    <div className="mt-3 p-3 bg-muted rounded-xl border border-border space-y-2 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Previsualización del Documento</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadedFileBase64(null);
+                            setUploadedFileName("");
+                          }}
+                          className="text-[10px] text-destructive font-black hover:underline hover:text-destructive/80 transition-all cursor-pointer"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                      <div className="flex justify-center items-center overflow-hidden bg-background rounded-lg border border-border p-2">
+                        {uploadedFileBase64.startsWith("data:application/pdf") ? (
+                          <embed
+                            src={uploadedFileBase64}
+                            type="application/pdf"
+                            className="w-full h-48 rounded"
+                          />
+                        ) : (
+                          <img
+                            src={uploadedFileBase64}
+                            alt="Vista previa de documento"
+                            className="max-w-full max-h-48 object-contain rounded shadow-sm"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

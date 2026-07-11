@@ -54,6 +54,25 @@ export default function LoginScreen() {
     }
   };
 
+  const handleQuickLogin = async (roleEmail: string, rolePass: string) => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(roleEmail, rolePass);
+    } catch (err: any) {
+      setError(err.message || "Error al iniciar sesión rápida.");
+      if (cardRef.current) {
+        animate(cardRef.current, {
+          translateX: [-10, 10, -10, 10, 0],
+          duration: 400,
+          easing: "linear",
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background px-4 relative overflow-hidden font-sans">
       <style>{`
@@ -161,7 +180,48 @@ export default function LoginScreen() {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
+        {/* Panel de Acceso Rápido para Pruebas / Dev */}
+        <div className="w-full mt-6 pt-6 border-t border-border/60">
+          <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-3 text-center">
+            Acceso Rápido (Tester / Dev)
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("admin@aurafisio.com", "admin123")}
+              className="py-2 px-2.5 bg-muted/50 border border-border hover:border-primary/45 hover:bg-primary/5 text-[10px] font-bold rounded-xl text-foreground transition-all duration-300 cursor-pointer flex flex-col items-center gap-0.5 justify-center"
+            >
+              <span className="text-primary font-black uppercase text-[8px] tracking-wider">ADMIN</span>
+              <span className="opacity-75">Administrador</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("recepcion@aurafisio.com", "recep123")}
+              className="py-2 px-2.5 bg-muted/50 border border-border hover:border-primary/45 hover:bg-primary/5 text-[10px] font-bold rounded-xl text-foreground transition-all duration-300 cursor-pointer flex flex-col items-center gap-0.5 justify-center"
+            >
+              <span className="text-success font-black uppercase text-[8px] tracking-wider">RECEPCIONISTA</span>
+              <span className="opacity-75">Caja & Agenda</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("carlos@aurafisio.com", "carlos123")}
+              className="py-2 px-2.5 bg-muted/50 border border-border hover:border-primary/45 hover:bg-primary/5 text-[10px] font-bold rounded-xl text-foreground transition-all duration-300 cursor-pointer flex flex-col items-center gap-0.5 justify-center"
+            >
+              <span className="text-info font-black uppercase text-[8px] tracking-wider">FISIO</span>
+              <span className="opacity-75">Carlos (Fisioterapia)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("clara@aurafisio.com", "clara123")}
+              className="py-2 px-2.5 bg-muted/50 border border-border hover:border-primary/45 hover:bg-primary/5 text-[10px] font-bold rounded-xl text-foreground transition-all duration-300 cursor-pointer flex flex-col items-center gap-0.5 justify-center"
+            >
+              <span className="text-warning font-black uppercase text-[8px] tracking-wider">ESTETICA</span>
+              <span className="opacity-75">Clara (Aesthetic)</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center">
           <p className="text-[10px] text-muted-foreground font-semibold tracking-wider">
             ¿Olvidaste tu contraseña? Contacta al administrador del sistema.
           </p>
