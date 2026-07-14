@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../services/api";
+import { toast } from "sonner";
 
 export type SyncState = "online" | "offline" | "syncing";
 
@@ -52,6 +53,7 @@ export function useSyncManager() {
 
     setSyncState("syncing");
     setIsProcessing(true);
+    toast.loading("Sincronizando datos locales...", { id: "sync-toast" });
 
     try {
       // 1. Sincronizar Invoices
@@ -175,8 +177,16 @@ export function useSyncManager() {
       }
 
       console.log("Offline sync completed successfully.");
+      
+      const itemsRemaining = hasItems();
+      if (itemsRemaining) {
+        toast.error("Sincronización incompleta: algunos datos no se subieron.", { id: "sync-toast" });
+      } else {
+        toast.success("Sincronización completada.", { id: "sync-toast" });
+      }
     } catch (err) {
       console.error("Offline sync manager general error:", err);
+      toast.error("Error al sincronizar datos locales.", { id: "sync-toast" });
     } finally {
       setIsProcessing(false);
       setSyncState("online");

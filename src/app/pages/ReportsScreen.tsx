@@ -229,7 +229,7 @@ export default function ReportsScreen() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Header and Date Range Selector */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-4 rounded-2xl border border-border shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-card p-4 rounded-2xl border border-border shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-primary" />
@@ -419,9 +419,10 @@ export default function ReportsScreen() {
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
             ) : (
-              <div className="w-full relative">
-                {/* Inline SVG Chart */}
-                <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none" className="overflow-visible">
+              <div className="w-full overflow-x-auto scrollbar-hide">
+                <div className="min-w-[600px] w-full relative">
+                  {/* Inline SVG Chart */}
+                  <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none" className="overflow-visible w-full min-w-[600px]">
                   <defs>
                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--secondary)" stopOpacity="0.25" />
@@ -551,6 +552,7 @@ export default function ReportsScreen() {
                     </span>
                   </div>
                 )}
+                </div>
               </div>
             )}
           </div>

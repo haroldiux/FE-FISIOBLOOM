@@ -170,6 +170,15 @@ interface CashRegister {
 
 export default function FinanceScreen() {
   const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions" | "attendance">("pos");
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branchStocks, setBranchStocks] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (branches.length > 0 && !selectedBranchId) {
+      setSelectedBranchId(branches[0].id);
+    }
+  }, [branches, selectedBranchId]);
 
   // Tutorial tab sync watcher
   const { activeTour, currentStep } = useTutorial();
@@ -542,19 +551,25 @@ export default function FinanceScreen() {
 
   const loadData = async () => {
     try {
-      const [pData, sData, prData] = await Promise.all([
+      const [pData, sData, prData, bData, bsData] = await Promise.all([
         api.get<Patient[]>("/patients"),
         api.get<Service[]>("/services"),
-        api.get<Product[]>("/products")
+        api.get<Product[]>("/products"),
+        api.get<any[]>("/branches"),
+        api.get<any[]>("/products/branch-stock"),
       ]);
       setPatients(pData);
       setServices(sData);
       setProducts(prData);
+      setBranches(bData.filter((b: any) => b.isActive));
+      setBranchStocks(bsData || []);
     } catch (e: any) {
       toast.error("Error cargando catálogos del POS.");
       setPatients([]);
       setServices([]);
       setProducts([]);
+      setBranches([]);
+      setBranchStocks([]);
     }
   };
 
@@ -722,6 +737,24 @@ export default function FinanceScreen() {
   };
 
   const addToCart = (item: any, type: "SERVICE" | "PRODUCT") => {
+    if (type === "PRODUCT") {
+      const branchStockEntry = branchStocks.find(
+        (bs) => bs.productId === item.id && bs.branchId === selectedBranchId
+      );
+      const currentStock = branchStockEntry ? branchStockEntry.stock : 0;
+      if (currentStock <= 0) {
+        toast.warning("Producto sin stock en esta sucursal");
+        return;
+      }
+      
+      const existingInCart = cart.find(c => c.id === item.id && c.type === "PRODUCT");
+      const cartQty = existingInCart ? existingInCart.quantity : 0;
+      if (cartQty + 1 > currentStock) {
+        toast.warning(`No puedes agregar más de ${currentStock} unidades de este producto.`);
+        return;
+      }
+    }
+
     const existing = cart.find(c => c.id === item.id && c.type === type);
     let itemPrice = type === "SERVICE" ? item.defaultPrice : item.price;
     
@@ -806,7 +839,8 @@ export default function FinanceScreen() {
         paymentMethod,
         reference: paymentReference || null,
         status: "PAGADO",
-        couponCode: appliedCoupon ? appliedCoupon.code : null
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        branchId: selectedBranchId || null
       });
 
       setPosSuccess(true);
@@ -963,11 +997,11 @@ export default function FinanceScreen() {
         </div>
 
         {/* Tab Selector */}
-        <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full">
+        <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full scrollbar-hide flex-nowrap flex-shrink-0">
           <button
             id="tour-finance-pos-tab"
             onClick={() => setActiveTab("pos")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "pos"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -978,7 +1012,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-caja-tab"
             onClick={() => setActiveTab("caja")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "caja"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -989,7 +1023,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-schedules-tab"
             onClick={() => setActiveTab("schedules")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "schedules"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -1000,7 +1034,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-performance-tab"
             onClick={() => setActiveTab("performance")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "performance"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -1011,7 +1045,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-payroll-tab"
             onClick={() => setActiveTab("payroll")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "payroll"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -1022,7 +1056,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-attendance-tab"
             onClick={() => setActiveTab("attendance")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "attendance"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -1033,7 +1067,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-promotions-tab"
             onClick={() => setActiveTab("promotions")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "promotions"
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -1071,15 +1105,32 @@ export default function FinanceScreen() {
           {/* LADO IZQUIERDO: Catálogo de Servicios y Productos (Colspan 3) */}
           <div className="lg:col-span-3 space-y-4">
             
-            {/* Buscador */}
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <input
-                type="text"
-                placeholder="Buscar tratamientos o productos..."
-                value={posSearch}
-                onChange={(e) => setPosSearch(e.target.value)}
-                className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none focus:border-primary"
-              />
+            {/* Branch Selector & Search Box */}
+            <div className="bg-card rounded-2xl border border-border p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Sucursal Activa (POS)</label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none text-foreground"
+                >
+                  <option value="">Seleccione Sucursal</option>
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Buscar Insumos o Servicios</label>
+                <input
+                  type="text"
+                  placeholder="Buscar tratamientos o productos..."
+                  value={posSearch}
+                  onChange={(e) => setPosSearch(e.target.value)}
+                  className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary text-foreground"
+                />
+              </div>
             </div>
 
             {/* Listado de Servicios */}
@@ -1145,28 +1196,38 @@ export default function FinanceScreen() {
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredProducts.map((prod) => (
-                  <div
-                    key={prod.id}
-                    className="p-3 border border-border rounded-xl hover:border-success hover:bg-muted/50 transition-all flex justify-between items-center group"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-foreground truncate">{prod.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] font-black text-success">${prod.price}</span>
-                        <span className="text-[9px] font-bold text-muted-foreground">Stock: {prod.stock}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => addToCart(prod, "PRODUCT")}
-                      disabled={!cashRegister || prod.stock <= 0}
-                      className="w-7 h-7 rounded-lg bg-success/10 text-success flex items-center justify-center hover:bg-success hover:text-primary-foreground transition-all disabled:opacity-30"
-                      title="Agregar al carrito"
+                {filteredProducts.map((prod) => {
+                  const branchStockEntry = branchStocks.find(
+                    (bs) => bs.productId === prod.id && bs.branchId === selectedBranchId
+                  );
+                  const currentStock = branchStockEntry ? branchStockEntry.stock : 0;
+
+                  return (
+                    <div
+                      key={prod.id}
+                      className="p-3 border border-border rounded-xl hover:border-success hover:bg-muted/50 transition-all flex justify-between items-center group animate-fade-in"
                     >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-foreground truncate">{prod.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[11px] font-black text-success">${prod.price}</span>
+                          <span className={`text-[9px] font-bold ${currentStock <= 0 ? "text-error" : "text-muted-foreground"}`}>
+                            Stock: {currentStock}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(prod, "PRODUCT")}
+                        disabled={!cashRegister || currentStock <= 0}
+                        className="w-7 h-7 rounded-lg bg-success/10 text-success flex items-center justify-center hover:bg-success hover:text-primary-foreground transition-all disabled:opacity-30 cursor-pointer flex-shrink-0"
+                        title="Agregar al carrito"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

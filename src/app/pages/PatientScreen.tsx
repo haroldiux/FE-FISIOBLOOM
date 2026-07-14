@@ -257,8 +257,9 @@ export default function PatientScreen({
       setListLoading(true);
       const data = await api.get<PatientListItem[]>("/patients");
       setPatientList(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al cargar pacientes:", err);
+      toast.error("Error al cargar pacientes: " + (err.response?.data?.message || err.message || "Error desconocido"));
     } finally {
       setListLoading(false);
     }
@@ -344,8 +345,9 @@ export default function PatientScreen({
 
       const pending = data.appointments?.filter((a) => a.status === "PENDIENTE" || a.status === "CONFIRMADA") || [];
       setPendingAppointments(pending);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al cargar expediente:", err);
+      toast.error("Error al cargar expediente clínico: " + (err.response?.data?.message || err.message || "Error desconocido"));
     } finally {
       setDetailLoading(false);
     }
@@ -372,8 +374,9 @@ export default function PatientScreen({
 
       // Fusionar
       setPhotos([...queued, ...mappedServerPhotos]);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al cargar fotos de la API:", err);
+      toast.error("Error al cargar fotografías del servidor: " + (err.response?.data?.message || err.message || "Error de red"));
       // Fallback a solo local si falla red
       const queueKey = `patient_photos_queue_${patientId}`;
       const queuedRaw = localStorage.getItem(queueKey);
@@ -477,8 +480,9 @@ export default function PatientScreen({
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("Fallo de red al subir foto. Guardando en cola local para sincronización.", err);
+        toast.warning("Fallo de red. Subida guardada para sincronizar después.");
         // Guardar en cola local
         const queueKey = `patient_photos_queue_${patient.id}`;
         const queuedRaw = localStorage.getItem(queueKey);
@@ -622,7 +626,9 @@ export default function PatientScreen({
       setNewMedicalHistory("");
       setSignConsentNow(false);
     } catch (err: any) {
-      setCreateError(err.message || "Error al procesar el paciente.");
+      const errMsg = err.response?.data?.message || err.message || "Error al procesar el paciente.";
+      setCreateError(errMsg);
+      toast.error(errMsg);
     } finally {
       setCreateSubmitting(false);
     }
@@ -827,6 +833,7 @@ export default function PatientScreen({
       setUploadedFileName("");
     } catch (err: any) {
       console.warn("Fallo al guardar consentimiento en API, usando fallback offline en LocalStorage:", err);
+      toast.error("Error al registrar consentimiento en el servidor. Guardando copia local offline.");
       
       const localConsentsKey = `offline_consents_${patient.id}`;
       const localConsentsRaw = localStorage.getItem(localConsentsKey);
@@ -923,7 +930,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
   return (
     <div className="flex h-full overflow-hidden">
       {/* ══ LEFT — Patient List ══════════════════════════════════════════════ */}
-      <aside id="tour-patients-list" className="w-[280px] flex-shrink-0 border-r border-border flex flex-col" style={{ background: 'var(--card)', backdropFilter: 'blur(20px)' }}>
+      <aside id="tour-patients-list" className={`w-full md:w-[280px] flex-shrink-0 border-r border-border flex-col ${selectedPatientId ? 'hidden md:flex' : 'flex'}`} style={{ background: 'var(--card)', backdropFilter: 'blur(20px)' }}>
 
         <div className="p-4 border-b border-border flex items-center gap-2">
           <div className="relative flex-1">
@@ -1010,7 +1017,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex-col overflow-hidden ${selectedPatientId ? 'flex' : 'hidden md:flex'}`}>
         {!selectedPatientId ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -1031,7 +1038,15 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
         ) : patient ? (
           <>
             <div className="bg-card border-b border-border px-6 py-5 flex-shrink-0">
-              <div className="flex items-start justify-between gap-4">
+              {/* Back button on mobile */}
+              <button
+                onClick={() => setSelectedPatientId(null)}
+                className="md:hidden flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Volver al listado
+              </button>
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-lg">
                     {patient.fullName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
@@ -1096,13 +1111,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               </div>
             </div>
 
-            <div className="flex border-b border-border bg-card px-6 gap-1 flex-shrink-0">
+            <div className="flex border-b border-border bg-card px-4 md:px-6 gap-1 flex-shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden whitespace-nowrap">
               {tabs.map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   id={`tour-tab-${id}`}
                   onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-1.5 py-3.5 px-3 text-xs font-bold border-b-2 uppercase tracking-wider transition-all ${
+                  className={`flex items-center gap-1.5 py-3.5 px-3 text-xs font-bold border-b-2 uppercase tracking-wider transition-all whitespace-nowrap flex-shrink-0 ${
                     activeTab === id
                       ? "border-primary text-primary"
                       : "border-transparent text-muted-foreground hover:text-foreground"
@@ -2535,12 +2550,12 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       }
                       setPhotos((prev) => prev.filter((p) => p.id !== photoToDelete));
                     } else {
-                      await api.delete(`/patients/photos/${photoToDelete}`).catch(() => {});
+                      await api.delete(`/patients/photos/${photoToDelete}`);
                       setPhotos((prev) => prev.filter((p) => p.id !== photoToDelete));
                     }
                     toast.success("Fotografía eliminada correctamente.");
                   } catch (err: any) {
-                    toast.error("Error al eliminar la foto: " + err.message);
+                    toast.error("Error al eliminar la foto: " + (err.response?.data?.message || err.message));
                   } finally {
                     setPhotoToDelete(null);
                   }
@@ -2548,6 +2563,44 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                 className="px-4 py-2 text-xs font-bold bg-error text-primary-foreground rounded-xl hover:bg-error/90 transition-all cursor-pointer"
               >
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retouch Dismissal Confirmation Modal */}
+      {retouchToDismiss && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-2">Confirmar acción</h3>
+            <p className="text-xs text-muted-foreground mb-4">¿Estás seguro de que deseas descartar esta alerta de retoque?</p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setRetouchToDismiss(null)}
+                className="px-4 py-2 text-xs font-bold border border-border rounded-xl hover:bg-muted text-muted-foreground transition-all cursor-pointer bg-transparent"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.put(`/appointments/retouches/${retouchToDismiss.id}`, {
+                      status: "WAIVED",
+                    });
+                    toast.success("Alerta de retoque descartada correctamente.");
+                    if (patient) {
+                      await loadPatient(patient.id);
+                    }
+                  } catch (err: any) {
+                    toast.error(err.message || "Error al descartar la alerta.");
+                  } finally {
+                    setRetouchToDismiss(null);
+                  }
+                }}
+                className="px-4 py-2 text-xs font-bold bg-error text-primary-foreground rounded-xl hover:bg-error/90 transition-all cursor-pointer"
+              >
+                Descartar
               </button>
             </div>
           </div>

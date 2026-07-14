@@ -14,6 +14,7 @@ import {
   XCircle,
   Activity,
   MessageCircle,
+  CalendarPlus,
 } from "lucide-react";
 import {
   BarChart,
@@ -26,6 +27,7 @@ import {
 } from "recharts";
 import { api } from "../services/api";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,21 @@ interface RetouchAlert {
   scheduledDate: string;
   status: "PENDING" | "SCHEDULED" | "COMPLETED" | "EXPIRED" | "WAIVED";
   notes?: string;
+}
+
+interface StaffPerformance {
+  professionalId: string;
+  name: string;
+  role: string;
+  month: string;
+  salesTarget: number;
+  actualSales: number;
+  servicesSales: number;
+  productsSales: number;
+  commissionRate: number;
+  commissionEarned: number;
+  servicesCount: number;
+  productsCount: number;
 }
 
 // Empty initial state data
@@ -117,21 +134,21 @@ function KPICard({
   return (
     <div
       ref={ref}
-      className="glass-panel spring-hover rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg"
+      className="glass-panel spring-hover rounded-2xl border border-border p-4 sm:p-5 flex items-center gap-3 sm:gap-4 shadow-lg"
       style={{ opacity: 0 }}
     >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-        <Icon className="w-5 h-5" />
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
+        <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">{title}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground font-black uppercase tracking-wider truncate">{title}</p>
         <p
-          className="text-2xl font-black text-foreground mt-1 tabular-nums leading-none"
+          className="text-xl sm:text-2xl font-black text-foreground mt-1 tabular-nums leading-none"
           style={{ fontFamily: "'Inter', sans-serif" }}
         >
           {value}
         </p>
-        <p className="text-[10px] text-muted-foreground/60 font-semibold mt-1 truncate">{subtitle}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground/60 font-semibold mt-1 truncate">{subtitle}</p>
       </div>
     </div>
   );
@@ -146,8 +163,10 @@ export default function DashboardScreen({
   onNavigate?: (screen: string) => void;
   onScheduleAppointment?: (patientId: string, patientName: string, date?: string) => void;
 }) {
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [retouchAlerts, setRetouchAlerts] = useState<RetouchAlert[]>([]);
+  const [performances, setPerformances] = useState<StaffPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [retouchToDismiss, setRetouchToDismiss] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
@@ -173,9 +192,10 @@ export default function DashboardScreen({
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const [result, retouches] = await Promise.all([
-        api.get<DashboardData>("/dashboard").catch(() => null),
-        api.get<RetouchAlert[]>("/appointments/alerts/retouches").catch(() => null)
+      const [result, retouches, perfData] = await Promise.all([
+        api.get<DashboardData>("/dashboard"),
+        api.get<RetouchAlert[]>("/appointments/alerts/retouches"),
+        api.get<StaffPerformance[]>("/finance/staff/commissions").catch(() => []),
       ]);
 
       if (result && typeof result === "object") {
@@ -192,6 +212,10 @@ export default function DashboardScreen({
       if (retouches && Array.isArray(retouches)) {
         setRetouchAlerts(retouches);
       }
+
+      if (perfData && Array.isArray(perfData)) {
+        setPerformances(perfData);
+      }
     } catch {
       toast.error("Error al cargar el dashboard. Verifica tu conexión.");
     } finally {
@@ -202,11 +226,11 @@ export default function DashboardScreen({
   const handleDismissRetouch = async (id: string) => {
     setDismissingId(id);
     try {
-      await api.put(`/appointments/retouches/${id}`, { status: "WAIVED" }).catch(() => {});
+      await api.put(`/appointments/retouches/${id}`, { status: "WAIVED" });
       setRetouchAlerts(retouchAlerts.filter(r => r.id !== id));
       setRetouchToDismiss(null);
     } catch (err: any) {
-      toast.error("Error al descartar retoque: " + err.message);
+      toast.error("Error al descartar retoque: " + (err.response?.data?.message || err.message));
     } finally {
       setDismissingId(null);
     }
@@ -223,8 +247,8 @@ export default function DashboardScreen({
     return (
       <div className="p-6 space-y-6">
         {/* Bento KPI cards Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
             <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
               <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
@@ -234,7 +258,7 @@ export default function DashboardScreen({
               </div>
             </div>
           </div>
-          <div className="md:col-span-5">
+          <div>
             <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
               <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
@@ -244,7 +268,7 @@ export default function DashboardScreen({
               </div>
             </div>
           </div>
-          <div className="md:col-span-2">
+          <div>
             <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
               <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
@@ -254,7 +278,7 @@ export default function DashboardScreen({
               </div>
             </div>
           </div>
-          <div className="md:col-span-2">
+          <div>
             <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
               <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
               <div className="flex-1 space-y-2">
@@ -316,8 +340,8 @@ export default function DashboardScreen({
   return (
     <div className="p-6 space-y-6">
       {/* Bento KPI cards Grid */}
-      <div id="tour-dashboard-kpi" className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-3">
+      <div id="tour-dashboard-kpi" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
           <KPICard
             title="Citas Hoy"
             value={data.todayAppointments}
@@ -327,7 +351,7 @@ export default function DashboardScreen({
             delay={0}
           />
         </div>
-        <div className="md:col-span-5">
+        <div>
           <KPICard
             title="Ingresos del Día"
             value={`$${data.todayRevenue.toLocaleString()}`}
@@ -337,7 +361,7 @@ export default function DashboardScreen({
             delay={80}
           />
         </div>
-        <div className="md:col-span-2">
+        <div>
           <KPICard
             title="Pacientes Activos"
             value={data.activePatients}
@@ -347,7 +371,7 @@ export default function DashboardScreen({
             delay={160}
           />
         </div>
-        <div className="md:col-span-2">
+        <div>
           <KPICard
             title="Paquetes por Vencer"
             value={data.packagesExpiringSoon}
@@ -358,6 +382,63 @@ export default function DashboardScreen({
           />
         </div>
       </div>
+
+      {/* Progreso de Metas Mensuales Premium Card */}
+      {(() => {
+        const totalSalesTarget = performances.reduce((sum, p) => sum + (p.salesTarget || 0), 0);
+        const totalActualSales = performances.reduce((sum, p) => sum + (p.actualSales || 0), 0);
+        const userPerf = performances.find(p => p.professionalId === user?.id);
+
+        const hasPersonalTarget = userPerf && userPerf.salesTarget > 0;
+        const targetName = hasPersonalTarget ? "Tu Meta Personal" : "Meta Global del Equipo";
+        const salesTarget = hasPersonalTarget ? userPerf.salesTarget : totalSalesTarget;
+        const actualSales = hasPersonalTarget ? userPerf.actualSales : totalActualSales;
+        const progressPercent = salesTarget > 0 ? Math.min(100, Math.round((actualSales / salesTarget) * 100)) : 0;
+
+        // Don't render the card if the calculated target is 0 to avoid cluttering if not configured
+        if (salesTarget <= 0) return null;
+
+        return (
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-md overflow-hidden relative animate-fade-in">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest block">
+                  Desempeño del Mes
+                </span>
+                <h3 className="text-sm font-bold text-foreground">
+                  Progreso de Metas Mensuales — {targetName}
+                </h3>
+                <p className="text-xs text-muted-foreground font-medium">
+                  Ventas acumuladas frente a la meta asignada para este período
+                </p>
+              </div>
+              <div className="text-left md:text-right">
+                <span className="text-2xl font-black text-foreground">
+                  {progressPercent}%
+                </span>
+                <span className="text-[10px] text-muted-foreground block font-medium">
+                  ${actualSales.toLocaleString("es-MX")} de ${salesTarget.toLocaleString("es-MX")}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden border border-border">
+                <div
+                  className="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-bold text-muted-foreground mt-2">
+                <span>0%</span>
+                {progressPercent > 0 && <span className="text-primary">{progressPercent}% completado</span>}
+                <span>100% Meta</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Row 2: Chart + Retouch Alerts Tracker */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -455,10 +536,10 @@ export default function DashboardScreen({
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1.5 pt-1">
+                      <div className="flex items-center gap-1 pt-1 flex-wrap">
                         <button
                           onClick={() => setRetouchToDismiss(retouch.id)}
-                          className="flex-1 text-[10px] font-bold py-1.5 border border-border text-muted-foreground rounded-lg hover:bg-error/20 hover:text-error transition-all"
+                          className="flex-1 text-[10px] font-bold py-1.5 border border-border text-muted-foreground rounded-lg hover:bg-error/20 hover:text-error transition-all min-w-[70px]"
                           title="Desestimar retoque"
                         >
                           Desestimar
@@ -473,7 +554,7 @@ export default function DashboardScreen({
                           title="Enviar recordatorio de retoque por WhatsApp"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
+                          <span className="hidden xl:inline">WhatsApp</span>
                         </a>
                         <button
                           onClick={(e) => {
@@ -488,9 +569,11 @@ export default function DashboardScreen({
                               toast.info("Redirigiendo a Citas para agendar a: " + retouch.patient.fullName);
                             }
                           }}
-                          className="text-[10px] font-bold py-1.5 px-3 bg-primary text-white rounded-lg hover:bg-primary/95 transition-all shadow-sm shadow-primary/10"
+                          className="px-2 py-1.5 bg-primary hover:bg-primary/95 text-white rounded-lg transition-all flex items-center justify-center gap-1 shadow-sm text-[10px] font-bold"
+                          title="Agendar cita de retoque"
                         >
-                          Agendar
+                          <CalendarPlus className="w-3.5 h-3.5" />
+                          <span className="hidden xl:inline">Agendar</span>
                         </button>
                       </div>
                     </div>

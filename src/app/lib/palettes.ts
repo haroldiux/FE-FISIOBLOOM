@@ -49,6 +49,12 @@ export interface PaletteDefinition {
     bgSurface: string;
     bgSurfaceElevated: string;
   };
+  /** Light-mode page/surface background colors. */
+  light: {
+    bgPage: string;
+    bgSurface: string;
+    bgSurfaceElevated: string;
+  };
 }
 
 /**
@@ -78,6 +84,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgSurface: "rgba(17, 24, 39, 0.45)",
       bgSurfaceElevated: "rgba(55, 65, 81, 0.50)",
     },
+    light: {
+      bgPage: "#f0fdfa",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
+    },
   },
   bloom: {
     key: "bloom",
@@ -99,6 +110,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgPage: "#1A1016",
       bgSurface: "rgba(45, 30, 40, 0.45)",
       bgSurfaceElevated: "rgba(70, 45, 60, 0.55)",
+    },
+    light: {
+      bgPage: "#fdf2f8",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
     },
   },
   ocean: {
@@ -122,6 +138,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgSurface: "rgba(8, 30, 45, 0.45)",
       bgSurfaceElevated: "rgba(15, 50, 70, 0.55)",
     },
+    light: {
+      bgPage: "#ecfeff",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
+    },
   },
   sunset: {
     key: "sunset",
@@ -143,6 +164,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgPage: "#0F172A",
       bgSurface: "rgba(30, 41, 59, 0.45)",
       bgSurfaceElevated: "rgba(51, 65, 85, 0.55)",
+    },
+    light: {
+      bgPage: "#fff7ed",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
     },
   },
   berry: {
@@ -166,6 +192,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgSurface: "rgba(40, 15, 30, 0.45)",
       bgSurfaceElevated: "rgba(65, 25, 50, 0.55)",
     },
+    light: {
+      bgPage: "#fff5f5",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
+    },
   },
   tropical: {
     key: "tropical",
@@ -187,6 +218,11 @@ export const PALETTES: Record<PaletteKey, PaletteDefinition> = {
       bgPage: "#180828",
       bgSurface: "rgba(40, 20, 55, 0.45)",
       bgSurfaceElevated: "rgba(65, 35, 85, 0.55)",
+    },
+    light: {
+      bgPage: "#fffbeb",
+      bgSurface: "rgba(255, 255, 255, 0.70)",
+      bgSurfaceElevated: "rgba(255, 255, 255, 0.90)",
     },
   },
 };
@@ -253,7 +289,7 @@ export function applyPalette(paletteKey: string): PaletteKey {
     root.classList.add(`${PALETTE_CLASS_PREFIX}${key}`);
 
     const style = root.style;
-    const { tokens, dark } = palette;
+    const { tokens, dark, light } = palette;
     style.setProperty("--primary", tokens.primary);
     style.setProperty("--primary-glow", tokens.primaryGlow);
     style.setProperty("--secondary", tokens.secondary);
@@ -266,9 +302,12 @@ export function applyPalette(paletteKey: string): PaletteKey {
     style.setProperty("--warning-glow", tokens.warningGlow);
     style.setProperty("--error", tokens.error);
     style.setProperty("--error-glow", tokens.errorGlow);
-    style.setProperty("--palette-bg-page", dark.bgPage);
-    style.setProperty("--palette-bg-surface", dark.bgSurface);
-    style.setProperty("--palette-bg-surface-elevated", dark.bgSurfaceElevated);
+    style.setProperty("--palette-bg-page-dark", dark.bgPage);
+    style.setProperty("--palette-bg-surface-dark", dark.bgSurface);
+    style.setProperty("--palette-bg-surface-elevated-dark", dark.bgSurfaceElevated);
+    style.setProperty("--palette-bg-page-light", light.bgPage);
+    style.setProperty("--palette-bg-surface-light", light.bgSurface);
+    style.setProperty("--palette-bg-surface-elevated-light", light.bgSurfaceElevated);
     style.setProperty("--palette-name", palette.name);
   }
 

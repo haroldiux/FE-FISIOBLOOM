@@ -25,10 +25,34 @@ interface Product {
   name: string;
   category: string;
   price: number;
+  costPrice?: number;
   stock: number;
   unit: string;
   isActive: boolean;
   createdAt: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface BranchStock {
+  id: string;
+  branchId: string;
+  productId: string;
+  stock: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    costPrice?: number;
+  };
+  branch: {
+    id: string;
+    name: string;
+  };
 }
 
 interface ProductForm {
@@ -371,6 +395,194 @@ function AdjustStockModal({ product, onSave, onClose }: AdjustStockModalProps) {
   );
 }
 
+// ── Transfer Stock Modal ──────────────────────────────────────────────────────
+function TransferStockModal({
+  products,
+  branches,
+  branchStocks,
+  onClose,
+  onSuccess,
+}: {
+  products: Product[];
+  branches: Branch[];
+  branchStocks: BranchStock[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedSourceBranchId, setSelectedSourceBranchId] = useState("");
+  const [selectedDestBranchId, setSelectedDestBranchId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeProducts = products.filter((p) => p.isActive);
+
+  const selectedBS = branchStocks.find(
+    (bs) => bs.productId === selectedProductId && bs.branchId === selectedSourceBranchId
+  );
+  const availableStock = selectedBS ? selectedBS.stock : 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProductId || !selectedSourceBranchId || !selectedDestBranchId) {
+      setError("Todos los campos de selección son requeridos.");
+      return;
+    }
+    if (selectedSourceBranchId === selectedDestBranchId) {
+      setError("La sucursal de origen y destino no pueden ser la misma.");
+      return;
+    }
+    const qty = parseInt(quantity);
+    if (isNaN(qty) || qty <= 0) {
+      setError("La cantidad debe ser un número entero positivo.");
+      return;
+    }
+    if (qty > availableStock) {
+      setError(`Stock insuficiente. Solo hay ${availableStock} unidades disponibles en la sucursal de origen.`);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post("/products/transfer", {
+        productId: selectedProductId,
+        sourceBranchId: selectedSourceBranchId,
+        destinationBranchId: selectedDestBranchId,
+        quantity: qty,
+      });
+      toast.success("Transferencia de stock exitosa.");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || "Error al transferir stock.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
+          <h2 className="text-base font-bold text-foreground">Transferir Stock</h2>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Producto *
+            </label>
+            <select
+              value={selectedProductId}
+              onChange={(e) => {
+                setSelectedProductId(e.target.value);
+                setError(null);
+              }}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              required
+            >
+              <option value="">Selecciona un producto</option>
+              {activeProducts.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Origen *
+              </label>
+              <select
+                value={selectedSourceBranchId}
+                onChange={(e) => {
+                  setSelectedSourceBranchId(e.target.value);
+                  setError(null);
+                }}
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                required
+              >
+                <option value="">Origen</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              {selectedSourceBranchId && selectedProductId && (
+                <span className="text-[11px] text-muted-foreground mt-1 block">
+                  Disponible: <strong className="text-foreground">{availableStock}</strong>
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Destino *
+              </label>
+              <select
+                value={selectedDestBranchId}
+                onChange={(e) => {
+                  setSelectedDestBranchId(e.target.value);
+                  setError(null);
+                }}
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                required
+              >
+                <option value="">Destino</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Cantidad a Transferir *
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              required
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Transferir
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main InventoryScreen ──────────────────────────────────────────────────────
 
 export default function InventoryScreen() {
@@ -382,6 +594,9 @@ export default function InventoryScreen() {
 
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
+  const [branchStocks, setBranchStocks] = useState<BranchStock[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -479,17 +694,31 @@ export default function InventoryScreen() {
     return () => clearInterval(interval);
   }, [syncing, activeSubTab]);
 
+  const loadBranches = async () => {
+    try {
+      const data = await api.get<Branch[]>("/branches");
+      setBranches(data.filter((b) => b.isActive));
+    } catch (e) {
+      console.error("Error loading branches", e);
+    }
+  };
+
   useEffect(() => {
     loadProducts();
     loadMovements();
+    loadBranches();
   }, [activeSubTab]);
 
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const data = await api.get<{ products: Product[] } | Product[]>("/products");
-      const list = Array.isArray(data) ? data : (data as any).products || [];
+      const [prodData, bsData] = await Promise.all([
+        api.get<{ products: Product[] } | Product[]>("/products"),
+        api.get<BranchStock[]>("/products/branch-stock"),
+      ]);
+      const list = Array.isArray(prodData) ? prodData : (prodData as any).products || [];
       setProducts(list);
+      setBranchStocks(bsData || []);
       localStorage.setItem("bloom_skin_products", JSON.stringify(list));
     } catch (e: any) {
       // Fallback local
@@ -538,6 +767,20 @@ export default function InventoryScreen() {
 
   const getTotalInventoryValue = () => {
     return products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+  };
+
+  const getCostoValuation = () => {
+    return branchStocks.reduce((sum, bs) => {
+      const cost = bs.product?.costPrice ?? 0;
+      return sum + (cost * bs.stock);
+    }, 0);
+  };
+
+  const getPVPValuation = () => {
+    return branchStocks.reduce((sum, bs) => {
+      const price = bs.product?.price ?? 0;
+      return sum + (price * bs.stock);
+    }, 0);
   };
 
   const getTotalLossFromMovements = () => {
@@ -711,16 +954,27 @@ export default function InventoryScreen() {
         </div>
 
         {isAdmin && activeSubTab === "STOCK" && (
-          <button
-            onClick={() => {
-              setEditProduct(null);
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo Producto / Tratamiento
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTransferModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 border border-border text-foreground hover:bg-muted text-sm font-bold rounded-xl transition-all cursor-pointer"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Transferir Stock
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditProduct(null);
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo Producto
+            </button>
+          </div>
         )}
       </div>
 
@@ -792,34 +1046,71 @@ export default function InventoryScreen() {
 
       {/* Financial Valuation Bento Cards */}
       {activeSubTab === "STOCK" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Valor en Costo (Inversión) */}
           <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
-                Valorización Total del Stock
+                Valor en Costo (Inversión)
+              </span>
+              <span className="text-2xl font-extrabold text-foreground block">
+                ${getCostoValuation().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                Costo total en sucursales
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Valor de Venta (PVP) */}
+          <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                Valor de Venta (PVP)
+              </span>
+              <span className="text-2xl font-extrabold text-foreground block">
+                ${getPVPValuation().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                PVP total en sucursales
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0 text-success">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Valorización Global */}
+          <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                Valorización Catálogo
               </span>
               <span className="text-2xl font-extrabold text-foreground block">
                 ${getTotalInventoryValue().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-muted-foreground block font-medium">
-                Suma de precio de venta * stock de todos los insumos activos
+                PVP * stock global
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-success/10 flex items-center justify-center flex-shrink-0 text-success">
-              <DollarSign className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0 text-cyan-500">
+              <DollarSign className="w-5 h-5" />
             </div>
           </div>
 
+          {/* Pérdidas Acumuladas */}
           <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
-                Pérdidas Acumuladas por Mermas
+                Pérdidas por Mermas
               </span>
               <span className="text-2xl font-extrabold text-error block">
                 ${getTotalLossFromMovements().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-muted-foreground block font-medium">
-                Pérdidas de almacén registradas por mermas manuales
               </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-error/10 flex items-center justify-center flex-shrink-0 text-error">
@@ -1076,6 +1367,16 @@ export default function InventoryScreen() {
             </div>
           )}
         </>
+      )}
+
+      {showTransferModal && (
+        <TransferStockModal
+          products={products}
+          branches={branches}
+          branchStocks={branchStocks}
+          onClose={() => setShowTransferModal(false)}
+          onSuccess={loadProducts}
+        />
       )}
     </div>
   );

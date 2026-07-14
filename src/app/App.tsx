@@ -50,6 +50,7 @@ import {
   Moon,
   Clock,
   FileText,
+  Save,
 } from "lucide-react";
 
 // ── Notification Types ────────────────────────────────────────────────────────
@@ -218,54 +219,58 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
       <button
         onClick={() => setActive(id)}
         id={`tour-sidebar-${id}`}
-        className={`w-16 py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 spring-hover border relative group cursor-pointer ${
+        className={`w-14 sm:w-16 py-1.5 md:py-2 px-0.5 md:px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 spring-hover border relative group cursor-pointer ${
           isActive
             ? "bg-primary/20 text-primary dark:text-primary-foreground border-primary/30 shadow-[0_4px_16px_rgba(232,121,249,0.15)]"
             : "text-foreground/50 border-transparent hover:text-foreground hover:bg-accent dark:hover:bg-accent/50"
         }`}
       >
-        <Icon className="w-5 h-5 flex-shrink-0" />
-        <span className={`text-[9px] font-black tracking-widest text-center transition-colors duration-300 uppercase leading-none ${
+        <Icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+        <span className={`text-[8px] sm:text-[9px] font-black tracking-widest text-center transition-colors duration-300 uppercase leading-none ${
           isActive ? "text-primary dark:text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
         }`}>
           {label}
         </span>
         {/* Spatial visionOS Floating Label Tooltip */}
-        <div className="absolute left-20 bg-popover text-popover-foreground text-[10px] font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg border border-border z-50">
+        <div className="absolute left-20 bg-popover text-popover-foreground text-[10px] font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg border border-border z-50 hidden md:block">
           {label}
         </div>
         {isActive && (
-          <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-3 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" />
+          <span className="absolute md:right-1 md:top-1/2 md:-translate-y-1/2 md:w-1 md:h-3 bottom-0.5 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" />
         )}
       </button>
     );
   };
 
   return (
-    <aside id="tour-sidebar" className="fixed left-6 top-1/2 -translate-y-1/2 h-fit max-h-[95vh] w-20 glass-capsule rounded-3xl flex flex-col items-center py-6 gap-4 z-50 select-none">
+    <aside id="tour-sidebar" className="fixed z-50 select-none md:left-6 md:top-1/2 md:-translate-y-1/2 md:h-fit md:max-h-[95vh] md:w-20 md:flex-col md:py-6 md:px-0 md:gap-4 md:rounded-3xl glass-capsule bottom-0 left-0 right-0 h-16 w-full flex flex-row items-center justify-between px-4 gap-1 rounded-none border-t border-border bg-card/95 md:bg-transparent backdrop-blur-md">
       {/* Brand Logo */}
-      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0 spring-hover mb-1">
+      <div className="hidden md:flex w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0 spring-hover mb-1">
         <Sparkles className="w-5 h-5 text-primary-foreground" />
       </div>
 
       {/* Branch Selector Capsule Button */}
-      <BranchSelectorButton />
+      <div className="hidden md:block">
+        <BranchSelectorButton />
+      </div>
 
-      <div className="w-8 h-[1px] bg-border flex-shrink-0" />
+      <div className="hidden md:block w-8 h-[1px] bg-border flex-shrink-0" />
 
       {/* Nav */}
-      <nav className="flex flex-col gap-3 overflow-y-auto [&::-webkit-scrollbar]:hidden py-1">
+      <nav className="flex flex-row md:flex-col gap-1 md:gap-3 overflow-x-auto md:overflow-y-auto [&::-webkit-scrollbar]:hidden py-1 w-full justify-around md:justify-start">
         {filteredMainNav.map((item) => <NavButton key={item.id} {...item} />)}
         {filteredSystemNav.length > 0 && (
           <>
-            <div className="w-8 h-[1px] bg-border my-1 self-center flex-shrink-0" />
+            <div className="hidden md:block w-8 h-[1px] bg-border my-1 self-center flex-shrink-0" />
             {filteredSystemNav.map((item) => <NavButton key={item.id} {...item} />)}
           </>
         )}
       </nav>
 
       {/* User footer avatar button */}
-      <UserFooterButton setActive={setActive} />
+      <div className="hidden md:block">
+        <UserFooterButton setActive={setActive} />
+      </div>
     </aside>
   );
 }
@@ -340,6 +345,7 @@ function Topbar({
   theme,
   onToggleTheme,
   onOpenHelpCenter,
+  onOpenProfileModal,
 }: {
   title: string;
   subtitle: string;
@@ -353,10 +359,12 @@ function Topbar({
   theme: "light" | "dark";
   onToggleTheme: () => void;
   onOpenHelpCenter: () => void;
+  onOpenProfileModal: () => void;
 }) {
   const { user, logout } = useAuth();
   const notifPanelRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Attendance checking state in Topbar
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
@@ -457,38 +465,38 @@ function Topbar({
     : "AD";
 
   return (
-    <header className="h-16 glass-panel rounded-2xl flex items-center justify-between px-6 flex-shrink-0 z-40 border border-border">
-      <div className="leading-tight">
-        <h1 className="text-base font-bold text-foreground">{title}</h1>
-        <p className="text-xs text-muted-foreground font-medium">{subtitle}</p>
+    <header className="h-16 glass-panel rounded-2xl flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-40 border border-border gap-2">
+      <div className="leading-tight flex-shrink-0">
+        <h1 className="text-sm md:text-base font-bold text-foreground">{title}</h1>
+        <p className="text-xs text-muted-foreground font-medium hidden sm:block">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
         <ConnectionIndicator state={syncState} />
         {user && user.role !== "SUPER_ADMIN" && (
           <button
             onClick={handleToggleAttendance}
             disabled={attendanceLoading}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-xl border transition-all duration-300 spring-hover shadow-sm cursor-pointer ${
+            className={`hidden sm:flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-[10px] font-black rounded-xl border transition-all duration-300 spring-hover shadow-sm cursor-pointer ${
               hasCheckedIn
                 ? "bg-error/10 border-error/30 text-error hover:bg-error/20"
                 : "bg-success/10 border-success/30 text-success hover:bg-success/20"
             }`}
           >
             <Clock className={`w-3 h-3 ${attendanceLoading ? "animate-spin" : ""}`} />
-            {hasCheckedIn ? "FICHAR SALIDA" : "FICHAR ENTRADA"}
+            <span className="hidden sm:inline">{hasCheckedIn ? "FICHAR SALIDA" : "FICHAR ENTRADA"}</span>
           </button>
         )}
-        <div id="tour-topbar-search" className="relative" ref={searchContainerRef}>
+        <div id="tour-topbar-search" className="relative w-28 xs:w-36 sm:w-48 md:w-60" ref={searchContainerRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
-            placeholder="Buscar paciente por nombre..."
+            placeholder="Buscar paciente..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setShowResults(true);
             }}
             onFocus={() => setShowResults(true)}
-            className="pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-xl w-60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/45 transition-all placeholder:text-muted-foreground"
+            className="pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/45 transition-all placeholder:text-muted-foreground"
           />
           {showResults && (searchQuery.trim().length >= 2) && (
             <div className="absolute left-0 mt-2 w-72 bg-card border border-border rounded-2xl shadow-2xl z-[9000] overflow-hidden max-h-60 overflow-y-auto">
@@ -522,7 +530,7 @@ function Topbar({
         <button
           id="tour-topbar-tutorial"
           onClick={onOpenHelpCenter}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
+          className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
           title="Ayuda y Tutoriales Interactivos"
         >
           <HelpCircle className="w-4 h-4 text-primary animate-pulse" />
@@ -531,7 +539,7 @@ function Topbar({
         {/* Theme Switcher Button */}
         <button
           onClick={onToggleTheme}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
+          className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
           title={theme === "dark" ? "Cambiar a Modo Claro" : "Cambiar a Modo Oscuro"}
         >
           {theme === "dark" ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4" />}
@@ -554,7 +562,7 @@ function Topbar({
           </button>
 
           {notifPanelOpen && (
-            <div className="absolute right-0 top-12 w-96 rounded-2xl border border-border bg-popover shadow-2xl z-[9000] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute right-0 top-12 w-96 rounded-2xl border border-border bg-popover shadow-2xl z-[9000] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 notifications-panel">
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
                 <div className="flex items-center gap-2">
@@ -639,7 +647,7 @@ function Topbar({
           )}
         </div>
 
-        <div className="flex items-center gap-3 ml-2 border-l pl-4 border-border">
+        <div className="flex items-center gap-2 sm:gap-3 sm:ml-2 sm:border-l sm:pl-4 border-border relative">
           <div className="text-right hidden sm:block">
             <p className="text-xs font-bold text-foreground leading-none">{user?.name || "Administrador"}</p>
             <p className="text-[9px] text-muted-foreground font-bold leading-none mt-1 uppercase tracking-widest">
@@ -647,12 +655,72 @@ function Topbar({
             </p>
           </div>
           <button
-            onClick={logout}
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            data-tour="profile-menu"
             className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground text-xs font-bold cursor-pointer shadow-sm hover:opacity-90 transition-opacity"
-            title="Cerrar sesión"
+            title="Ver opciones de perfil"
           >
             {initials}
           </button>
+          
+          {profileMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+              <div className="absolute right-0 top-11 w-48 glass-panel rounded-2xl p-2 z-50 border border-border shadow-2xl flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    onOpenProfileModal();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer"
+                >
+                  Mi Perfil
+                </button>
+                {user && user.role !== "SUPER_ADMIN" && (
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      handleToggleAttendance();
+                    }}
+                    className="sm:hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
+                  >
+                    <span>{hasCheckedIn ? "Fichar Salida" : "Fichar Entrada"}</span>
+                    <Clock className="w-3.5 h-3.5 text-primary" />
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    onToggleTheme();
+                  }}
+                  className="sm:hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span>Tema: {theme === "dark" ? "Claro" : "Oscuro"}</span>
+                  {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-warning" /> : <Moon className="w-3.5 h-3.5 text-muted-foreground" />}
+                </button>
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    onOpenHelpCenter();
+                  }}
+                  className="sm:hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span>Ayuda y Soporte</span>
+                  <HelpCircle className="w-3.5 h-3.5 text-primary" />
+                </button>
+                <div className="w-full h-[1px] bg-border my-1" />
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-error hover:bg-error/10 transition-all cursor-pointer"
+                >
+                  Cerrar Sesión
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -745,6 +813,161 @@ function Error500Screen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   );
 }
 
+// ── Profile Settings Modal ────────────────────────────────────────────────────
+
+interface ProfileSettingsModalProps {
+  onClose: () => void;
+}
+
+function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
+  const { user, updateUser } = useAuth();
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("El nombre es obligatorio.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("El correo electrónico es obligatorio.");
+      return;
+    }
+    if (password) {
+      if (password.length < 8) {
+        setError("La contraseña debe tener al menos 8 caracteres.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Las contraseñas no coinciden.");
+        return;
+      }
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await api.post<{ message: string; user: any }>("/auth/profile", {
+        name,
+        email,
+        password: password || undefined,
+      });
+
+      // Update auth context state
+      updateUser({
+        name: response.user.name,
+        email: response.user.email,
+      });
+
+      toast.success("Perfil actualizado con éxito.");
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Error al actualizar el perfil.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-bold text-foreground">Configuración de Perfil</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Nombre *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Correo Electrónico *
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Nueva Contraseña (Opcional)
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+            />
+          </div>
+
+          {password && (
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Confirmar Contraseña
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                required
+              />
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 text-xs font-bold border border-border rounded-xl hover:bg-muted/50 text-foreground transition-all cursor-pointer bg-transparent"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── HELPER DATA DELEGATED TO TUTORIALDATA.TS ──────────────
 
 function AppContent() {
@@ -812,14 +1035,36 @@ function AppContent() {
 
   const { syncState, forceSync } = useSyncManager();
 
+  // Profile Settings Modal State
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
   // Notifications State
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const knownNotificationIdsRef = useRef<Set<string>>(new Set());
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (isInitial = false) => {
     try {
       const data = await api.get<{ notifications: SystemNotification[] }>("/notifications");
-      setNotifications(data.notifications || []);
+      const list = data.notifications || [];
+
+      if (!isInitial) {
+        list.forEach((notif) => {
+          if (!knownNotificationIdsRef.current.has(notif.id)) {
+            if (notif.severity === "critical") {
+              toast.error(`${notif.title}: ${notif.message}`);
+            } else if (notif.severity === "warning") {
+              toast.warning(`${notif.title}: ${notif.message}`);
+            }
+          }
+        });
+      }
+
+      const newKnown = new Set<string>();
+      list.forEach((n) => newKnown.add(n.id));
+      knownNotificationIdsRef.current = newKnown;
+
+      setNotifications(list);
     } catch {
       // Silently fail — notifications are non-critical
     }
@@ -828,8 +1073,8 @@ function AppContent() {
   // Poll notifications every 60 seconds
   useEffect(() => {
     if (!isAuthenticated) return;
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60 * 1000);
+    fetchNotifications(true);
+    const interval = setInterval(() => fetchNotifications(false), 60 * 1000);
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchNotifications]);
 
@@ -900,9 +1145,9 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden relative p-4 gap-4" style={{ background: 'transparent' }}>
+    <div className="flex h-screen overflow-hidden relative p-2 md:p-4 gap-2 md:gap-4" style={{ background: 'transparent' }}>
       <Sidebar active={screen} setActive={setScreen} />
-      <div className="flex-1 flex flex-col ml-28 min-w-0 overflow-hidden gap-4 h-[calc(100vh-32px)]">
+      <div className="flex-1 flex flex-col md:ml-28 ml-0 min-w-0 overflow-hidden gap-2 md:gap-4 h-[calc(100vh-16px)] md:h-[calc(100vh-32px)] pb-16 md:pb-0">
         <Topbar
           {...meta[screen]}
           syncState={syncState}
@@ -918,8 +1163,9 @@ function AppContent() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenHelpCenter={openHelpCenter}
+          onOpenProfileModal={() => setProfileModalOpen(true)}
         />
-        <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-3xl p-6 border border-border relative">
+        <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-2xl md:rounded-3xl p-3 md:p-6 border border-border relative">
           {screen === "dashboard" && (
             <DashboardScreen 
               onNavigate={(s) => setScreen(s as Screen)}
@@ -961,6 +1207,9 @@ function AppContent() {
       {/* Help Center and Tutorial Tour */}
       <TutorialTour onNavigate={(s) => setScreen(s as Screen)} />
       <HelpCenterModal />
+      {profileModalOpen && (
+        <ProfileSettingsModal onClose={() => setProfileModalOpen(false)} />
+      )}
     </div>
   );
 }

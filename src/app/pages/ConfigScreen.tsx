@@ -28,6 +28,7 @@ import {
   Palette,
 } from "lucide-react";
 import { api } from "../services/api";
+import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useTenantSettings } from "../context/TenantSettingsContext";
 import { PALETTES, PaletteKey, applyPalette, getPaletteNames, resolvePaletteKey } from "../lib/palettes";
@@ -76,6 +77,15 @@ const DEFAULT_SETTINGS: WhatsAppSettings = {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ScheduleException {
+  id: string;
+  date: string;
+  isAvailable: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+}
+
 interface Professional {
   id: string;
   name: string;
@@ -83,6 +93,13 @@ interface Professional {
   role: string;
   isActive: boolean;
   workingHours: Record<string, { start: string; end: string }> | null;
+  scheduleExceptions?: ScheduleException[];
+  staffProfile?: {
+    contractType: "FULL_TIME" | "PART_TIME" | "COMMISSION" | "MIXED" | "FIXED";
+    baseSalary: number;
+    commissionRate: number;
+    salesTarget?: number | null;
+  } | null;
 }
 
 interface ProfessionalForm {
@@ -90,6 +107,10 @@ interface ProfessionalForm {
   email: string;
   password: string;
   role: string;
+  contractType: "FULL_TIME" | "PART_TIME" | "COMMISSION" | "MIXED" | "FIXED";
+  baseSalary: number;
+  commissionRate: number;
+  salesTarget: number;
 }
 
 const DAYS = [
@@ -234,6 +255,395 @@ function WorkingHoursEditor({
   );
 }
 
+// ── Contract Settings Editor ──────────────────────────────────────────────────
+
+function ContractSettingsEditor({
+  professional,
+  onSaved,
+}: {
+  professional: Professional;
+  onSaved: () => void;
+}) {
+  const [contractType, setContractType] = useState<"FULL_TIME" | "PART_TIME" | "COMMISSION" | "MIXED" | "FIXED">(
+    (professional.staffProfile?.contractType as any) || "FULL_TIME"
+  );
+  const [baseSalary, setBaseSalary] = useState<number>(
+    professional.staffProfile?.baseSalary || 0
+  );
+  const [commissionRate, setCommissionRate] = useState<number>(
+    (professional.staffProfile?.commissionRate || 0) * 100
+  );
+  const [salesTarget, setSalesTarget] = useState<number>(
+    professional.staffProfile?.salesTarget || 0
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    if (baseSalary < 0) {
+      setError("El sueldo base no puede ser negativo.");
+      return;
+    }
+    if (commissionRate < 0 || commissionRate > 100) {
+      setError("La comisión debe estar entre 0% y 100%.");
+      return;
+    }
+    if (salesTarget < 0) {
+      setError("La meta de ventas no puede ser negativa.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put(`/professionals/${professional.id}`, {
+        contractType,
+        baseSalary,
+        commissionRate: commissionRate / 100,
+        salesTarget: salesTarget || null,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved();
+    } catch (e: any) {
+      setError(e.message || "Error al guardar configuración de contrato.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-md border-t border-border pt-4 mt-4">
+      <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+        Configuración de Pago y Contrato
+      </h5>
+      {error && (
+        <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+          {error}
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+            Tipo de Contrato
+          </label>
+          <select
+            value={contractType}
+            onChange={(e) => setContractType(e.target.value as any)}
+            className="w-full px-3 py-2.5 text-xs border border-border rounded-xl focus:outline-none bg-background text-foreground"
+            data-tour="staff-contract-type"
+          >
+            <option value="FULL_TIME">Tiempo Completo</option>
+            <option value="PART_TIME">Medio Tiempo</option>
+            <option value="COMMISSION">Comisión</option>
+            <option value="MIXED">Mixto</option>
+            {contractType === "FIXED" && <option value="FIXED">Sueldo Fijo (Anterior)</option>}
+          </select>
+        </div>
+
+        {(contractType === "FIXED" || contractType === "MIXED" || contractType === "FULL_TIME" || contractType === "PART_TIME") && (
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Sueldo Base ($)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={baseSalary}
+              onChange={(e) => setBaseSalary(parseFloat(e.target.value) || 0)}
+              className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none bg-background text-foreground"
+            />
+          </div>
+        )}
+
+        {(contractType === "COMMISSION" || contractType === "MIXED") && (
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Comisión (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={commissionRate}
+              onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
+              className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none bg-background text-foreground"
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+            Meta de Ventas ($)
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={salesTarget}
+            onChange={(e) => setSalesTarget(parseFloat(e.target.value) || 0)}
+            className="w-full px-3 py-2 text-xs border border-border rounded-xl focus:outline-none bg-background text-foreground"
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-60 cursor-pointer"
+      >
+        {saving ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : saved ? (
+          <Check className="w-3.5 h-3.5" />
+        ) : (
+          <Save className="w-3.5 h-3.5" />
+        )}
+        {saved ? "¡Guardado!" : "Guardar Contrato"}
+      </button>
+    </div>
+  );
+}
+
+// ── Schedule Exceptions Editor ────────────────────────────────────────────────
+function ScheduleExceptionsEditor({
+  professionalId,
+  exceptions = [],
+  onSaved,
+}: {
+  professionalId: string;
+  exceptions: ScheduleException[];
+  onSaved: () => void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [date, setDate] = useState("");
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [reason, setReason] = useState("");
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!date) {
+      setError("La fecha es requerida.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.post(`/professionals/${professionalId}/exceptions`, {
+        date,
+        isAvailable,
+        startTime: isAvailable ? startTime || null : null,
+        endTime: isAvailable ? endTime || null : null,
+        reason: reason || null,
+      });
+      setShowModal(false);
+      setDate("");
+      setIsAvailable(false);
+      setStartTime("");
+      setEndTime("");
+      setReason("");
+      onSaved();
+      toast.success("Excepción creada correctamente.");
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || "Error al crear la excepción.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Está seguro de eliminar esta excepción?")) return;
+    try {
+      await api.delete(`/professionals/exceptions/${id}`);
+      onSaved();
+      toast.success("Excepción de horario eliminada.");
+    } catch (err: any) {
+      toast.error("Error al eliminar excepción: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-xl border-t border-border pt-4 mt-4">
+      <div className="flex items-center justify-between">
+        <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          Licencias y Feriados (Excepciones)
+        </h5>
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/25 text-xs font-bold rounded-xl transition-all cursor-pointer border border-primary/20"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Nueva Excepción
+        </button>
+      </div>
+
+      {exceptions.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">No hay excepciones configuradas.</p>
+      ) : (
+        <div className="overflow-hidden border border-border rounded-xl">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted/40 text-muted-foreground font-bold border-b border-border">
+                <th className="p-3">Fecha</th>
+                <th className="p-3">Disponible</th>
+                <th className="p-3">Horario</th>
+                <th className="p-3">Motivo</th>
+                <th className="p-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exceptions.map((ex) => {
+                const dateObj = new Date(ex.date);
+                const formattedDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                });
+                return (
+                  <tr key={ex.id} className="border-b border-border hover:bg-muted/10">
+                    <td className="p-3 font-semibold text-foreground">{formattedDate}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                        ex.isAvailable 
+                          ? "bg-success/10 text-success border border-success/20" 
+                          : "bg-error/10 text-error border border-error/20"
+                      }`}>
+                        {ex.isAvailable ? "Sí" : "No (Bloqueado)"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {ex.isAvailable && ex.startTime && ex.endTime ? `${ex.startTime} - ${ex.endTime}` : "Todo el día"}
+                    </td>
+                    <td className="p-3 text-muted-foreground">{ex.reason || "—"}</td>
+                    <td className="p-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(ex.id)}
+                        className="p-1 text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer"
+                        title="Eliminar excepción"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h4 className="text-sm font-bold text-foreground">Nueva Excepción de Horario</h4>
+              <button type="button" onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <form onSubmit={handleAdd} className="p-6 space-y-4">
+              {error && (
+                <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+                  {error}
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  Fecha *
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="isAvailable"
+                  checked={isAvailable}
+                  onChange={(e) => setIsAvailable(e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary bg-background"
+                />
+                <label htmlFor="isAvailable" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+                  Disponible para reservas en este día
+                </label>
+              </div>
+
+              {isAvailable && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                      Hora Inicio
+                    </label>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                      Hora Fin
+                    </label>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  Motivo / Razón
+                </label>
+                <input
+                  type="text"
+                  value={reason}
+                  placeholder="Ej: Licencia médica, Vacaciones"
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 text-xs font-bold border border-border rounded-xl hover:bg-muted/50 text-foreground transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Crear Excepción
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Branches Types & Modal ───────────────────────────────────────────────────
 
 interface Branch {
@@ -367,6 +777,10 @@ function ProfessionalModal({
     email: "",
     password: "",
     role: "PHYSIO",
+    contractType: "FULL_TIME",
+    baseSalary: 0,
+    commissionRate: 0,
+    salesTarget: 0,
   });
   const [showPass, setShowPass] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -375,7 +789,19 @@ function ProfessionalModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.password) {
-      setError("Todos los campos son obligatorios.");
+      setError("Todos los campos obligatorios deben ser completados.");
+      return;
+    }
+    if (form.baseSalary < 0) {
+      setError("El sueldo base no puede ser negativo.");
+      return;
+    }
+    if (form.commissionRate < 0 || form.commissionRate > 100) {
+      setError("La comisión debe estar entre 0% y 100%.");
+      return;
+    }
+    if (form.salesTarget < 0) {
+      setError("La meta de ventas no puede ser negativa.");
       return;
     }
     setSaving(true);
@@ -391,7 +817,7 @@ function ProfessionalModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-bold text-foreground">Nuevo Profesional</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
@@ -406,7 +832,7 @@ function ProfessionalModal({
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Dr. Juan Pérez"
-              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
             />
           </div>
           <div>
@@ -416,7 +842,7 @@ function ProfessionalModal({
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="juan@bloomskin.com"
-              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
             />
           </div>
           <div>
@@ -427,7 +853,7 @@ function ProfessionalModal({
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Mínimo 6 caracteres"
-                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background pr-10"
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground pr-10"
               />
               <button
                 type="button"
@@ -443,10 +869,72 @@ function ProfessionalModal({
             <select
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
             >
               {ROLES.map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Tipo de Contrato *
+            </label>
+            <select
+              value={form.contractType}
+              onChange={(e) => setForm({ ...form, contractType: e.target.value as any })}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              data-tour="staff-contract-type"
+            >
+              <option value="FULL_TIME">Tiempo Completo</option>
+              <option value="PART_TIME">Medio Tiempo</option>
+              <option value="COMMISSION">Comisión</option>
+              <option value="MIXED">Mixto</option>
+            </select>
+          </div>
+
+          {(form.contractType === "FIXED" || form.contractType === "MIXED" || form.contractType === "FULL_TIME" || form.contractType === "PART_TIME") && (
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Sueldo Base ($) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={form.baseSalary}
+                onChange={(e) => setForm({ ...form, baseSalary: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              />
+            </div>
+          )}
+
+          {(form.contractType === "COMMISSION" || form.contractType === "MIXED") && (
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Porcentaje de Comisión (%) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={form.commissionRate}
+                onChange={(e) => setForm({ ...form, commissionRate: parseFloat(e.target.value) || 0 })}
+                placeholder="Ej: 10 para 10%"
+                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Meta de Ventas ($)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={form.salesTarget}
+              onChange={(e) => setForm({ ...form, salesTarget: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+            />
           </div>
 
           {error && (
@@ -596,7 +1084,10 @@ export default function ConfigScreen() {
       ]).then(([status, logs]) => {
         setWaStatus(status);
         setWaLogs(logs.logs || []);
-      }).catch(() => {}).finally(() => setWaLoading(false));
+      }).catch((err: any) => {
+        console.error("Error al cargar configuración de WhatsApp:", err);
+        toast.error("Error al cargar estado/logs de WhatsApp: " + (err.response?.data?.message || err.message));
+      }).finally(() => setWaLoading(false));
     } else if (activeTab === "branches" && isAdmin) {
       loadBranches();
     }
@@ -621,6 +1112,7 @@ export default function ConfigScreen() {
       setTimeout(() => setWaTestResult(null), 3000);
     } catch (e: any) {
       setWaTestResult(`❌ Error: ${e.message}`);
+      toast.error("Error al guardar la configuración de WhatsApp: " + (e.response?.data?.message || e.message));
     } finally {
       setWaLoading(false);
     }
@@ -683,6 +1175,7 @@ export default function ConfigScreen() {
       setWaLogs(logs.logs || []);
     } catch (e: any) {
       setWaTestResult(`❌ Error: ${e.message}`);
+      toast.error("Error al enviar recordatorio de prueba: " + (e.response?.data?.message || e.message));
     } finally {
       setWaTestSending(false);
     }
@@ -714,6 +1207,10 @@ export default function ConfigScreen() {
         email: form.email,
         password: form.password,
         role: form.role,
+        contractType: form.contractType,
+        baseSalary: form.baseSalary,
+        commissionRate: form.commissionRate / 100,
+        salesTarget: form.salesTarget || null,
       });
       await loadProfessionals();
       setShowNewModal(false);
@@ -742,7 +1239,7 @@ export default function ConfigScreen() {
       )}
 
       {/* Tabs */}
-      <div id="tour-config-tabs" className="flex gap-1 bg-input-background p-1 rounded-xl mb-6 w-fit border border-border shadow-inner">
+      <div id="tour-config-tabs" className="flex gap-1 bg-input-background p-1 rounded-xl mb-6 w-full max-w-full overflow-x-auto scrollbar-hide border border-border shadow-inner flex-nowrap flex-shrink-0">
         {([
           { id: "professionals" as const, label: "Profesionales", Icon: Users },
           { id: "clinic" as const, label: "Centro Médico", Icon: Building2 },
@@ -755,7 +1252,7 @@ export default function ConfigScreen() {
             key={id}
             id={`tour-config-${id}-tab`}
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
               activeTab === id
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -838,7 +1335,7 @@ export default function ConfigScreen() {
                         <>
                           <button
                             onClick={() => setExpandedId(expandedId === pro.id ? null : pro.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-border rounded-lg hover:bg-muted/50 text-foreground transition-colors"
                           >
                             <Clock className="w-3 h-3" />
                             Horarios
@@ -869,6 +1366,15 @@ export default function ConfigScreen() {
                       <WorkingHoursEditor
                         professionalId={pro.id}
                         currentHours={pro.workingHours}
+                        onSaved={loadProfessionals}
+                      />
+                      <ContractSettingsEditor
+                        professional={pro}
+                        onSaved={loadProfessionals}
+                      />
+                      <ScheduleExceptionsEditor
+                        professionalId={pro.id}
+                        exceptions={pro.scheduleExceptions || []}
                         onSaved={loadProfessionals}
                       />
                     </div>
@@ -911,7 +1417,7 @@ export default function ConfigScreen() {
                 className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                   Teléfono

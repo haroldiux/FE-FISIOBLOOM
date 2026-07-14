@@ -229,6 +229,31 @@ const PLAYBOOKS: Record<string, RolePlaybook> = {
   }
 };
 
+const ROLE_ALLOWED_SCREENS: Record<string, string[]> = {
+  SUPER_ADMIN: ["dashboard", "saas"],
+  ADMIN: ["dashboard", "calendar", "patients", "consents", "pos", "inventory", "services", "reports", "config"],
+  RECEPTIONIST: ["dashboard", "calendar", "patients", "consents", "pos"],
+  PHYSIO: ["dashboard", "calendar", "patients", "consents"],
+  AESTHETICIAN: ["dashboard", "calendar", "patients", "consents"],
+};
+
+const WORKFLOW_TARGET_SCREENS: Record<string, string> = {
+  "create-appointment": "calendar",
+  "register-patient": "patients",
+  "record-session": "patients",
+  "sign-consent": "consents",
+  "upload-gallery": "patients",
+  "pos-sale": "pos",
+  "cash-register": "pos",
+  "staff-attendance": "pos",
+  "payroll-calc": "pos",
+  "promotion-setup": "pos",
+  "inventory-depletion": "inventory",
+  "service-setup": "services",
+  "whatsapp-setup": "config",
+  "offline-photo-sync": "patients",
+};
+
 export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) {
   const {
     isHelpCenterOpen,
@@ -243,6 +268,12 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"guides" | "workflows" | "roles" | "sync" | "faqs">("guides");
   const [selectedRole, setSelectedRole] = useState<"ADMIN" | "RECEPTIONIST" | "PHYSIO" | "AESTHETICIAN">("ADMIN");
+
+  useEffect(() => {
+    if (user?.role) {
+      setSelectedRole(user.role === "SUPER_ADMIN" ? "ADMIN" : user.role as any);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -272,8 +303,24 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
 
   const query = searchQuery.trim().toLowerCase();
 
-  // Filter content
-  const filteredGuides = SCREEN_GUIDES.filter(
+  // Role-based filtering constraints
+  const allowedScreenKeys = user 
+    ? [...(ROLE_ALLOWED_SCREENS[user.role] || ["dashboard"]), "login", "portal"]
+    : ["dashboard", "login", "portal"];
+
+  const userScreenGuides = SCREEN_GUIDES.filter((g) => allowedScreenKeys.includes(g.key));
+
+  const userWorkflowKeys = Object.keys(WORKFLOW_TOURS).filter((key) => {
+    const targetScreen = WORKFLOW_TARGET_SCREENS[key];
+    return !targetScreen || allowedScreenKeys.includes(targetScreen);
+  });
+
+  const userRoleGuides = (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN")
+    ? ROLE_GUIDES
+    : ROLE_GUIDES.filter((r) => r.roleKey === user?.role);
+
+  // Filter content using the restricted lists
+  const filteredGuides = userScreenGuides.filter(
     (g) =>
       g.title.toLowerCase().includes(query) ||
       g.description.toLowerCase().includes(query)
@@ -286,7 +333,7 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
       f.category.toLowerCase().includes(query)
   );
 
-  const filteredRoles = ROLE_GUIDES.filter(
+  const filteredRoles = userRoleGuides.filter(
     (r) =>
       r.roleName.toLowerCase().includes(query) ||
       r.description.toLowerCase().includes(query) ||
@@ -294,9 +341,8 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
       r.example.toLowerCase().includes(query)
   );
 
-  // Filter workflows
-  const workflowKeys = Object.keys(WORKFLOW_TOURS);
-  const filteredWorkflows = workflowKeys.filter((key) => {
+  // Filter workflows using restricted keys
+  const filteredWorkflows = userWorkflowKeys.filter((key) => {
     const friendlyName = key.replace("-", " ");
     return friendlyName.toLowerCase().includes(query) || key.toLowerCase().includes(query);
   });
@@ -575,8 +621,8 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
             <div className="h-full">
               {/* TAB 1: SCREEN GUIDES */}
               {activeTab === "guides" && (() => {
-                const currentGuide = SCREEN_GUIDES.find((g) => g.key === activeScreen);
-                const otherGuides = SCREEN_GUIDES.filter((g) => g.key !== activeScreen);
+                const currentGuide = userScreenGuides.find((g) => g.key === activeScreen);
+                const otherGuides = userScreenGuides.filter((g) => g.key !== activeScreen);
 
                 return (
                   <div className="space-y-6 animate-in fade-in duration-200">
@@ -677,7 +723,7 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                    {workflowKeys.map((key) => (
+                    {userWorkflowKeys.map((key) => (
                       <div
                         key={key}
                         className="group p-5 rounded-2xl border bg-muted/20 border-border hover:border-primary hover:bg-muted/40 transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -764,31 +810,37 @@ export default function HelpCenterModal({ activeScreen }: HelpCenterModalProps) 
 
                   {/* Role Selector Bento Row */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                    {(Object.keys(PLAYBOOKS) as Array<keyof typeof PLAYBOOKS>).map((roleKey) => {
-                      const playbook = PLAYBOOKS[roleKey];
-                      const Icon = playbook.icon;
-                      const isSelected = selectedRole === roleKey;
-                      
-                      return (
-                        <button
-                          key={roleKey}
-                          onClick={() => setSelectedRole(roleKey)}
-                          className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col items-center text-center gap-2.5 ${
-                            isSelected
-                              ? "bg-primary/10 border-primary text-primary shadow-lg shadow-primary/5 scale-[1.02]"
-                              : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                          }`}
-                        >
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-card border border-border text-muted-foreground'}`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold block">{playbook.roleName.split(" / ")[0]}</span>
-                            <span className="text-[9px] uppercase font-black tracking-wider opacity-60 block mt-0.5">{roleKey}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                    {(() => {
+                      const visibleRoles = (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN")
+                        ? (Object.keys(PLAYBOOKS) as Array<keyof typeof PLAYBOOKS>)
+                        : [(user?.role || "ADMIN") as keyof typeof PLAYBOOKS];
+
+                      return visibleRoles.map((roleKey) => {
+                        const playbook = PLAYBOOKS[roleKey];
+                        const Icon = playbook.icon;
+                        const isSelected = selectedRole === roleKey;
+                        
+                        return (
+                          <button
+                            key={roleKey}
+                            onClick={() => setSelectedRole(roleKey)}
+                            className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col items-center text-center gap-2.5 ${
+                              isSelected
+                                ? "bg-primary/10 border-primary text-primary shadow-lg shadow-primary/5 scale-[1.02]"
+                                : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-card border border-border text-muted-foreground'}`}>
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold block">{playbook.roleName.split(" / ")[0]}</span>
+                              <span className="text-[9px] uppercase font-black tracking-wider opacity-60 block mt-0.5">{roleKey}</span>
+                            </div>
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
 
                   {/* Active Playbook Content Card */}

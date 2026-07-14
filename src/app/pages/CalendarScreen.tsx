@@ -658,8 +658,8 @@ export default function CalendarScreen({
     <div className="flex flex-col h-full overflow-hidden select-none">
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0 gap-3" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 w-full lg:w-auto">
           <div className="flex items-center gap-1 bg-muted/50 border border-border p-1 rounded-xl">
             <button
               onClick={handlePrev}
@@ -686,42 +686,44 @@ export default function CalendarScreen({
         </div>
 
         {/* View Mode Toggle */}
-        <div id="tour-calendar-cabins" className="flex border border-border rounded-xl p-1 bg-muted/40">
-          <button
-            onClick={() => setViewMode("weekly")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              viewMode === "weekly"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Vista Semanal
-          </button>
-          <button
-            onClick={() => setViewMode("cabins")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              viewMode === "cabins"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Vista Cabinas (Día)
-          </button>
-          <button
-            onClick={() => setViewMode("agenda")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              viewMode === "agenda"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Vista Agenda (Lista)
-          </button>
+        <div className="w-full lg:w-auto overflow-x-auto scrollbar-hide no-print flex justify-center py-1">
+          <div id="tour-calendar-cabins" className="flex border border-border rounded-xl p-1 bg-muted/40 flex-nowrap flex-shrink-0">
+            <button
+              onClick={() => setViewMode("weekly")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                viewMode === "weekly"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="hidden sm:inline">Vista </span>Semanal
+            </button>
+            <button
+              onClick={() => setViewMode("cabins")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                viewMode === "cabins"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="hidden sm:inline">Vista </span>Cabinas (Día)
+            </button>
+            <button
+              onClick={() => setViewMode("agenda")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                viewMode === "agenda"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="hidden sm:inline">Vista </span>Agenda (Lista)
+            </button>
+          </div>
         </div>
 
         {/* Legend + button */}
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-4 text-[11px] font-semibold text-muted-foreground">
+        <div className="flex items-center justify-between lg:justify-end gap-5 w-full lg:w-auto">
+          <div className="hidden xl:flex items-center gap-4 text-[11px] font-semibold text-muted-foreground">
             {[
               { label: "Confirmada", color: "bg-success" },
               { label: "Pendiente", color: "bg-warning" },
@@ -1172,7 +1174,7 @@ export default function CalendarScreen({
           />
           <div
             ref={slideOverRef}
-            className="fixed right-0 top-0 bottom-0 w-[440px] bg-card z-50 shadow-2xl flex flex-col border-l border-border"
+            className="fixed right-0 top-0 bottom-0 w-full sm:w-[440px] bg-card z-50 shadow-2xl flex flex-col border-l border-border"
             style={{ transform: "translateX(100%)" }}
           >
             {/* Header */}

@@ -108,10 +108,10 @@ export const VIEW_TOURS: Record<string, TourStep[]> = {
       position: "bottom"
     },
     {
-      selector: "#tour-user-footer",
-      title: "Tu Perfil de Usuario",
-      content: "Muestra tu avatar, nombre y rol de seguridad. Haz clic aquí para ir a tus ajustes personales de cuenta.",
-      position: "top"
+      selector: '[data-tour="profile-menu"]',
+      title: "Menú de Perfil de Usuario",
+      content: "Haz clic en tu avatar en la barra superior para desplegar tu menú de perfil. Aquí podrás modificar tus datos personales en 'Mi Perfil' o cerrar sesión.",
+      position: "bottom"
     }
   ],
   calendar: [
@@ -269,6 +269,12 @@ export const VIEW_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-config-professionals-list",
       title: "Personal y Horarios",
       content: "Registra terapeutas, esteticistas y recepcionistas. Define sus perfiles, sueldos base, tasas de comisión y horarios de trabajo por día.",
+      position: "top"
+    },
+    {
+      selector: '[data-tour="staff-contract-type"]',
+      title: "Esquema de Contrato y Salarios",
+      content: "Configura el tipo de contrato del profesional (Sueldo Fijo, Comisión o Híbrido), junto con el salario base y comisión correspondientes de cada profesional.",
       position: "top"
     },
     {
@@ -695,65 +701,103 @@ export const ROLE_ONBOARDING_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-dashboard-kpi",
       title: "Bienvenido, Administrador",
       content: "Este es tu panel táctico. Desde aquí controlas el rendimiento diario de facturación, volumen de citas y alertas de insumos de tu centro.",
-      position: "bottom"
+      position: "bottom",
+      targetScreen: "dashboard"
+    },
+    {
+      selector: "#tour-dashboard-chart",
+      title: "Gráfico de Facturación",
+      content: "Visualiza la tendencia diaria de ventas netas de la semana en curso para evaluar el rendimiento comercial.",
+      position: "top",
+      targetScreen: "dashboard"
+    },
+    {
+      selector: "#tour-dashboard-retouches",
+      title: "Alertas de Retoques Obligatorios",
+      content: "Para tratamientos con retoque programado (como toxina), el sistema te avisa aquí si venció o si está próximo para llamar al paciente.",
+      position: "top",
+      targetScreen: "dashboard"
+    },
+    {
+      selector: "#tour-dashboard-appointments",
+      title: "Citas Programadas de Hoy",
+      content: "Accede rápidamente a las citas de hoy. Muestra el estado de confirmación, profesional y cabina asignada.",
+      position: "top",
+      targetScreen: "dashboard"
     },
     {
       selector: "#tour-dashboard-branch",
       title: "Control Multi-Sucursal",
       content: "Si tu clínica cuenta con varios locales físicos, usa este botón para alternar las bases de datos al instante.",
-      position: "bottom"
-    },
-    {
-      selector: "#tour-sidebar-config",
-      title: "Configuración General",
-      content: "Aquí registras a tus terapeutas, configuras sus comisiones fijas del 10%, defines plantillas de WhatsApp y detalles de facturación.",
-      position: "right"
-    },
-    {
-      selector: "#tour-sidebar-pos",
-      title: "Consola Financiera",
-      content: "Controla las ventas diarias, audita los arqueos de caja del personal y genera las nóminas acumuladas a fin de mes.",
-      position: "right"
-    },
-    {
-      selector: "#tour-sidebar-reports",
-      title: "Auditoría Contable",
-      content: "Revisa gráficos interactivos sobre tus métodos de pago y descarga archivos CSV para tu contador.",
-      position: "right"
-    }
-  ],
-  PHYSIO: [
-    {
-      selector: "#tour-dashboard-appointments",
-      title: "Bienvenido, Fisioterapeuta",
-      content: "Aquí ves tus pacientes agendados para hoy. Recuerda consultar tu cabina física de atención.",
-      position: "top"
+      position: "bottom",
+      targetScreen: "dashboard"
     },
     {
       selector: "#tour-sidebar-calendar",
-      title: "Tu Agenda Semanal",
-      content: "Visualiza tu cuadrícula horaria de trabajo para verificar tus bloques ocupados o agendar rehabilitaciones.",
-      position: "right"
+      title: "Navegación al Calendario",
+      content: "Usa el menú lateral para acceder a la agenda de citas, donde puedes programar y reprogramar turnos.",
+      position: "right",
+      targetScreen: "calendar"
+    },
+    {
+      selector: "#tour-calendar-cabins",
+      title: "Filtro de Vista y Cabinas",
+      content: "Cambia entre Vista Semanal y Vista Diaria por Cabinas. Te permite ver qué salas físicas (boxes) o equipos láser están ocupados u ociosos.",
+      position: "bottom",
+      targetScreen: "calendar"
+    },
+    {
+      selector: "#tour-calendar-create-btn",
+      title: "Nueva Cita Rápida",
+      content: "Haz clic para abrir el formulario lateral y crear una cita manualmente ingresando paciente, servicio y hora.",
+      position: "left",
+      targetScreen: "calendar"
     },
     {
       selector: "#tour-sidebar-patients",
       title: "CRM y Expedientes Clínicos",
-      content: "Navega a la ficha de tu paciente para registrar sus hojas de evolución clínica, dolor, peso e historial antropométrico.",
-      position: "right"
-    }
-  ],
-  AESTHETICIAN: [
-    {
-      selector: "#tour-dashboard-appointments",
-      title: "Bienvenida, Esteticista",
-      content: "Consulta la lista de citas estéticas de hoy, el tipo de aparatología láser a usar y la cabina asignada.",
-      position: "top"
+      content: "Navega al CRM para buscar pacientes, gestionar su historial, evoluciones, consentimientos y galería.",
+      position: "right",
+      targetScreen: "patients"
     },
     {
-      selector: "#tour-sidebar-patients",
-      title: "Fichas de Clientes",
-      content: "Desde aquí puedes hacer firmar el consentimiento digital al paciente en pantalla y tomar fotos de control de evolución Antes/Después.",
-      position: "right"
+      selector: "#tour-tab-historial",
+      title: "Antecedentes Médicos",
+      content: "Ficha clínica inicial donde registras alergias, patologías previas, contraindicaciones y anamnesis del paciente.",
+      position: "bottom",
+      targetScreen: "patients",
+      targetTab: "historial"
+    },
+    {
+      selector: "#tour-tab-evolucion",
+      title: "Bitácora de Evolución",
+      content: "Registra el avance sesión por sesión. Permite anotar observaciones clínicas, peso, perímetros corporales y parámetros láser.",
+      position: "bottom",
+      targetScreen: "patients",
+      targetTab: "evolucion"
+    },
+    {
+      selector: "#tour-sidebar-pos",
+      title: "Módulo Financiero y POS",
+      content: "Controla las ventas diarias, audita los arqueos de caja del personal y genera las nóminas acumuladas a fin de mes.",
+      position: "right",
+      targetScreen: "pos"
+    },
+    {
+      selector: "#tour-pos-cash",
+      title: "Control de Caja Chica",
+      content: "Abre la caja chica con el saldo inicial del día. Registra salidas rápidas de efectivo para gastos menores y efectúa el arqueo de cierre.",
+      position: "top",
+      targetScreen: "pos",
+      targetTab: "caja"
+    },
+    {
+      selector: "#tour-sidebar-config",
+      title: "Configuración General",
+      content: "Aquí registras a tus terapeutas, configuras sus comisiones fijas del 10%, defines plantillas de WhatsApp y detalles de la clínica.",
+      position: "right",
+      targetScreen: "config",
+      targetTab: "professionals"
     }
   ],
   RECEPTIONIST: [
@@ -761,19 +805,107 @@ export const ROLE_ONBOARDING_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-sidebar-calendar",
       title: "Bienvenida, Recepcionista",
       content: "Tu herramienta principal: el Calendario. Crea citas, asigna terapeutas disponibles y evita solapamientos horaria.",
-      position: "right"
+      position: "right",
+      targetScreen: "calendar"
+    },
+    {
+      selector: "#tour-calendar-create-btn",
+      title: "Nueva Cita Rápida",
+      content: "Haz clic para abrir el formulario lateral y crear una cita manualmente ingresando paciente, servicio y hora.",
+      position: "left",
+      targetScreen: "calendar"
     },
     {
       selector: "#tour-sidebar-patients",
       title: "Registro de Expedientes",
       content: "Da de alta nuevos clientes que asistan a la clínica para poder agendarles tratamientos de forma rápida.",
-      position: "right"
+      position: "right",
+      targetScreen: "patients"
+    },
+    {
+      selector: "#tour-patients-register-btn",
+      title: "Registrar Nuevo Paciente",
+      content: "Presiona 'Nuevo Paciente' para abrir la ficha de alta e introducir sus datos en el sistema.",
+      position: "bottom",
+      targetScreen: "patients"
     },
     {
       selector: "#tour-sidebar-pos",
       title: "Terminal de Caja y POS",
       content: "Apertura la caja por la mañana con su saldo inicial, registra los cobros de servicios y productos, y realiza el arqueo de cierre al finalizar.",
-      position: "right"
+      position: "right",
+      targetScreen: "pos"
+    },
+    {
+      selector: "#tour-pos-terminal",
+      title: "Terminal de Venta (POS)",
+      content: "Añade servicios y productos comerciales al carrito. Recuerda asociar el paciente usando el buscador superior del POS.",
+      position: "bottom",
+      targetScreen: "pos",
+      targetTab: "pos"
+    }
+  ],
+  PHYSIO: [
+    {
+      selector: "#tour-dashboard-appointments",
+      title: "Bienvenido, Fisioterapeuta",
+      content: "Aquí ves tus pacientes agendados para hoy. Recuerda consultar tu cabina física de atención.",
+      position: "top",
+      targetScreen: "dashboard"
+    },
+    {
+      selector: "#tour-sidebar-calendar",
+      title: "Tu Agenda Semanal",
+      content: "Visualiza tu cuadrícula horaria de trabajo para verificar tus bloques ocupados o agendar rehabilitaciones.",
+      position: "right",
+      targetScreen: "calendar"
+    },
+    {
+      selector: "#tour-sidebar-patients",
+      title: "CRM y Expedientes Clínicos",
+      content: "Navega a la ficha de tu paciente para registrar sus hojas de evolución clínica, dolor, peso e historial antropométrico.",
+      position: "right",
+      targetScreen: "patients"
+    },
+    {
+      selector: "#tour-tab-evolucion",
+      title: "Bitácora de Evolución",
+      content: "Registra el avance sesión por sesión. Permite anotar observaciones clínicas, peso, perímetros corporales y parámetros láser.",
+      position: "bottom",
+      targetScreen: "patients",
+      targetTab: "evolucion"
+    }
+  ],
+  AESTHETICIAN: [
+    {
+      selector: "#tour-dashboard-appointments",
+      title: "Bienvenida, Esteticista",
+      content: "Consulta la lista de citas estéticas de hoy, el tipo de aparatología láser a usar y la cabina asignada.",
+      position: "top",
+      targetScreen: "dashboard"
+    },
+    {
+      selector: "#tour-sidebar-patients",
+      title: "Fichas de Clientes",
+      content: "Desde aquí puedes hacer firmar el consentimiento digital al paciente en pantalla y tomar fotos de control de evolución Antes/Después.",
+      position: "right",
+      targetScreen: "patients"
+    },
+    {
+      selector: "#tour-tab-consentimiento",
+      title: "Ficha de Consentimiento",
+      content: "Visualiza los contratos legales firmados por el paciente para tratamientos específicos o captura una nueva firma en la tableta.",
+      position: "bottom",
+      targetScreen: "patients",
+      targetTab: "consentimiento"
+    },
+    {
+      selector: "#tour-tab-galeria",
+      title: "Galería de Fotos",
+      content: "Sube y organiza fotos del paciente en categorías de 'Antes' (Control Inicial) y 'Después' (Evolución) para evaluar resultados.",
+      position: "bottom",
+      targetScreen: "patients",
+      targetTab: "galeria"
     }
   ],
   SUPER_ADMIN: [
@@ -781,13 +913,15 @@ export const ROLE_ONBOARDING_TOURS: Record<string, TourStep[]> = {
       selector: "#tour-saas-tenant-list",
       title: "Consola Global SaaS",
       content: "Bienvenido a la consola del desarrollador. Desde aquí monitoreas el estado operativo de todas las clínicas (inquilinos) de la plataforma.",
-      position: "bottom"
+      position: "bottom",
+      targetScreen: "saas"
     },
     {
       selector: "#tour-saas-create-tenant-btn",
       title: "Provisionar Nueva Clínica",
       content: "Registra un nuevo centro médico o spa en el software SaaS y configúrale su plan de cobro mensual (Basic o Premium).",
-      position: "bottom"
+      position: "bottom",
+      targetScreen: "saas"
     }
   ]
 };

@@ -5,28 +5,40 @@
   
   /* 
     Spatial Light Theme - Soft grey-lavender visionOS layout (Image 5 inspired)
-    Bright ambient clinic background, but smoky charcoal glass cards and panels!
+    Bright ambient clinic background, with light frosted glass cards and panels!
   */
-  --background: #ece9f1; 
-  --foreground: #ffffff; /* Text remains white/light for legibility on dark glass! */
-  --card: rgba(25, 20, 32, 0.78); /* Soft smoky charcoal glass (dark!) */
-  --card-foreground: #ffffff;
-  --popover: rgba(35, 30, 44, 0.76); /* Dark popovers */
-  --popover-foreground: #ffffff;
+  --palette-bg-page-light: #f0fdfa;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
+  --palette-bg-page-dark: #030712;
+  --palette-bg-surface-dark: rgba(17, 24, 39, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(55, 65, 81, 0.50);
+
+  --palette-bg-page: var(--palette-bg-page-light);
+  --palette-bg-surface: var(--palette-bg-surface-light);
+  --palette-bg-surface-elevated: var(--palette-bg-surface-elevated-light);
+
+  --background: var(--palette-bg-page); 
+  --foreground: #0f172a; /* Slate 900 */
+  --card: var(--palette-bg-surface); /* Light frosted glass */
+  --card-foreground: #0f172a;
+  --popover: var(--palette-bg-surface-elevated); /* Light elevated surface */
+  --popover-foreground: #0f172a;
   --primary: #d946ef; /* Bright Neon Magenta/Orchid */
   --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.1);
+  --secondary: rgba(15, 23, 42, 0.05);
   --secondary-foreground: #d946ef;
-  --muted: rgba(255, 255, 255, 0.08);
-  --muted-foreground: #cbc0d3; /* Soft light-grey/lavender text for labels */
-  --accent: rgba(255, 255, 255, 0.15);
+  --muted: rgba(15, 23, 42, 0.03);
+  --muted-foreground: #475569; /* Slate 600 */
+  --accent: rgba(15, 23, 42, 0.06);
   --accent-foreground: #f472b6;
   --destructive: #e11d48;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.12); /* White specular highlights */
+  --border: rgba(15, 23, 42, 0.08); /* Specular highlights/boundaries in light mode */
   --input: transparent;
-  --input-background: rgba(0, 0, 0, 0.25); /* Translucent dark input boxes */
-  --switch-background: rgba(255, 255, 255, 0.15);
+  --input-background: rgba(15, 23, 42, 0.04); /* Translucent light input boxes */
+  --button-hover: rgba(15, 23, 42, 0.08);
+  --switch-background: rgba(15, 23, 42, 0.10);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #d946ef;
@@ -38,19 +50,19 @@
   --radius: 1.5rem;
   
   /* Sidebar Light floating capsule */
-  --sidebar: rgba(25, 20, 32, 0.62);
-  --sidebar-foreground: #ffffff;
+  --sidebar: rgba(255, 255, 255, 0.80);
+  --sidebar-foreground: #0f172a;
   --sidebar-primary: #d946ef;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.15);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.2);
+  --sidebar-accent: rgba(15, 23, 42, 0.08);
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: rgba(15, 23, 42, 0.12);
   --sidebar-ring: #d946ef;
 
   /* Glass borders specular highlights */
-  --glass-border: rgba(255, 255, 255, 0.22);
-  --glass-overlay: rgba(255, 255, 255, 0.08);
-  --glass-shadow: rgba(0, 0, 0, 0.25);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-overlay: rgba(255, 255, 255, 0.40);
+  --glass-shadow: rgba(15, 23, 42, 0.08);
 
   /* ════════════════════════════════════════════════════════════════════════
      Spatial UI — Brand palette tokens (default: Aura)
@@ -67,9 +79,6 @@
   --warning-glow: rgba(251, 191, 36, 0.40);
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
-  --palette-bg-page: #030712;
-  --palette-bg-surface: rgba(17, 24, 39, 0.45);
-  --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
   --palette-name: "Aura";
 
   /* Spatial login — primary brand gradient (logo + login orbs accent) */
@@ -87,6 +96,10 @@
 
 .dark {
   /* Spatial Dark Theme - Deep Cosmic Anthracite Black (watermarked_img_851376909664887668.png inspired) */
+  --palette-bg-page: var(--palette-bg-page-dark);
+  --palette-bg-surface: var(--palette-bg-surface-dark);
+  --palette-bg-surface-elevated: var(--palette-bg-surface-elevated-dark);
+
   --background: var(--palette-bg-page); 
   --foreground: #f5eff9;
   --card: var(--palette-bg-surface); /* Premium dark esmerilado glass */
@@ -106,6 +119,7 @@
   --border: rgba(255, 255, 255, 0.05); /* Ultra-fine borders */
   --input: transparent;
   --input-background: rgba(0, 0, 0, 0.4);
+  --button-hover: rgba(255, 255, 255, 0.12);
   --switch-background: rgba(255, 255, 255, 0.05);
   --ring: #d946ef;
   --chart-1: #d946ef;
@@ -148,9 +162,12 @@
   --warning-glow: rgba(251, 191, 36, 0.40);
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
-  --palette-bg-page: #030712;
-  --palette-bg-surface: rgba(17, 24, 39, 0.45);
-  --palette-bg-surface-elevated: rgba(55, 65, 81, 0.50);
+  --palette-bg-page-dark: #030712;
+  --palette-bg-surface-dark: rgba(17, 24, 39, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(55, 65, 81, 0.50);
+  --palette-bg-page-light: #f0fdfa;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Aura";
 }
 
@@ -165,9 +182,12 @@
   --warning-glow: rgba(251, 191, 36, 0.40);
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
-  --palette-bg-page: #1A1016;
-  --palette-bg-surface: rgba(45, 30, 40, 0.45);
-  --palette-bg-surface-elevated: rgba(70, 45, 60, 0.55);
+  --palette-bg-page-dark: #1A1016;
+  --palette-bg-surface-dark: rgba(45, 30, 40, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(70, 45, 60, 0.55);
+  --palette-bg-page-light: #fdf2f8;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Bloom";
 }
 
@@ -182,9 +202,12 @@
   --warning-glow: rgba(253, 224, 71, 0.40);
   --error: #F87171;
   --error-glow: rgba(248, 113, 113, 0.40);
-  --palette-bg-page: #02101A;
-  --palette-bg-surface: rgba(8, 30, 45, 0.45);
-  --palette-bg-surface-elevated: rgba(15, 50, 70, 0.55);
+  --palette-bg-page-dark: #02101A;
+  --palette-bg-surface-dark: rgba(8, 30, 45, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(15, 50, 70, 0.55);
+  --palette-bg-page-light: #ecfeff;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Ocean";
 }
 
@@ -199,9 +222,12 @@
   --warning-glow: rgba(252, 211, 77, 0.40);
   --error: #FCA5A5;
   --error-glow: rgba(252, 165, 165, 0.40);
-  --palette-bg-page: #0F172A;
-  --palette-bg-surface: rgba(30, 41, 59, 0.45);
-  --palette-bg-surface-elevated: rgba(51, 65, 85, 0.55);
+  --palette-bg-page-dark: #0F172A;
+  --palette-bg-surface-dark: rgba(30, 41, 59, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(51, 65, 85, 0.55);
+  --palette-bg-page-light: #fff7ed;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Sunset";
 }
 
@@ -216,9 +242,12 @@
   --warning-glow: rgba(251, 191, 36, 0.40);
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
-  --palette-bg-page: #120410;
-  --palette-bg-surface: rgba(40, 15, 30, 0.45);
-  --palette-bg-surface-elevated: rgba(65, 25, 50, 0.55);
+  --palette-bg-page-dark: #120410;
+  --palette-bg-surface-dark: rgba(40, 15, 30, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(65, 25, 50, 0.55);
+  --palette-bg-page-light: #fff5f5;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Berry";
 }
 
@@ -233,9 +262,12 @@
   --warning-glow: rgba(253, 224, 71, 0.40);
   --error: #FB7185;
   --error-glow: rgba(251, 113, 133, 0.40);
-  --palette-bg-page: #180828;
-  --palette-bg-surface: rgba(40, 20, 55, 0.45);
-  --palette-bg-surface-elevated: rgba(65, 35, 85, 0.55);
+  --palette-bg-page-dark: #180828;
+  --palette-bg-surface-dark: rgba(40, 20, 55, 0.45);
+  --palette-bg-surface-elevated-dark: rgba(65, 35, 85, 0.55);
+  --palette-bg-page-light: #fffbeb;
+  --palette-bg-surface-light: rgba(255, 255, 255, 0.70);
+  --palette-bg-surface-elevated-light: rgba(255, 255, 255, 0.90);
   --palette-name: "Tropical";
 }
 
@@ -302,7 +334,10 @@
   body {
     background-color: var(--background);
     /* Aesthetic clinic background — warm translucent lavender overlay lets the image show through */
-    background-image: linear-gradient(rgba(240, 234, 248, 0.15), rgba(240, 234, 248, 0.15)), url('./bg.png');
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--palette-bg-page) 15%, transparent),
+      color-mix(in srgb, var(--palette-bg-page) 15%, transparent)
+    ), url('./bg.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -314,9 +349,12 @@
   }
 
   .dark body {
-    background-color: #0b0a0f;
+    background-color: var(--background);
     /* Dark mode: 65% dark overlay — lets the clinic image texture show through subtly */
-    background-image: linear-gradient(rgba(11, 10, 15, 0.65), rgba(11, 10, 15, 0.65)), url('./bg.png');
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--palette-bg-page) 65%, transparent),
+      color-mix(in srgb, var(--palette-bg-page) 65%, transparent)
+    ), url('./bg.png');
   }
 
   html {
@@ -424,6 +462,16 @@
   transition: all 0.2s ease-in-out !important;
 }
 
+.glass-panel input::placeholder,
+.glass-panel textarea::placeholder,
+[data-slot="dialog-content"] input::placeholder,
+[data-slot="dialog-content"] textarea::placeholder,
+[data-slot="sheet-content"] input::placeholder,
+[data-slot="sheet-content"] textarea::placeholder {
+  color: var(--muted-foreground) !important;
+  opacity: 0.75 !important;
+}
+
 .glass-panel input:focus,
 .glass-panel select:focus,
 .glass-panel textarea:focus,
@@ -469,7 +517,7 @@
 .glass-panel button.bg-white:hover,
 .glass-panel button.bg-slate-100:hover,
 .glass-panel button.bg-slate-50:hover {
-  background-color: rgba(255, 255, 255, 0.18) !important;
+  background-color: var(--button-hover) !important;
   transform: translateY(-1px);
 }
 
@@ -477,8 +525,8 @@
 [data-slot="dialog-content"] select option,
 [data-slot="sheet-content"] select option,
 select option {
-  background-color: #231e2d !important;
-  color: #ffffff !important;
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -676,4 +724,25 @@ select option {
 .dark .border-violet-100, .dark .border-violet-200 { border-color: rgba(139, 92, 246, 0.25) !important; }
 .dark .border-teal-100, .dark .border-teal-200 { border-color: rgba(20, 184, 166, 0.25) !important; }
 
-/* Overrides for notification popover removed to allow native styling */
+/* Ensure the notification panel has a solid, opaque background */
+.notifications-panel {
+  background: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+}
+
+.dark .notifications-panel {
+  background: #15121e !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Custom Scrollbar Hiding Utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
