@@ -35,8 +35,6 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 import { toast } from "sonner";
-import { useTutorial } from "../context/TutorialContext";
-import { enrichStep } from "../components/TutorialTour";
 
 interface Campaign {
   id: string;
@@ -170,6 +168,17 @@ interface CashRegister {
 
 export default function FinanceScreen() {
   const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions" | "attendance">("pos");
+
+  // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
+  useEffect(() => {
+    const handleOnboardingAction = (e: any) => {
+      if (e.detail?.type === 'switch-tab') {
+        setActiveTab(e.detail.tab);
+      }
+    };
+    window.addEventListener('onboarding-action', handleOnboardingAction);
+    return () => window.removeEventListener('onboarding-action', handleOnboardingAction);
+  }, []);
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [branchStocks, setBranchStocks] = useState<any[]>([]);
@@ -179,19 +188,6 @@ export default function FinanceScreen() {
       setSelectedBranchId(branches[0].id);
     }
   }, [branches, selectedBranchId]);
-
-  // Tutorial tab sync watcher
-  const { activeTour, currentStep } = useTutorial();
-  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
-
-  useEffect(() => {
-    if (activeStep?.targetTab) {
-      const lowerTab = activeStep.targetTab.toLowerCase();
-      if (["pos", "caja", "schedules", "performance", "payroll", "promotions", "attendance"].includes(lowerTab)) {
-        setActiveTab(lowerTab as any);
-      }
-    }
-  }, [activeStep]);
 
   // Estado de campañas y cupones
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -1000,6 +996,7 @@ export default function FinanceScreen() {
         <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full scrollbar-hide flex-nowrap flex-shrink-0">
           <button
             id="tour-finance-pos-tab"
+            data-onboarding="pos-tab-pos"
             onClick={() => setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "pos"
@@ -1011,6 +1008,7 @@ export default function FinanceScreen() {
           </button>
           <button
             id="tour-finance-caja-tab"
+            data-onboarding="pos-tab-cash"
             onClick={() => setActiveTab("caja")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "caja"
@@ -1134,7 +1132,7 @@ export default function FinanceScreen() {
             </div>
 
             {/* Listado de Servicios */}
-            <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
+            <div id="tour-pos-add-service" className="bg-card rounded-2xl border border-border p-5 space-y-3">
               <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-secondary" />
                 Tratamientos Clínicos
@@ -1234,7 +1232,7 @@ export default function FinanceScreen() {
           </div>
 
           {/* LADO DERECHO: Carrito de Compras & Checkout (Colspan 2) */}
-          <div className="lg:col-span-2 space-y-4">
+          <div data-onboarding="pos-cart-area" className="lg:col-span-2 space-y-4">
             
             <div className="bg-card rounded-2xl border border-border p-5 space-y-5">
               <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2 pb-3 border-b border-border">

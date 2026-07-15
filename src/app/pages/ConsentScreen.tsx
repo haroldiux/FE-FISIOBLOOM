@@ -259,7 +259,7 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
   return (
     <div className="space-y-6">
       {/* Bento Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div id="tour-consent-stats" data-onboarding="consent-stats" className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-card border border-border rounded-3xl p-6 relative overflow-hidden group shadow-lg">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-primary/10 blur-xl group-hover:scale-125 transition-transform duration-500" />
           <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-2">
@@ -316,6 +316,8 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
+              id="tour-consent-search"
+              data-onboarding="consent-search"
               type="text"
               placeholder="Buscar por paciente o tratamiento..."
               value={searchQuery}

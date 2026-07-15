@@ -965,6 +965,7 @@ export default function InventoryScreen() {
             </button>
             <button
               type="button"
+              data-onboarding="inventory-new-product"
               onClick={() => {
                 setEditProduct(null);
                 setShowModal(true);
@@ -1170,7 +1171,7 @@ export default function InventoryScreen() {
               </p>
             </div>
           ) : (
-            <div id="tour-inventory-catalog" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="tour-inventory-catalog" data-onboarding="inventory-product-table" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}

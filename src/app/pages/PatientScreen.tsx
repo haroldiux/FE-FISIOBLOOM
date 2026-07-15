@@ -30,8 +30,6 @@ import { api, API_URL } from "../services/api";
 import { toast } from "sonner";
 const SERVER_URL = API_URL.replace(/\/api$/, "");
 import { animate } from "animejs";
-import { useTutorial } from "../context/TutorialContext";
-import { enrichStep } from "../components/TutorialTour";
 
 type PatientTab = "historial" | "evolucion" | "consentimiento" | "galeria" | "facturacion";
 
@@ -156,6 +154,9 @@ export default function PatientScreen({
   const [listSearch, setListSearch] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
+  const [isMockingPatient, setIsMockingPatient] = useState(false);
+  const [isLoadingMock, setIsLoadingMock] = useState(false);
+
   useEffect(() => {
     if (searchSelectedPatientId) {
       handleSelectPatient(searchSelectedPatientId);
@@ -181,18 +182,40 @@ export default function PatientScreen({
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<PatientTab>("evolucion");
 
-  // Tutorial tab sync watcher
-  const { activeTour, currentStep } = useTutorial();
-  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
-
+  // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
   useEffect(() => {
-    if (activeStep?.targetTab) {
-      const lowerTab = activeStep.targetTab.toLowerCase();
-      if (["historial", "evolucion", "consentimiento", "galeria", "facturacion"].includes(lowerTab)) {
-        setActiveTab(lowerTab as PatientTab);
+    const handleOnboardingAction = (e: any) => {
+      if (e.detail?.type === 'switch-tab') {
+        setActiveTab(e.detail.tab);
+      } else if (e.detail?.type === 'mock-patient') {
+        if (!selectedPatientId) {
+          setIsLoadingMock(true);
+          setTimeout(() => {
+            setIsLoadingMock(false);
+            setIsMockingPatient(true);
+            setPatient({
+              id: 'mock-123',
+              fullName: 'John Doe',
+              phone: '+1 555-0198',
+              email: 'john.doe@example.com',
+              consentSigned: true,
+              medicalHistory: 'Initial consultation notes...',
+              treatmentPackages: [],
+              retouchSchedules: [],
+              appointments: [],
+              consentDocuments: []
+            });
+          }, 800);
+        }
+      } else if (e.detail?.type === 'select-first-patient') {
+        if (patientList.length > 0) {
+          handleSelectPatient(patientList[0].id);
+        }
       }
-    }
-  }, [activeStep]);
+    };
+    window.addEventListener('onboarding-action', handleOnboardingAction);
+    return () => window.removeEventListener('onboarding-action', handleOnboardingAction);
+  }, [patientList, selectedPatientId]);
 
   // Register session modal
   const [showModal, setShowModal] = useState(false);
@@ -939,11 +962,13 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               value={listSearch}
               onChange={(e) => setListSearch(e.target.value)}
               placeholder="Buscar paciente..."
+              data-onboarding="patient-search-input"
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <button
             id="tour-patients-register-btn"
+            data-onboarding="patient-new-patient"
             onClick={() => {
               setCreateError(null);
               setShowCreateModal(true);
@@ -1017,8 +1042,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
         </div>
       </aside>
 
-      <div className={`flex-1 flex-col overflow-hidden ${selectedPatientId ? 'flex' : 'hidden md:flex'}`}>
-        {!selectedPatientId ? (
+      <div className={`flex-1 flex-col overflow-hidden ${selectedPatientId || isMockingPatient || isLoadingMock ? 'flex' : 'hidden md:flex'}`}>
+        {!selectedPatientId && !isMockingPatient && !isLoadingMock ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
               <ClipboardList className="w-10 h-10 text-primary/60" />
@@ -1030,10 +1055,20 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               </p>
             </div>
           </div>
-        ) : detailLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">Cargando expediente...</p>
+        ) : detailLoading || isLoadingMock ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 w-full h-full p-6">
+            {isLoadingMock ? (
+              <div className="w-full max-w-4xl animate-pulse space-y-6">
+                <div className="h-24 bg-muted/60 rounded-2xl w-full"></div>
+                <div className="h-10 bg-muted/60 rounded-xl w-3/4"></div>
+                <div className="h-64 bg-muted/60 rounded-2xl w-full"></div>
+              </div>
+            ) : (
+              <>
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">Cargando expediente...</p>
+              </>
+            )}
           </div>
         ) : patient ? (
           <>
@@ -1116,6 +1151,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                 <button
                   key={id}
                   id={`tour-tab-${id}`}
+                  data-onboarding={`patient-tab-${id}`}
                   onClick={() => setActiveTab(id)}
                   className={`flex items-center gap-1.5 py-3.5 px-3 text-xs font-bold border-b-2 uppercase tracking-wider transition-all whitespace-nowrap flex-shrink-0 ${
                     activeTab === id

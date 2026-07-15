@@ -340,7 +340,7 @@ export default function DashboardScreen({
   return (
     <div className="p-6 space-y-6">
       {/* Bento KPI cards Grid */}
-      <div id="tour-dashboard-kpi" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="tour-dashboard-kpi" data-onboarding="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <KPICard
             title="Citas Hoy"
@@ -444,7 +444,7 @@ export default function DashboardScreen({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
         {/* Weekly revenue chart */}
-        <div id="tour-dashboard-chart" className="col-span-12 lg:col-span-5 bg-card rounded-2xl border border-border p-5 flex flex-col justify-between">
+        <div id="tour-dashboard-chart" data-onboarding="dashboard-chart-revenue" className="col-span-12 lg:col-span-5 bg-card rounded-2xl border border-border p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-foreground">Ingresos Semanales</h3>
@@ -488,7 +488,7 @@ export default function DashboardScreen({
         </div>
 
         {/* Retouch alerts tracker */}
-        <div id="tour-dashboard-retouches" className="col-span-12 lg:col-span-7 bg-card rounded-2xl border border-border p-5 flex flex-col">
+        <div id="tour-dashboard-retouches" data-onboarding="dashboard-chart-touchups" className="col-span-12 lg:col-span-7 bg-card rounded-2xl border border-border p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
             <div>
               <h3 className="text-sm font-bold text-foreground">Seguimiento de Retoques Pendientes</h3>
@@ -586,7 +586,7 @@ export default function DashboardScreen({
       </div>
 
       {/* Row 3: Today's Appointments (Data-rich Wide Widget) */}
-      <div id="tour-dashboard-appointments" className="bg-card rounded-2xl border border-border overflow-hidden p-5 space-y-4">
+      <div id="tour-dashboard-appointments" data-onboarding="dashboard-today-appointments" className="bg-card rounded-2xl border border-border overflow-hidden p-5 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div>
             <h3 className="text-sm font-bold text-foreground">Citas de Hoy</h3>

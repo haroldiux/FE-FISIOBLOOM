@@ -1,0 +1,290 @@
+import type { OnboardingPhase } from './adminFlow';
+
+export const receptionistFlow: OnboardingPhase[] = [
+  {
+    id: 'dashboard',
+    title: 'Panel de Recepción',
+    icon: 'LayoutDashboard',
+    screen: 'dashboard',
+    steps: [
+      {
+        id: 'dashboard-intro',
+        targetId: 'dashboard-kpis',
+        title: 'KPIs del Día',
+        description: 'Resumen en tiempo real: citas agendadas hoy, facturación acumulada y pacientes activos en la clínica.',
+        screen: 'dashboard',
+        placement: 'bottom',
+      },
+      {
+        id: 'dashboard-appointments',
+        targetId: 'dashboard-today-appointments',
+        title: 'Citas de Hoy',
+        description: 'Tus citas del día con el paciente, profesional y estado. Hacé clic en una para ver los detalles o registrar la llegada.',
+        screen: 'dashboard',
+        placement: 'bottom',
+      },
+      {
+        id: 'dashboard-retouches',
+        targetId: 'dashboard-chart-touchups',
+        title: 'Pacientes para Retoque',
+        description: 'Listado de pacientes próximos a su retoque obligatorio. Aprovechá para llamarlos y agendar desde la recepción.',
+        screen: 'dashboard',
+        placement: 'bottom',
+      },
+    ],
+  },
+  {
+    id: 'calendar',
+    title: 'Agenda Virtual',
+    icon: 'Calendar',
+    screen: 'calendar',
+    steps: [
+      {
+        id: 'calendar-cabins',
+        targetId: 'tour-calendar-cabins',
+        title: 'Selector de Cabinas',
+        description: 'Filtrá la vista por cabina o sala para ver rápidamente la disponibilidad de cada espacio.',
+        screen: 'calendar',
+        placement: 'bottom',
+      },
+      {
+        id: 'calendar-grid',
+        targetId: 'calendar-grid',
+        title: 'Vista del Calendario',
+        description: 'Acá verás la disponibilidad de todos los profesionales. Podés arrastrar citas para reprogramarlas o hacer clic en un espacio vacío para agendar rápido.',
+        screen: 'calendar',
+        placement: 'bottom',
+      },
+      {
+        id: 'calendar-new-appointment',
+        targetId: 'calendar-new-appointment',
+        title: 'Agendar Cita',
+        description: 'Hacé clic acá para dar turno a un paciente: elegí fecha, hora, servicio y profesional.',
+        screen: 'calendar',
+        placement: 'left',
+      },
+      {
+        id: 'calendar-drawer-patient',
+        targetId: 'tour-calendar-drawer-patient',
+        title: 'Buscar Paciente',
+        description: 'En el panel de alta de cita, buscá al paciente por nombre, teléfono o DNI. Si es nuevo, podés crearlo desde acá.',
+        screen: 'calendar',
+        placement: 'right',
+      },
+      {
+        id: 'calendar-drawer-time',
+        targetId: 'tour-calendar-drawer-time',
+        title: 'Fecha y Hora',
+        description: 'Confirmá fecha, hora y duración. El sistema validará automáticamente que no haya superposiciones con otras citas del profesional.',
+        screen: 'calendar',
+        placement: 'right',
+      },
+    ],
+  },
+  {
+    id: 'patients',
+    title: 'CRM de Pacientes',
+    icon: 'Users',
+    screen: 'patients',
+    steps: [
+      {
+        id: 'patient-search',
+        targetId: 'patient-search-input',
+        title: 'Buscar Pacientes',
+        description: 'Localizá rápidamente a un paciente por su nombre, teléfono o DNI. Es lo primero que vas a usar en la jornada.',
+        screen: 'patients',
+        placement: 'bottom',
+      },
+      {
+        id: 'patient-new',
+        targetId: 'patient-new-patient',
+        title: 'Alta de Paciente',
+        description: 'Registrá a un nuevo paciente cuando llegue a su primera cita. Vas a poder cargar sus datos personales y antecedentes.',
+        screen: 'patients',
+        placement: 'left',
+      },
+      {
+        id: 'patient-select-mock',
+        targetId: 'tour-patients-list',
+        title: 'Ficha del Paciente',
+        description: 'Hacé clic en un paciente para abrir su expediente. Te cargaremos uno de prueba para que sigas explorando.',
+        screen: 'patients',
+        placement: 'right',
+        action: { type: 'mock-patient' }
+      },
+      {
+        id: 'patient-historial',
+        targetId: 'patient-tab-historial',
+        title: 'Datos del Paciente',
+        description: 'Acá consultás y actualizás los datos de contacto, antecedentes médicos y observaciones generales.',
+        screen: 'patients',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'historial' }
+      },
+      {
+        id: 'patient-consent',
+        targetId: 'tour-patients-consent',
+        title: 'Firma de Consentimientos',
+        description: 'Antes del tratamiento, asegurate de que el paciente firme su consentimiento informado digital desde este apartado. Seleccioná el servicio y la firma se guardará inmutablemente.',
+        screen: 'patients',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'consentimiento' }
+      },
+      {
+        id: 'patient-facturacion',
+        targetId: 'patient-tab-facturacion',
+        title: 'Historial de Pagos',
+        description: 'Consultá el historial completo de compras, bonos y saldo a favor del paciente. Útil para responder dudas de facturación.',
+        screen: 'patients',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'facturacion' }
+      },
+    ],
+  },
+  {
+    id: 'pos',
+    title: 'Punto de Venta',
+    icon: 'CreditCard',
+    screen: 'pos',
+    steps: [
+      {
+        id: 'pos-tab-pos',
+        targetId: 'pos-cart-area',
+        title: 'Punto de Venta',
+        description: 'Desde acá procesás todas las ventas de tratamientos, bonos y productos a los pacientes.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-terminal',
+        targetId: 'tour-pos-terminal',
+        title: 'Terminal de Venta',
+        description: 'La columna izquierda es el catálogo de servicios/productos y la derecha es el carrito. Seleccioná paciente, agregá ítems, configurá el pago y finalizá.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-cart-add',
+        targetId: 'tour-pos-add-service',
+        title: 'Agregar Tratamientos y Productos',
+        description: 'Buscá en el catálogo el servicio o producto y hacé clic para sumarlo al carrito.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-patient-search',
+        targetId: 'tour-pos-patient-search',
+        title: 'Vincular Paciente',
+        description: 'Asociá la venta al paciente para registrar el tratamiento y acreditar comisiones al profesional que lo realizó.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-cart-payment',
+        targetId: 'tour-pos-payment-method',
+        title: 'Cobro y Descuentos',
+        description: 'Añadí los servicios realizados, seleccioná al paciente y procesá el pago. Podés aplicar descuentos, cupones o usar saldo a favor.',
+        screen: 'pos',
+        placement: 'left',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-submit-sale',
+        targetId: 'tour-pos-submit-sale',
+        title: 'Confirmar Venta',
+        description: 'Una vez revisado el total y el método de pago, confirmá para generar el comprobante y registrar el movimiento en caja.',
+        screen: 'pos',
+        placement: 'top',
+        action: { type: 'switch-tab', tab: 'pos' }
+      },
+      {
+        id: 'pos-tab-cash',
+        targetId: 'tour-finance-caja-tab',
+        title: 'Apertura de Caja',
+        description: 'Al inicio del día debés abrir la caja con tu fondo para poder registrar los pagos en efectivo del día.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'caja' }
+      },
+      {
+        id: 'pos-cash-initial-balance',
+        targetId: 'tour-cash-initial-balance',
+        title: 'Fondo Inicial',
+        description: 'Ingresá el monto de efectivo con el que abrís la caja al comenzar el turno. Es el punto de partida para el arqueo.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'caja' }
+      },
+      {
+        id: 'pos-cash-expense',
+        targetId: 'tour-cash-expense-btn',
+        title: 'Registrar Egreso',
+        description: 'Si tenés que pagar a proveedores o comprar insumos, registralo acá para que se descuente del efectivo actual.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'caja' }
+      },
+      {
+        id: 'pos-cash-close',
+        targetId: 'tour-cash-close-btn',
+        title: 'Arqueo y Cierre',
+        description: 'Al finalizar tu turno, contá el dinero físico, ingresalo acá y el sistema te dirá si sobra o falta dinero.',
+        screen: 'pos',
+        placement: 'bottom',
+        action: { type: 'switch-tab', tab: 'caja' }
+      },
+    ],
+  },
+  {
+    id: 'consents',
+    title: 'Consentimientos',
+    icon: 'FileSignature',
+    screen: 'consents',
+    steps: [
+      {
+        id: 'consent-quick-sign',
+        targetId: 'tour-consent-quick-sign',
+        title: 'Firma Rápida',
+        description: 'Cuando un paciente deba firmar un consentimiento, abrí este botón. Se desplegará un modal con todos los pasos para completar la firma.',
+        screen: 'consents',
+        placement: 'bottom',
+      },
+      {
+        id: 'consent-patient-search',
+        targetId: 'tour-consent-patient-search',
+        title: 'Buscar Paciente',
+        description: 'En el modal, buscá y vinculá al paciente que está firmando. Solo se permiten pacientes con ficha clínica activa.',
+        screen: 'consents',
+        placement: 'right',
+      },
+      {
+        id: 'consent-service-select',
+        targetId: 'tour-consent-service-select',
+        title: 'Seleccionar Servicio',
+        description: 'Elegí el servicio al que se asocia el consentimiento. El sistema cargará automáticamente la plantilla correspondiente.',
+        screen: 'consents',
+        placement: 'right',
+      },
+      {
+        id: 'consent-canvas',
+        targetId: 'tour-consent-canvas',
+        title: 'Firma en Pantalla',
+        description: 'Hacé que el paciente firme con el dedo, stylus o mouse sobre el canvas. La firma queda registrada con timestamp inmutable.',
+        screen: 'consents',
+        placement: 'top',
+      },
+      {
+        id: 'consent-submit',
+        targetId: 'tour-consent-submit',
+        title: 'Guardar Consentimiento',
+        description: 'Confirmá el registro. El consentimiento queda almacenado y vinculado al paciente y al servicio realizado.',
+        screen: 'consents',
+        placement: 'top',
+      },
+    ],
+  },
+];

@@ -14,14 +14,22 @@ import ConfigScreen from "./pages/ConfigScreen";
 import ReportsScreen from "./pages/ReportsScreen";
 import SuperAdminScreen from "./pages/SuperAdminScreen";
 import PatientPortalScreen from "./pages/PatientPortalScreen";
+import {
+  OnboardingProvider,
+  OnboardingOrchestrator,
+  OnboardingChecklist,
+  useOnboarding,
+} from "./modules/onboarding";
+import {
+  HelpCenterModal,
+  TourOrchestrator,
+} from "./components/help-center";
+import { VIEW_TOURS } from "./data/tutorials";
+import type { TourStep } from "./data/tutorials";
 import { useTenantSettings } from "./context/TenantSettingsContext";
 import { useSyncManager, SyncState } from "./hooks/useSyncManager";
-import { TutorialProvider, useTutorial } from "./context/TutorialContext";
 import { applyPalette } from "./lib/palettes";
-import TutorialTour from "./components/TutorialTour";
-import HelpCenterModal from "./components/HelpCenterModal";
 import { toast } from "sonner";
-import { INSPECT_DATABASE, getRoleScenariosForSelector } from "./data/tutorialData";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -358,7 +366,7 @@ function Topbar({
   onSelectPatient: (patientId: string) => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
-  onOpenHelpCenter: () => void;
+  onOpenHelpCenter?: () => void;
   onOpenProfileModal: () => void;
 }) {
   const { user, logout } = useAuth();
@@ -526,16 +534,6 @@ function Topbar({
           )}
         </div>
 
-        {/* Help/Tutorial Launcher Button */}
-        <button
-          id="tour-topbar-tutorial"
-          onClick={onOpenHelpCenter}
-          className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl hover:bg-muted transition-all spring-hover cursor-pointer text-muted-foreground"
-          title="Ayuda y Tutoriales Interactivos"
-        >
-          <HelpCircle className="w-4 h-4 text-primary animate-pulse" />
-        </button>
-
         {/* Theme Switcher Button */}
         <button
           onClick={onToggleTheme}
@@ -647,6 +645,16 @@ function Topbar({
           )}
         </div>
 
+        {/* Help / Onboarding checklist button */}
+        <button
+          id="tour-topbar-helpcenter"
+          onClick={onOpenHelpCenter}
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground"
+          title="Ayuda y onboarding"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+
         <div className="flex items-center gap-2 sm:gap-3 sm:ml-2 sm:border-l sm:pl-4 border-border relative">
           <div className="text-right hidden sm:block">
             <p className="text-xs font-bold text-foreground leading-none">{user?.name || "Administrador"}</p>
@@ -697,16 +705,6 @@ function Topbar({
                 >
                   <span>Tema: {theme === "dark" ? "Claro" : "Oscuro"}</span>
                   {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-warning" /> : <Moon className="w-3.5 h-3.5 text-muted-foreground" />}
-                </button>
-                <button
-                  onClick={() => {
-                    setProfileMenuOpen(false);
-                    onOpenHelpCenter();
-                  }}
-                  className="sm:hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
-                >
-                  <span>Ayuda y Soporte</span>
-                  <HelpCircle className="w-3.5 h-3.5 text-primary" />
                 </button>
                 <div className="w-full h-[1px] bg-border my-1" />
                 <button
@@ -972,7 +970,6 @@ function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
 
 function AppContent() {
   const { isAuthenticated, loading, user } = useAuth();
-  const { openHelpCenter } = useTutorial();
   const { settings: tenantSettings } = useTenantSettings();
   const [screen, setScreen] = useState<Screen>("dashboard");
 
@@ -1027,11 +1024,12 @@ function AppContent() {
 
   const [searchSelectedPatientId, setSearchSelectedPatientId] = useState<string | null>(null);
   const [presetAppointmentData, setPresetAppointmentData] = useState<{ patientId: string; patientName: string; date?: string } | null>(null);
-  
-  // Dynamically resolve tour steps based on active DOM elements / drawers / active tabs
-  // Tour steps removed — will be rebuilt
-  // const getActiveSteps = () => [];
 
+  // Help Center modal + active tour state. Lives in AppContent so both
+  // the Topbar's `?` handler and the help-center modal/orchestrator
+  // share the same source of truth (no new context).
+  const [helpCenterOpen, setHelpCenterOpen] = useState(false);
+  const [activeTour, setActiveTour] = useState<TourStep[] | null>(null);
 
   const { syncState, forceSync } = useSyncManager();
 
@@ -1145,6 +1143,95 @@ function AppContent() {
   }
 
   return (
+    <OnboardingProvider onNavigate={(s) => setScreen(s as Screen)} activeScreen={screen}>
+      <AppShell
+        screen={screen}
+        setScreen={setScreen}
+        mainRef={mainRef}
+        syncState={syncState}
+        notifications={notifications}
+        notifPanelOpen={notifPanelOpen}
+        setNotifPanelOpen={setNotifPanelOpen}
+        searchSelectedPatientId={searchSelectedPatientId}
+        setSearchSelectedPatientId={setSearchSelectedPatientId}
+        presetAppointmentData={presetAppointmentData}
+        setPresetAppointmentData={setPresetAppointmentData}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        meta={meta}
+        profileModalOpen={profileModalOpen}
+        setProfileModalOpen={setProfileModalOpen}
+        helpCenterOpen={helpCenterOpen}
+        setHelpCenterOpen={setHelpCenterOpen}
+        activeTour={activeTour}
+        setActiveTour={setActiveTour}
+      />
+      <OnboardingOrchestrator />
+      <OnboardingChecklist />
+      <HelpCenterModal
+        open={helpCenterOpen}
+        onOpenChange={setHelpCenterOpen}
+        userRole={user?.role ?? "ADMIN"}
+        activeScreen={screen}
+        onLaunchTour={(tour) => {
+          setActiveTour(tour);
+          setHelpCenterOpen(false);
+        }}
+      />
+      <TourOrchestrator
+        tour={activeTour}
+        activeScreen={screen}
+        onNavigate={(s) => setScreen(s as Screen)}
+        onClose={() => setActiveTour(null)}
+      />
+    </OnboardingProvider>
+  );
+}
+
+// Extracted inner shell so OnboardingProvider can wrap it
+function AppShell({
+  screen, setScreen, mainRef, syncState, notifications, notifPanelOpen, setNotifPanelOpen,
+  searchSelectedPatientId, setSearchSelectedPatientId, presetAppointmentData, setPresetAppointmentData,
+  theme, toggleTheme, meta, profileModalOpen, setProfileModalOpen,
+  helpCenterOpen, setHelpCenterOpen, activeTour, setActiveTour,
+}: {
+  screen: Screen;
+  setScreen: (s: Screen) => void;
+  mainRef: React.RefObject<HTMLElement | null>;
+  syncState: SyncState;
+  notifications: SystemNotification[];
+  notifPanelOpen: boolean;
+  setNotifPanelOpen: (v: boolean | ((p: boolean) => boolean)) => void;
+  searchSelectedPatientId: string | null;
+  setSearchSelectedPatientId: (id: string | null) => void;
+  presetAppointmentData: any;
+  setPresetAppointmentData: (d: any) => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+  meta: Record<string, { title: string; subtitle: string }>;
+  profileModalOpen: boolean;
+  setProfileModalOpen: (v: boolean) => void;
+  helpCenterOpen: boolean;
+  setHelpCenterOpen: (v: boolean) => void;
+  activeTour: TourStep[] | null;
+  setActiveTour: (t: TourStep[] | null) => void;
+}) {
+  const { openChecklist, promptTutorialForCurrentScreen } = useOnboarding();
+
+  // `?` button dispatch. When the current screen has a dedicated view
+  // tour, open the new Help Center modal so the user can search across
+  // guides / workflows / roles / FAQs. Otherwise fall through to the
+  // existing OnboardingContext path (AlertDialog + checklist) so
+  // OnboardingContext stays untouched per the design.
+  const handleOpenHelpCenter = () => {
+    if (VIEW_TOURS[screen as keyof typeof VIEW_TOURS]) {
+      setHelpCenterOpen(true);
+    } else {
+      promptTutorialForCurrentScreen();
+    }
+  };
+
+  return (
     <div className="flex h-screen overflow-hidden relative p-2 md:p-4 gap-2 md:gap-4" style={{ background: 'transparent' }}>
       <Sidebar active={screen} setActive={setScreen} />
       <div className="flex-1 flex flex-col md:ml-28 ml-0 min-w-0 overflow-hidden gap-2 md:gap-4 h-[calc(100vh-16px)] md:h-[calc(100vh-32px)] pb-16 md:pb-0">
@@ -1162,7 +1249,7 @@ function AppContent() {
           }}
           theme={theme}
           onToggleTheme={toggleTheme}
-          onOpenHelpCenter={openHelpCenter}
+          onOpenHelpCenter={handleOpenHelpCenter}
           onOpenProfileModal={() => setProfileModalOpen(true)}
         />
         <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-2xl md:rounded-3xl p-3 md:p-6 border border-border relative">
@@ -1204,9 +1291,6 @@ function AppContent() {
         </main>
       </div>
 
-      {/* Help Center and Tutorial Tour */}
-      <TutorialTour onNavigate={(s) => setScreen(s as Screen)} />
-      <HelpCenterModal />
       {profileModalOpen && (
         <ProfileSettingsModal onClose={() => setProfileModalOpen(false)} />
       )}
@@ -1215,9 +1299,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <TutorialProvider>
-      <AppContent />
-    </TutorialProvider>
-  );
+  return <AppContent />;
 }

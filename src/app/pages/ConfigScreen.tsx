@@ -32,8 +32,17 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useTenantSettings } from "../context/TenantSettingsContext";
 import { PALETTES, PaletteKey, applyPalette, getPaletteNames, resolvePaletteKey } from "../lib/palettes";
-import { useTutorial } from "../context/TutorialContext";
-import { enrichStep } from "../components/TutorialTour";
+import { Switch } from "../components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 
 // ── WhatsApp Types ─────────────────────────────────────────────────────────────
 
@@ -965,25 +974,25 @@ export default function ConfigScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
+  // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
+  useEffect(() => {
+    const handleOnboardingAction = (e: any) => {
+      if (e.detail?.type === 'switch-tab') {
+        setActiveTab(e.detail.tab);
+      }
+    };
+    window.addEventListener('onboarding-action', handleOnboardingAction);
+    return () => window.removeEventListener('onboarding-action', handleOnboardingAction);
+  }, []);
+
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"professionals" | "clinic" | "whatsapp" | "branches">("professionals");
-
-  // Tutorial tab sync watcher
-  const { activeTour, currentStep } = useTutorial();
-  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
-
-  useEffect(() => {
-    if (activeStep?.targetTab) {
-      const lowerTab = activeStep.targetTab.toLowerCase();
-      if (["professionals", "clinic", "whatsapp", "branches"].includes(lowerTab)) {
-        setActiveTab(lowerTab as any);
-      }
-    }
-  }, [activeStep]);
+  const [userToToggle, setUserToToggle] = useState<Professional | null>(null);
+  const [branchToToggle, setBranchToToggle] = useState<Branch | null>(null);
 
   // WhatsApp State
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
@@ -1251,6 +1260,7 @@ export default function ConfigScreen() {
           <button
             key={id}
             id={`tour-config-${id}-tab`}
+            data-onboarding={`config-tab-${id}`}
             onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
               activeTab === id
@@ -1285,6 +1295,7 @@ export default function ConfigScreen() {
             {isAdmin && (
               <button
                 id="tour-config-add-professional-btn"
+                data-onboarding="config-add-professional-btn"
                 onClick={() => setShowNewModal(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
               >
@@ -1300,7 +1311,7 @@ export default function ConfigScreen() {
               <span className="text-sm text-muted-foreground">Cargando...</span>
             </div>
           ) : (
-            <div id="tour-config-professionals-list" className="space-y-3">
+            <div id="tour-config-professionals-list" data-onboarding="config-professionals-list" className="space-y-3">
               {professionals.map((pro) => (
                 <div key={pro.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                   <div className="flex items-center gap-4 p-4">
@@ -1340,17 +1351,13 @@ export default function ConfigScreen() {
                             <Clock className="w-3 h-3" />
                             Horarios
                           </button>
-                        <button
-                          onClick={() => handleToggleActive(pro)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all spring-hover ${
-                            pro.isActive
-                              ? "border border-error/30 text-error hover:bg-error/10"
-                              : "border border-success/30 text-success hover:bg-success/10"
-                          }`}
-                        >
-                            {pro.isActive ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                            {pro.isActive ? "Desactivar" : "Activar"}
-                          </button>
+                          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg bg-card text-foreground">
+                            <span className="text-xs font-bold">{pro.isActive ? "Activo" : "Inactivo"}</span>
+                            {pro.isActive && pro.id === user?.id ? (
+                               <div className="text-[10px] text-error font-bold mx-1">(Actual)</div>
+                            ) : null}
+                            <Switch checked={pro.isActive} onCheckedChange={() => setUserToToggle(pro)} />
+                          </div>
                         </>
                       )}
                     </div>
@@ -1396,7 +1403,7 @@ export default function ConfigScreen() {
             </p>
           </div>
 
-          <div id="tour-config-clinic-form" className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div id="tour-config-clinic-form" data-onboarding="config-clinic-form" className="bg-card border border-border rounded-2xl p-6 space-y-4">
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                 Nombre del Centro
@@ -1443,7 +1450,7 @@ export default function ConfigScreen() {
 
           {/* SaaS Settings & Feature Flags (Admin Only) */}
           {isAdmin && (
-            <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-5" data-onboarding="config-features-toggles">
               <div>
                 <h3 className="text-sm font-bold text-foreground">Características y Módulos</h3>
                 <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -1511,6 +1518,7 @@ export default function ConfigScreen() {
                 </p>
                 <div
                   id="tour-config-palette-selector"
+                  data-onboarding="config-palette-selector"
                   className="grid grid-cols-2 md:grid-cols-3 gap-2.5"
                 >
                   {getPaletteNames().map((key) => {
@@ -1701,7 +1709,7 @@ export default function ConfigScreen() {
               </div>
 
               {/* B — Settings */}
-              <div id="tour-config-whatsapp-form" className="bg-card border border-border rounded-2xl p-5 space-y-5">
+              <div id="tour-config-whatsapp-form" data-onboarding="config-whatsapp-form" className="bg-card border border-border rounded-2xl p-5 space-y-5">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Bell className="w-3.5 h-3.5" />
                   Configuración de Recordatorios
@@ -1824,7 +1832,7 @@ export default function ConfigScreen() {
                   <button
                     onClick={handleSendTestReminder}
                     disabled={waTestSending}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-foreground text-white text-sm font-bold rounded-xl hover:bg-foreground/90 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-foreground text-background text-sm font-bold rounded-xl hover:bg-foreground/90 transition-all disabled:opacity-50"
                   >
                     {waTestSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                     Enviar prueba
@@ -1836,7 +1844,7 @@ export default function ConfigScreen() {
               </div>
 
               {/* D — Logs */}
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-hidden" data-onboarding="config-whatsapp-logs">
                 <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border">
                   <ClipboardList className="w-4 h-4 text-muted-foreground" />
                   <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Log de Recordatorios ({waLogs.length})</h3>
@@ -1881,6 +1889,7 @@ export default function ConfigScreen() {
               </p>
             </div>
             <button
+              data-onboarding="config-add-branch-btn"
               onClick={() => {
                 setEditingBranch(null);
                 setShowBranchModal(true);
@@ -1951,17 +1960,10 @@ export default function ConfigScreen() {
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                      <button
-                        onClick={() => handleToggleBranchActive(branch)}
-                        className={`p-2 rounded-lg border transition-all cursor-pointer ${
-                          branch.isActive
-                            ? "border-error/20 text-error hover:bg-error/10"
-                            : "border-success/20 text-success hover:bg-success/10"
-                        }`}
-                        title={branch.isActive ? "Desactivar" : "Activar"}
-                      >
-                      {branch.isActive ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                    </button>
+                      <div className="flex items-center gap-2 px-2 py-1 border border-border rounded-lg bg-card text-foreground ml-2">
+                        <span className="text-xs font-bold">{branch.isActive ? "Activo" : "Inactivo"}</span>
+                        <Switch checked={branch.isActive} onCheckedChange={() => setBranchToToggle(branch)} />
+                      </div>
                   </div>
                 </div>
               ))}
@@ -1980,6 +1982,70 @@ export default function ConfigScreen() {
           }}
         />
       )}
+
+      <AlertDialog open={!!userToToggle} onOpenChange={(open) => !open && setUserToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToToggle?.isActive ? "¿Desactivar usuario?" : "¿Activar usuario?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToToggle?.isActive ? (
+                <>
+                  Estás a punto de desactivar a <strong className="text-foreground">{userToToggle.name}</strong>. Este usuario ya no podrá acceder al sistema ni aparecerá en las agendas.
+                  {userToToggle.id === user?.id && (
+                    <div className="mt-4 p-3 bg-error/10 border border-error/20 rounded-xl text-error font-bold flex flex-col gap-1 text-sm">
+                      <span className="uppercase text-xs flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Advertencia Crítica</span>
+                      Estás a punto de desactivar tu propio usuario. Serás desconectado y perderás el acceso inmediatamente.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>Estás a punto de activar a <strong className="text-foreground">{userToToggle?.name}</strong>. Podrá volver a acceder al sistema y recibir citas.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (userToToggle) handleToggleActive(userToToggle);
+              }}
+              className={userToToggle?.isActive ? "bg-error text-white hover:bg-error/90" : "bg-success text-white hover:bg-success/90"}
+            >
+              {userToToggle?.isActive ? "Desactivar" : "Activar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!branchToToggle} onOpenChange={(open) => !open && setBranchToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {branchToToggle?.isActive ? "¿Desactivar sucursal?" : "¿Activar sucursal?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {branchToToggle?.isActive ? (
+                <>Estás a punto de desactivar la sucursal <strong className="text-foreground">{branchToToggle.name}</strong>. Se ocultará de la lista de sucursales activas en toda la aplicación.</>
+              ) : (
+                <>Estás a punto de activar la sucursal <strong className="text-foreground">{branchToToggle?.name}</strong>.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (branchToToggle) handleToggleBranchActive(branchToToggle);
+              }}
+              className={branchToToggle?.isActive ? "bg-error text-white hover:bg-error/90" : "bg-success text-white hover:bg-success/90"}
+            >
+              {branchToToggle?.isActive ? "Desactivar" : "Activar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

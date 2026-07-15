@@ -21,8 +21,6 @@ import {
 import { api } from "../services/api";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { useTutorial } from "../context/TutorialContext";
-import { enrichStep } from "../components/TutorialTour";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -760,18 +758,6 @@ export default function ServicesScreen() {
 
   const [activeTab, setActiveTab] = useState<"SERVICES" | "PACKAGES">("SERVICES");
 
-  // Tutorial tab sync watcher
-  const { activeTour, currentStep } = useTutorial();
-  const activeStep = activeTour && activeTour[currentStep] ? enrichStep(activeTour[currentStep]) : null;
-
-  useEffect(() => {
-    if (activeStep?.targetTab) {
-      const upperTab = activeStep.targetTab.toUpperCase();
-      if (["SERVICES", "PACKAGES"].includes(upperTab)) {
-        setActiveTab(upperTab as any);
-      }
-    }
-  }, [activeStep]);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<PackageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -936,6 +922,7 @@ export default function ServicesScreen() {
         <div id="tour-services-tabs" className="flex bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10">
           <button
             id="tour-services-tab-services"
+            data-onboarding="services-tab-services"
             onClick={() => setActiveTab("SERVICES")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeTab === "SERVICES"
@@ -947,6 +934,7 @@ export default function ServicesScreen() {
           </button>
           <button
             id="tour-services-tab-packages"
+            data-onboarding="services-tab-packages"
             onClick={() => setActiveTab("PACKAGES")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeTab === "PACKAGES"
@@ -969,6 +957,7 @@ export default function ServicesScreen() {
                 setShowPackageModal(true);
               }
             }}
+            data-onboarding="services-new-service"
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
           >
             <Plus className="w-4 h-4" />
@@ -1038,7 +1027,7 @@ export default function ServicesScreen() {
             <p className="text-sm text-muted-foreground font-medium">No se encontraron servicios activos.</p>
           </div>
         ) : (
-          <div id="tour-services-supplies" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div id="tour-services-supplies" data-onboarding="services-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredServices.map((srv) => {
               const theme = categoryColors[srv.category] || { bg: "bg-muted text-muted-foreground border-border", text: "text-muted-foreground", border: "border-border" };
               const typeBadge = typeBadges[srv.treatmentType] || { label: "Estándar", bg: "bg-muted", text: "text-muted-foreground" };

@@ -290,7 +290,7 @@ export default function ReportsScreen() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div id="tour-reports-kpi" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div id="tour-reports-kpi" data-onboarding="reports-kpis" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* KPI 1: Ingresos Netos */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
@@ -792,7 +792,7 @@ export default function ReportsScreen() {
       </div>
 
       {/* Accounting Export Panel */}
-      <div id="tour-reports-export" className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+      <div id="tour-reports-export" data-onboarding="reports-export" className="bg-card rounded-2xl border border-border p-6 shadow-sm">
         <div className="border-b border-border pb-4 mb-5">
           <h3 className="text-base font-bold text-foreground flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-success" />

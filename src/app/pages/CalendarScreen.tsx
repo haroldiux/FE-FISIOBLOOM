@@ -739,6 +739,7 @@ export default function CalendarScreen({
           <button
             onClick={() => { resetForm(); setShowSlideOver(true); }}
             id="tour-calendar-create-btn"
+            data-onboarding="calendar-new-appointment"
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -860,7 +861,7 @@ export default function CalendarScreen({
           )}
         </div>
       ) : (
-        <div id="tour-calendar-grid" className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden">
+        <div id="tour-calendar-grid" data-onboarding="calendar-grid" className="flex-1 overflow-auto [&::-webkit-scrollbar]:hidden">
           <div style={{ minWidth: 700 }}>
 
             {/* Header */}
