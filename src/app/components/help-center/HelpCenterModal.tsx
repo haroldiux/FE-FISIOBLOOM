@@ -175,10 +175,10 @@ export function HelpCenterModal({
   // The body is shared between the Dialog and Drawer so visual parity
   // is guaranteed across breakpoints.
   const body = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 bg-background">
       {/* Quick Start CTA — only when the active screen has a view tour. */}
       {quickStartTour && (
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+        <div className="rounded-2xl border border-primary/20 bg-primary/10 dark:bg-primary/15 p-4 flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-4 h-4 text-primary" />
           </div>
@@ -345,7 +345,10 @@ export function HelpCenterModal({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[90vh]">
+        <DrawerContent
+          className="max-h-[90vh]"
+          style={{ backgroundColor: "var(--background)", backdropFilter: "none" }}
+        >
           <DrawerHeader className="border-b border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -368,7 +371,10 @@ export function HelpCenterModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--background)", backdropFilter: "none" }}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <HelpCircle className="w-4 h-4 text-primary" />

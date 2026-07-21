@@ -60,6 +60,18 @@ export function TourOrchestrator({
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [tooltipPos, setTooltipPos] = useState<React.CSSProperties>({});
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const prevTourRef = useRef<TourStep[] | null>(null);
+
+  // Reset step index when the tour changes (new tour starts or tour is
+  // replaced). Without this, a previous tour ending at step N leaves
+  // stepIndex at N; when a shorter tour starts, tour[N] is undefined
+  // and the component silently renders nothing.
+  useEffect(() => {
+    if (tour !== prevTourRef.current) {
+      prevTourRef.current = tour;
+      setStepIndex(0);
+    }
+  }, [tour]);
 
   // The current step. Guarded everywhere; when `tour` is null we render
   // nothing and short-circuit the rest of the lifecycle.

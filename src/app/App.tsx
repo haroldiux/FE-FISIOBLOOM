@@ -59,6 +59,7 @@ import {
   Clock,
   FileText,
   Save,
+  LogOut,
 } from "lucide-react";
 
 // ── Notification Types ────────────────────────────────────────────────────────
@@ -719,6 +720,14 @@ function Topbar({
               </div>
             </>
           )}
+          {/* Mobile direct logout button */}
+          <button
+            onClick={logout}
+            className="flex sm:hidden w-8 h-8 items-center justify-center rounded-xl bg-error/10 text-error hover:bg-error/20 border border-error/20 transition-all cursor-pointer flex-shrink-0"
+            title="Cerrar Sesión"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>
@@ -1097,6 +1106,15 @@ function AppContent() {
     }
   }, [screen]);
 
+  // Memoized callbacks for TourOrchestrator to prevent effect re-runs
+  const handleTourNavigate = useCallback((s: string) => {
+    setScreen(s as Screen);
+  }, [setScreen]);
+
+  const handleTourClose = useCallback(() => {
+    setActiveTour(null);
+  }, [setActiveTour]);
+
   // Onboarding Tour Auto-trigger Logic deactivated per user request (tours are now manually triggered via the Help Center)
 
   const today = new Date().toLocaleDateString("es-MX", {
@@ -1181,8 +1199,8 @@ function AppContent() {
       <TourOrchestrator
         tour={activeTour}
         activeScreen={screen}
-        onNavigate={(s) => setScreen(s as Screen)}
-        onClose={() => setActiveTour(null)}
+        onNavigate={handleTourNavigate}
+        onClose={handleTourClose}
       />
     </OnboardingProvider>
   );

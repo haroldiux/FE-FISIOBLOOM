@@ -50,7 +50,7 @@ export const dashboardTour: TourStep[] = [
     position: "bottom"
   },
   {
-    selector: "#tour-topbar-tutorial",
+    selector: "#tour-topbar-helpcenter",
     title: "Asistente del Módulo",
     content: "Haz clic en este botón cuando quieras repetir el tour interactivo de la vista que estás visualizando.",
     position: "bottom"

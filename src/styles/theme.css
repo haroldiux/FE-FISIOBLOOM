@@ -564,6 +564,17 @@ select option {
   background-color: rgba(255, 255, 255, 0.01) !important;
 }
 
+/* ─── Help Center Modal: force opaque background ─────────────────────────── */
+/* The help-center modal and drawer must ALWAYS be opaque regardless of
+   glassmorphism overrides. Uses inline styles as primary defense;
+   this CSS rule is a safety net. */
+[data-slot="dialog-content"],
+[data-slot="drawer-content"] {
+  background-color: var(--background) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ─── Patient Screen fixes ─────────────────────────────────────────────── */
 
 /* Outer patient wrapper: bg-background → transparent so glass-panel shows through */
