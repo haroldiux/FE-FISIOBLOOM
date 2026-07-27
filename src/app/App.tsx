@@ -14,6 +14,7 @@ import ConfigScreen from "./pages/ConfigScreen";
 import ReportsScreen from "./pages/ReportsScreen";
 import SuperAdminScreen from "./pages/SuperAdminScreen";
 import PatientPortalScreen from "./pages/PatientPortalScreen";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import {
   OnboardingProvider,
   OnboardingOrchestrator,
@@ -93,7 +94,9 @@ type Screen =
   | "error-500";
 
 const SCREEN_PERMISSIONS: Record<string, Screen[]> = {
-  SUPER_ADMIN: ["dashboard", "saas"],
+  // El Súper Admin es el único que puede ver todas las sucursales de la clínica
+  // (cambiando entre ellas con el selector), además de la gestión SaaS.
+  SUPER_ADMIN: ["dashboard", "calendar", "patients", "consents", "pos", "inventory", "services", "reports", "config", "saas"],
   ADMIN: ["dashboard", "calendar", "patients", "consents", "pos", "inventory", "services", "reports", "config"],
   RECEPTIONIST: ["dashboard", "calendar", "patients", "consents", "pos"],
   PHYSIO: ["dashboard", "calendar", "patients", "consents"],
@@ -142,7 +145,10 @@ function BranchSelectorButton() {
     window.location.reload();
   };
 
-  if (!user || user.role !== "ADMIN") {
+  // Solo el Súper Admin puede ver/cambiar entre sucursales. Cada Admin de
+  // sucursal queda atado a la suya (el servidor lo fuerza igual, pero acá
+  // evitamos mostrarle un selector que no puede usar de verdad).
+  if (!user || user.role !== "SUPER_ADMIN") {
     return null;
   }
 
@@ -200,10 +206,7 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
   const { settings } = useTenantSettings();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
-  const mainNav: { id: Screen; label: string; Icon: React.ComponentType<any> }[] = isSuperAdmin ? [
-    { id: "dashboard", label: "Inicio", Icon: LayoutDashboard },
-    { id: "saas", label: "SaaS", Icon: Settings },
-  ] : [
+  const mainNav: { id: Screen; label: string; Icon: React.ComponentType<any> }[] = [
     { id: "dashboard", label: "Inicio", Icon: LayoutDashboard },
     { id: "calendar", label: "Citas", Icon: CalendarDays },
     { id: "patients", label: "Pacientes", Icon: Users },
@@ -212,10 +215,11 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
     ...(settings.features.inventory ? [{ id: "inventory", label: "Almacén", Icon: Package }] : []),
     { id: "services", label: "Servicios", Icon: Sparkles },
     { id: "reports", label: "Reportes", Icon: BarChart3 },
+    ...(isSuperAdmin ? [{ id: "saas" as Screen, label: "SaaS", Icon: Settings }] : []),
   ];
 
-  const systemNav: { id: Screen; label: string; Icon: React.ComponentType<any> }[] = isSuperAdmin ? [] : [
-    { id: "config", label: "Ajustes", Icon: Settings },
+  const systemNav: { id: Screen; label: string; Icon: React.ComponentType<any> }[] = [
+    { id: "config", label: isSuperAdmin ? "Sucursales" : "Ajustes", Icon: isSuperAdmin ? MapPin : Settings },
   ];
 
   const allowedScreens = user ? SCREEN_PERMISSIONS[user.role] || ["dashboard"] : ["dashboard"];
@@ -266,7 +270,7 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
       <div className="hidden md:block w-8 h-[1px] bg-border flex-shrink-0" />
 
       {/* Nav */}
-      <nav className="flex flex-row md:flex-col gap-1 md:gap-3 overflow-x-auto md:overflow-y-auto [&::-webkit-scrollbar]:hidden py-1 w-full justify-around md:justify-start">
+      <nav className="flex flex-row md:flex-col items-center gap-1 md:gap-3 overflow-x-auto md:overflow-y-auto [&::-webkit-scrollbar]:hidden py-1 w-full justify-around md:justify-start">
         {filteredMainNav.map((item) => <NavButton key={item.id} {...item} />)}
         {filteredSystemNav.length > 0 && (
           <>
@@ -370,42 +374,27 @@ function Topbar({
   onOpenHelpCenter?: () => void;
   onOpenProfileModal: () => void;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, shiftStatus, refreshShiftStatus } = useAuth();
   const notifPanelRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  // Attendance checking state in Topbar
-  const [hasCheckedIn, setHasCheckedIn] = useState(false);
+  // Attendance checking state in Topbar (el "puedo operar" vive en AuthContext,
+  // compartido con el resto de las pantallas para deshabilitar sus botones)
+  const hasCheckedIn = shiftStatus.hasCheckedIn;
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-
-  useEffect(() => {
-    if (user && user.role !== "SUPER_ADMIN") {
-      fetchAttendanceStatus();
-    }
-  }, [user]);
-
-  const fetchAttendanceStatus = async () => {
-    try {
-      const data = await api.get<{ hasCheckedIn: boolean }>("/attendance/status");
-      setHasCheckedIn(data.hasCheckedIn);
-    } catch (err) {
-      console.error("Error al obtener estado de asistencia:", err);
-    }
-  };
 
   const handleToggleAttendance = async () => {
     try {
       setAttendanceLoading(true);
       if (hasCheckedIn) {
         await api.post("/attendance/check-out");
-        setHasCheckedIn(false);
         toast.success("Turno finalizado: Salida registrada.");
       } else {
         await api.post("/attendance/check-in");
-        setHasCheckedIn(true);
         toast.success("Turno iniciado: Entrada registrada.");
       }
+      await refreshShiftStatus();
     } catch (err: any) {
       toast.error(err.message || err.error || "Error al registrar la asistencia.");
     } finally {
@@ -418,6 +407,9 @@ function Topbar({
   const [searchResults, setSearchResults] = useState<{ id: string; fullName: string; phone: string }[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [searching, setSearching] = useState(false);
+  // En celular el buscador se muestra como ícono y se expande al tocarlo, para
+  // no competir por espacio con el resto de la barra superior.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // Close search dropdown on outside click
   useEffect(() => {
@@ -474,39 +466,64 @@ function Topbar({
     : "AD";
 
   return (
-    <header className="h-16 glass-panel rounded-2xl flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-40 border border-border gap-2">
-      <div className="leading-tight flex-shrink-0">
-        <h1 className="text-sm md:text-base font-bold text-foreground">{title}</h1>
-        <p className="text-xs text-muted-foreground font-medium hidden sm:block">{subtitle}</p>
+    <header className="h-16 glass-panel rounded-2xl flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-40 border border-border gap-2 min-w-0">
+      <div className={`leading-tight flex-shrink min-w-0 ${mobileSearchOpen ? "hidden" : ""}`}>
+        <h1 className="text-sm md:text-base font-bold text-foreground truncate">{title}</h1>
+        <p className="text-xs text-muted-foreground font-medium hidden sm:block truncate">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
-        <ConnectionIndicator state={syncState} />
+      <div className="flex items-center gap-1.5 md:gap-3 ml-auto min-w-0">
+        <div className="hidden sm:block">
+          <ConnectionIndicator state={syncState} />
+        </div>
         {user && user.role !== "SUPER_ADMIN" && (
           <button
             onClick={handleToggleAttendance}
             disabled={attendanceLoading}
-            className={`hidden sm:flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-[10px] font-black rounded-xl border transition-all duration-300 spring-hover shadow-sm cursor-pointer ${
+            title={hasCheckedIn ? "Fichar Salida" : "Fichar Entrada"}
+            className={`flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-[10px] font-black rounded-xl border transition-all duration-300 spring-hover shadow-sm cursor-pointer flex-shrink-0 ${
               hasCheckedIn
                 ? "bg-error/10 border-error/30 text-error hover:bg-error/20"
                 : "bg-success/10 border-success/30 text-success hover:bg-success/20"
             }`}
           >
-            <Clock className={`w-3 h-3 ${attendanceLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">{hasCheckedIn ? "FICHAR SALIDA" : "FICHAR ENTRADA"}</span>
+            <Clock className={`w-3.5 h-3.5 md:w-3 md:h-3 ${attendanceLoading ? "animate-spin" : ""}`} />
+            <span className="hidden md:inline">{hasCheckedIn ? "FICHAR SALIDA" : "FICHAR ENTRADA"}</span>
           </button>
         )}
-        <div id="tour-topbar-search" className="relative w-28 xs:w-36 sm:w-48 md:w-60" ref={searchContainerRef}>
+
+        {/* Buscador: ícono que se expande en celular, siempre visible desde sm */}
+        <button
+          onClick={() => setMobileSearchOpen(true)}
+          className={`sm:hidden w-9 h-9 flex-shrink-0 items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground ${mobileSearchOpen ? "hidden" : "flex"}`}
+          title="Buscar paciente"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+        <div
+          id="tour-topbar-search"
+          className={`relative ${mobileSearchOpen ? "flex-1 min-w-0" : "hidden"} sm:block sm:w-48 md:w-60`}
+          ref={searchContainerRef}
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
             placeholder="Buscar paciente..."
             value={searchQuery}
+            autoFocus={mobileSearchOpen}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setShowResults(true);
             }}
             onFocus={() => setShowResults(true)}
-            className="pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/45 transition-all placeholder:text-muted-foreground"
+            className="pl-9 pr-8 py-2 text-sm bg-background border border-border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/45 transition-all placeholder:text-muted-foreground"
           />
+          {mobileSearchOpen && (
+            <button
+              onClick={() => { setMobileSearchOpen(false); setShowResults(false); setSearchQuery(""); }}
+              className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
           {showResults && (searchQuery.trim().length >= 2) && (
             <div className="absolute left-0 mt-2 w-72 bg-card border border-border rounded-2xl shadow-2xl z-[9000] overflow-hidden max-h-60 overflow-y-auto">
               <div className="p-2 border-b border-border bg-muted/30 text-[10px] font-black text-muted-foreground tracking-widest uppercase">
@@ -685,18 +702,6 @@ function Topbar({
                 >
                   Mi Perfil
                 </button>
-                {user && user.role !== "SUPER_ADMIN" && (
-                  <button
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      handleToggleAttendance();
-                    }}
-                    className="sm:hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
-                  >
-                    <span>{hasCheckedIn ? "Fichar Salida" : "Fichar Entrada"}</span>
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
@@ -1271,6 +1276,7 @@ function AppShell({
           onOpenProfileModal={() => setProfileModalOpen(true)}
         />
         <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-2xl md:rounded-3xl p-3 md:p-6 border border-border relative">
+          <ErrorBoundary key={screen} onGoHome={() => setScreen("dashboard")}>
           {screen === "dashboard" && (
             <DashboardScreen 
               onNavigate={(s) => setScreen(s as Screen)}
@@ -1306,6 +1312,7 @@ function AppShell({
           {screen === "saas" && <SuperAdminScreen />}
           {screen === "error-404" && <Error404Screen onNavigate={setScreen} />}
           {screen === "error-500" && <Error500Screen onNavigate={setScreen} />}
+          </ErrorBoundary>
         </main>
       </div>
 

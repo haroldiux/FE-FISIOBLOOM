@@ -57,7 +57,6 @@ export const WORKFLOW_TARGET_SCREENS: Record<string, string> = {
   "offline-photo-sync": "patients",
   "whatsapp-integration": "config",
   "payroll-settlement": "reports",
-  "inventory-transfer": "inventory",
   "staff-attendance": "pos",
   "create-product": "inventory",
   "create-package": "services",

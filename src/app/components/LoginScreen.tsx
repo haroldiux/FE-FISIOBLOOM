@@ -31,6 +31,14 @@ export default function LoginScreen() {
         easing: "easeOutElastic(1, .5)",
       });
     }
+
+    // Si api.ts nos mandó de vuelta acá porque el token venció o dejó de ser
+    // válido, se avisa explícitamente en vez de mostrar el login "pelado"
+    // como si nada — así no queda la duda de si se perdieron datos.
+    if (sessionStorage.getItem("bloomskin_session_expired")) {
+      sessionStorage.removeItem("bloomskin_session_expired");
+      setError("Tu sesión expiró por inactividad. Volvé a iniciar sesión (tus datos siguen guardados, no se perdió nada).");
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

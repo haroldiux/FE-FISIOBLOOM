@@ -26,6 +26,9 @@ import {
   MapPin,
   Phone,
   Palette,
+  Lock,
+  Unlock,
+  Key,
 } from "lucide-react";
 import { api } from "../services/api";
 import { toast } from "sonner";
@@ -101,6 +104,7 @@ interface Professional {
   email: string;
   role: string;
   isActive: boolean;
+  accountLocked?: boolean;
   workingHours: Record<string, { start: string; end: string }> | null;
   scheduleExceptions?: ScheduleException[];
   staffProfile?: {
@@ -132,7 +136,9 @@ const DAYS = [
   { key: "sunday", label: "Domingo" },
 ];
 
-const ROLES = ["ADMIN", "PHYSIO", "AESTHETICIAN", "RECEPTIONIST"];
+// Un Admin de sucursal solo puede crear trabajadores de su equipo — nunca a
+// otro Admin. Esa acción es exclusiva del Súper Admin (ver Sucursales).
+const ROLES = ["PHYSIO", "AESTHETICIAN", "RECEPTIONIST"];
 
 const roleBadge: Record<string, string> = {
   ADMIN: "bg-error/10 text-error border border-error/20",
@@ -494,42 +500,28 @@ function ScheduleExceptionsEditor({
       {exceptions.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">No hay excepciones configuradas.</p>
       ) : (
-        <div className="overflow-hidden border border-border rounded-xl">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-muted/40 text-muted-foreground font-bold border-b border-border">
-                <th className="p-3">Fecha</th>
-                <th className="p-3">Disponible</th>
-                <th className="p-3">Horario</th>
-                <th className="p-3">Motivo</th>
-                <th className="p-3 text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {exceptions.map((ex) => {
-                const dateObj = new Date(ex.date);
-                const formattedDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                });
-                return (
-                  <tr key={ex.id} className="border-b border-border hover:bg-muted/10">
-                    <td className="p-3 font-semibold text-foreground">{formattedDate}</td>
-                    <td className="p-3">
+        <>
+          {/* Tarjetas apiladas para celular/tablet chica: 5 columnas no entran ahí. */}
+          <div className="sm:hidden space-y-2">
+            {exceptions.map((ex) => {
+              const dateObj = new Date(ex.date);
+              const formattedDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              });
+              return (
+                <div key={ex.id} className="border border-border rounded-xl p-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">{formattedDate}</span>
+                    <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                        ex.isAvailable 
-                          ? "bg-success/10 text-success border border-success/20" 
+                        ex.isAvailable
+                          ? "bg-success/10 text-success border border-success/20"
                           : "bg-error/10 text-error border border-error/20"
                       }`}>
                         {ex.isAvailable ? "Sí" : "No (Bloqueado)"}
                       </span>
-                    </td>
-                    <td className="p-3 text-muted-foreground">
-                      {ex.isAvailable && ex.startTime && ex.endTime ? `${ex.startTime} - ${ex.endTime}` : "Todo el día"}
-                    </td>
-                    <td className="p-3 text-muted-foreground">{ex.reason || "—"}</td>
-                    <td className="p-3 text-right">
                       <button
                         type="button"
                         onClick={() => handleDelete(ex.id)}
@@ -538,13 +530,69 @@ function ScheduleExceptionsEditor({
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {ex.isAvailable && ex.startTime && ex.endTime ? `${ex.startTime} - ${ex.endTime}` : "Todo el día"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{ex.reason || "—"}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden sm:block overflow-hidden border border-border rounded-xl">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-muted/40 text-muted-foreground font-bold border-b border-border">
+                  <th className="p-3 whitespace-nowrap">Fecha</th>
+                  <th className="p-3 whitespace-nowrap">Disponible</th>
+                  <th className="p-3 whitespace-nowrap">Horario</th>
+                  <th className="p-3 whitespace-nowrap">Motivo</th>
+                  <th className="p-3 text-right whitespace-nowrap">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exceptions.map((ex) => {
+                  const dateObj = new Date(ex.date);
+                  const formattedDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  });
+                  return (
+                    <tr key={ex.id} className="border-b border-border hover:bg-muted/10">
+                      <td className="p-3 font-semibold text-foreground">{formattedDate}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                          ex.isAvailable
+                            ? "bg-success/10 text-success border border-success/20"
+                            : "bg-error/10 text-error border border-error/20"
+                        }`}>
+                          {ex.isAvailable ? "Sí" : "No (Bloqueado)"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-muted-foreground">
+                        {ex.isAvailable && ex.startTime && ex.endTime ? `${ex.startTime} - ${ex.endTime}` : "Todo el día"}
+                      </td>
+                      <td className="p-3 text-muted-foreground">{ex.reason || "—"}</td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(ex.id)}
+                          className="p-1 text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer"
+                          title="Eliminar excepción"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {showModal && (
@@ -667,6 +715,9 @@ interface BranchForm {
   name: string;
   address: string;
   phone: string;
+  adminName?: string;
+  adminEmail?: string;
+  adminPassword?: string;
 }
 
 function BranchModal({
@@ -682,6 +733,9 @@ function BranchModal({
     name: branch?.name || "",
     address: branch?.address || "",
     phone: branch?.phone || "",
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -690,6 +744,11 @@ function BranchModal({
     e.preventDefault();
     if (!form.name.trim()) {
       setError("El nombre de la sucursal es obligatorio.");
+      return;
+    }
+    if (!branch && (form.adminName || form.adminEmail || form.adminPassword) &&
+        !(form.adminName && form.adminEmail && form.adminPassword)) {
+      setError("Para crear el administrador completá nombre, email y contraseña (o dejá los tres vacíos para agregarlo después).");
       return;
     }
     setSaving(true);
@@ -748,6 +807,43 @@ function BranchModal({
               className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
             />
           </div>
+
+          {!branch && (
+            <div className="pt-2 border-t border-border space-y-3">
+              <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Administrador de la sucursal <span className="font-normal normal-case text-muted-foreground">(opcional, se puede agregar después)</span>
+              </p>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Nombre</label>
+                <input
+                  value={form.adminName}
+                  onChange={(e) => setForm({ ...form, adminName: e.target.value })}
+                  placeholder="Ej: María López"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={form.adminEmail}
+                  onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
+                  placeholder="admin.sucursal@clinica.com"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Contraseña</label>
+                <input
+                  type="password"
+                  value={form.adminPassword}
+                  onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
+                  placeholder="Contraseña temporal"
+                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4 border-t border-border">
             <button
@@ -973,6 +1069,7 @@ function ProfessionalModal({
 export default function ConfigScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
   useEffect(() => {
@@ -985,6 +1082,13 @@ export default function ConfigScreen() {
     return () => window.removeEventListener('onboarding-action', handleOnboardingAction);
   }, []);
 
+  // El Súper Admin solo tiene la pestaña de Sucursales en esta pantalla.
+  useEffect(() => {
+    if (isSuperAdmin) {
+      setActiveTab("branches");
+    }
+  }, [isSuperAdmin]);
+
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -993,6 +1097,10 @@ export default function ConfigScreen() {
   const [activeTab, setActiveTab] = useState<"professionals" | "clinic" | "whatsapp" | "branches">("professionals");
   const [userToToggle, setUserToToggle] = useState<Professional | null>(null);
   const [branchToToggle, setBranchToToggle] = useState<Branch | null>(null);
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [resetPasswordFor, setResetPasswordFor] = useState<Professional | null>(null);
+  const [newPasswordValue, setNewPasswordValue] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // WhatsApp State
   const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
@@ -1097,7 +1205,7 @@ export default function ConfigScreen() {
         console.error("Error al cargar configuración de WhatsApp:", err);
         toast.error("Error al cargar estado/logs de WhatsApp: " + (err.response?.data?.message || err.message));
       }).finally(() => setWaLoading(false));
-    } else if (activeTab === "branches" && isAdmin) {
+    } else if (activeTab === "branches" && isSuperAdmin) {
       loadBranches();
     }
   }, [activeTab, isAdmin]);
@@ -1238,6 +1346,44 @@ export default function ConfigScreen() {
     }
   };
 
+  // Desbloquea una cuenta que se bloqueó sola por 3 intentos fallidos de
+  // login seguidos (ver POST /auth/login en el backend).
+  const handleUnlockAccount = async (pro: Professional) => {
+    setUnlockingId(pro.id);
+    try {
+      await api.patch(`/professionals/${pro.id}/unlock`, {});
+      toast.success(`Se desbloqueó la cuenta de ${pro.name}.`);
+      await loadProfessionals();
+    } catch (e: any) {
+      toast.error(e.message || "Error al desbloquear la cuenta.");
+    } finally {
+      setUnlockingId(null);
+    }
+  };
+
+  // Restablecer la contraseña de otro trabajador también lo desbloquea
+  // automáticamente (ver backend: professionals.ts update()).
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordFor) return;
+    if (newPasswordValue.length < 8) {
+      toast.error("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    setResettingPassword(true);
+    try {
+      await api.put(`/professionals/${resetPasswordFor.id}`, { password: newPasswordValue });
+      toast.success(`Se restableció la contraseña de ${resetPasswordFor.name} y se desbloqueó su cuenta.`);
+      setResetPasswordFor(null);
+      setNewPasswordValue("");
+      await loadProfessionals();
+    } catch (e: any) {
+      toast.error(e.message || "Error al restablecer la contraseña.");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   return (
     <div className="p-6">
       {showNewModal && (
@@ -1250,12 +1396,14 @@ export default function ConfigScreen() {
       {/* Tabs */}
       <div id="tour-config-tabs" className="flex gap-1 bg-input-background p-1 rounded-xl mb-6 w-full max-w-full overflow-x-auto scrollbar-hide border border-border shadow-inner flex-nowrap flex-shrink-0">
         {([
-          { id: "professionals" as const, label: "Profesionales", Icon: Users },
-          { id: "clinic" as const, label: "Centro Médico", Icon: Building2 },
-          ...(isAdmin ? [
-            { id: "branches" as const, label: "Sucursales", Icon: MapPin },
-            { id: "whatsapp" as const, label: "WhatsApp", Icon: MessageCircle }
-          ] : []),
+          ...(isSuperAdmin ? [] : [
+            { id: "professionals" as const, label: "Profesionales", Icon: Users },
+            { id: "clinic" as const, label: "Centro Médico", Icon: Building2 },
+          ]),
+          ...(isAdmin ? [{ id: "whatsapp" as const, label: "WhatsApp", Icon: MessageCircle }] : []),
+          // Sucursales: exclusivo del Súper Admin. Un Admin de sucursal ya no
+          // puede crear ni ver otras sucursales desde acá.
+          ...(isSuperAdmin ? [{ id: "branches" as const, label: "Sucursales", Icon: MapPin }] : []),
         ] as { id: "professionals" | "clinic" | "whatsapp" | "branches"; label: string; Icon: React.ComponentType<any> }[]).map(({ id, label, Icon }) => (
           <button
             key={id}
@@ -1314,53 +1462,75 @@ export default function ConfigScreen() {
             <div id="tour-config-professionals-list" data-onboarding="config-professionals-list" className="space-y-3">
               {professionals.map((pro) => (
                 <div key={pro.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <div className="flex items-center gap-4 p-4">
-                    {/* Avatar */}
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                        pro.isActive
-                          ? "bg-gradient-to-br from-cyan-400 to-teal-500 text-white"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {pro.name.charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-foreground">{pro.name}</p>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${roleBadge[pro.role] || "bg-muted text-muted-foreground"}`}>
-                          {roleLabel[pro.role] || pro.role}
-                        </span>
-                        {!pro.isActive && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-error/10 text-error">
-                            Inactivo
-                          </span>
-                        )}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Avatar */}
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                          pro.isActive
+                            ? "bg-gradient-to-br from-cyan-400 to-teal-500 text-white"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {pro.name.charAt(0).toUpperCase()}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{pro.email}</p>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-foreground">{pro.name}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${roleBadge[pro.role] || "bg-muted text-muted-foreground"}`}>
+                            {roleLabel[pro.role] || pro.role}
+                          </span>
+                          {!pro.isActive && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-error/10 text-error">
+                              Inactivo
+                            </span>
+                          )}
+                          {pro.accountLocked && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" /> Bloqueada (3 intentos fallidos)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{pro.email}</p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {isAdmin && (
-                        <>
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-shrink-0 sm:justify-end pl-14 sm:pl-0">
+                        {pro.accountLocked && (
                           <button
-                            onClick={() => setExpandedId(expandedId === pro.id ? null : pro.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-border rounded-lg hover:bg-muted/50 text-foreground transition-colors"
+                            onClick={() => handleUnlockAccount(pro)}
+                            disabled={unlockingId === pro.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-warning/30 bg-warning/10 rounded-lg hover:bg-warning/20 text-warning transition-colors disabled:opacity-60"
                           >
-                            <Clock className="w-3 h-3" />
-                            Horarios
+                            {unlockingId === pro.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unlock className="w-3 h-3" />}
+                            Desbloquear
                           </button>
-                          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg bg-card text-foreground">
-                            <span className="text-xs font-bold">{pro.isActive ? "Activo" : "Inactivo"}</span>
-                            {pro.isActive && pro.id === user?.id ? (
-                               <div className="text-[10px] text-error font-bold mx-1">(Actual)</div>
-                            ) : null}
-                            <Switch checked={pro.isActive} onCheckedChange={() => setUserToToggle(pro)} />
-                          </div>
-                        </>
-                      )}
-                    </div>
+                        )}
+                        <button
+                          onClick={() => { setResetPasswordFor(pro); setNewPasswordValue(""); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-border rounded-lg hover:bg-muted/50 text-foreground transition-colors"
+                        >
+                          <Key className="w-3 h-3" />
+                          Restablecer Contraseña
+                        </button>
+                        <button
+                          onClick={() => setExpandedId(expandedId === pro.id ? null : pro.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-border rounded-lg hover:bg-muted/50 text-foreground transition-colors"
+                        >
+                          <Clock className="w-3 h-3" />
+                          Horarios
+                        </button>
+                        <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg bg-card text-foreground">
+                          <span className="text-xs font-bold">{pro.isActive ? "Activo" : "Inactivo"}</span>
+                          {pro.isActive && pro.id === user?.id ? (
+                             <div className="text-[10px] text-error font-bold mx-1">(Actual)</div>
+                          ) : null}
+                          <Switch checked={pro.isActive} onCheckedChange={() => setUserToToggle(pro)} />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Working hours panel */}
@@ -1879,7 +2049,7 @@ export default function ConfigScreen() {
         </div>
       )}
       {/* Branches tab — Admin only */}
-      {activeTab === "branches" && isAdmin && (
+      {activeTab === "branches" && isSuperAdmin && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -2046,6 +2216,60 @@ export default function ConfigScreen() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {resetPasswordFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-sm shadow-2xl overflow-hidden">
+            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Key className="w-4 h-4 text-primary" />
+                  Restablecer Contraseña
+                </h2>
+                <button type="button" onClick={() => setResetPasswordFor(null)} className="p-1 rounded-lg hover:bg-muted">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Le vas a asignar una contraseña nueva a <strong className="text-foreground">{resetPasswordFor.name}</strong>.
+                {resetPasswordFor.accountLocked && " Esto también desbloquea su cuenta."}
+              </p>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Contraseña Nueva
+                </label>
+                <input
+                  type="text"
+                  value={newPasswordValue}
+                  onChange={(e) => setNewPasswordValue(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordFor(null)}
+                  className="flex-1 py-2 text-sm font-semibold text-muted-foreground border border-border rounded-xl hover:bg-muted/50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingPassword}
+                  className="flex-1 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/20"
+                >
+                  {resettingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

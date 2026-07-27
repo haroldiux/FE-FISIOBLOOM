@@ -13,10 +13,13 @@ import {
   History,
   SlidersHorizontal,
   DollarSign,
+  Building2,
 } from "lucide-react";
 import { api } from "../services/api";
+import BranchTabs from "../components/BranchTabs";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { withOfflineSyncLock } from "../hooks/useSyncManager";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +33,7 @@ interface Product {
   unit: string;
   isActive: boolean;
   createdAt: string;
+  branchId?: string;
 }
 
 interface Branch {
@@ -59,6 +63,7 @@ interface ProductForm {
   name: string;
   category: string;
   price: string;
+  costPrice: string;
   stock: string;
   unit: string;
 }
@@ -118,6 +123,7 @@ function ProductModal({
     name: product?.name || "",
     category: product?.category || "TRATAMIENTO",
     price: product?.price?.toString() || "",
+    costPrice: product?.costPrice?.toString() || "",
     stock: product?.stock?.toString() || "0",
     unit: product?.unit || "unidad",
   });
@@ -201,7 +207,7 @@ function ProductModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                Precio *
+                Precio de Venta *
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
@@ -219,17 +225,35 @@ function ProductModal({
             </div>
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                Stock inicial
+                Costo (para vos)
               </label>
-              <input
-                type="number"
-                value={form.stock}
-                onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                min="0"
-                placeholder="0"
-                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                <input
+                  type="number"
+                  value={form.costPrice}
+                  onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full pl-7 pr-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+                />
+              </div>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Stock inicial
+            </label>
+            <input
+              type="number"
+              value={form.stock}
+              onChange={(e) => setForm({ ...form, stock: e.target.value })}
+              min="0"
+              placeholder="0"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background"
+            />
           </div>
 
           {error && (
@@ -395,194 +419,6 @@ function AdjustStockModal({ product, onSave, onClose }: AdjustStockModalProps) {
   );
 }
 
-// ── Transfer Stock Modal ──────────────────────────────────────────────────────
-function TransferStockModal({
-  products,
-  branches,
-  branchStocks,
-  onClose,
-  onSuccess,
-}: {
-  products: Product[];
-  branches: Branch[];
-  branchStocks: BranchStock[];
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const [selectedSourceBranchId, setSelectedSourceBranchId] = useState("");
-  const [selectedDestBranchId, setSelectedDestBranchId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const activeProducts = products.filter((p) => p.isActive);
-
-  const selectedBS = branchStocks.find(
-    (bs) => bs.productId === selectedProductId && bs.branchId === selectedSourceBranchId
-  );
-  const availableStock = selectedBS ? selectedBS.stock : 0;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProductId || !selectedSourceBranchId || !selectedDestBranchId) {
-      setError("Todos los campos de selección son requeridos.");
-      return;
-    }
-    if (selectedSourceBranchId === selectedDestBranchId) {
-      setError("La sucursal de origen y destino no pueden ser la misma.");
-      return;
-    }
-    const qty = parseInt(quantity);
-    if (isNaN(qty) || qty <= 0) {
-      setError("La cantidad debe ser un número entero positivo.");
-      return;
-    }
-    if (qty > availableStock) {
-      setError(`Stock insuficiente. Solo hay ${availableStock} unidades disponibles en la sucursal de origen.`);
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    try {
-      await api.post("/products/transfer", {
-        productId: selectedProductId,
-        sourceBranchId: selectedSourceBranchId,
-        destinationBranchId: selectedDestBranchId,
-        quantity: qty,
-      });
-      toast.success("Transferencia de stock exitosa.");
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || "Error al transferir stock.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
-          <h2 className="text-base font-bold text-foreground">Transferir Stock</h2>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-              Producto *
-            </label>
-            <select
-              value={selectedProductId}
-              onChange={(e) => {
-                setSelectedProductId(e.target.value);
-                setError(null);
-              }}
-              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
-              required
-            >
-              <option value="">Selecciona un producto</option>
-              {activeProducts.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                Origen *
-              </label>
-              <select
-                value={selectedSourceBranchId}
-                onChange={(e) => {
-                  setSelectedSourceBranchId(e.target.value);
-                  setError(null);
-                }}
-                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
-                required
-              >
-                <option value="">Origen</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-              {selectedSourceBranchId && selectedProductId && (
-                <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Disponible: <strong className="text-foreground">{availableStock}</strong>
-                </span>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                Destino *
-              </label>
-              <select
-                value={selectedDestBranchId}
-                onChange={(e) => {
-                  setSelectedDestBranchId(e.target.value);
-                  setError(null);
-                }}
-                className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
-                required
-              >
-                <option value="">Destino</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-              Cantidad a Transferir *
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
-              required
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              Transferir
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ── Main InventoryScreen ──────────────────────────────────────────────────────
 
 export default function InventoryScreen() {
@@ -596,7 +432,6 @@ export default function InventoryScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [branchStocks, setBranchStocks] = useState<BranchStock[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [showTransferModal, setShowTransferModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -623,44 +458,57 @@ export default function InventoryScreen() {
     const raw = localStorage.getItem("offline_movements");
     if (!raw) return;
 
+    setSyncing(true);
     try {
-      const queue = JSON.parse(raw);
-      if (queue.length === 0) return;
+      // Mismo candado que usa useSyncManager para esta misma cola: evita que
+      // ambos reintenten el mismo ajuste de stock pendiente al mismo tiempo
+      // (ej. esta pantalla abierta justo cuando el sync general también
+      // corre) y lo terminen aplicando duplicado.
+      await withOfflineSyncLock(async () => {
+        const currentRaw = localStorage.getItem("offline_movements");
+        if (!currentRaw) return;
+        const queue = JSON.parse(currentRaw);
+        if (queue.length === 0) return;
 
-      setSyncing(true);
-      const remaining: any[] = [];
-      let successCount = 0;
+        const remaining: any[] = [];
+        let successCount = 0;
+        let hadRejection = false;
 
-      for (const mv of queue) {
-        try {
-          await api.post(`/products/${mv.productId}/adjust-stock`, {
-            quantity: mv.quantity,
-            type: mv.type,
-            notes: mv.notes
-          });
-          successCount++;
-        } catch (err: any) {
-          console.error("Failed to sync offline stock movement:", err);
-          const isNetworkError = !navigator.onLine || err.message?.includes("Network Error") || err.message?.includes("Failed to fetch");
-          if (isNetworkError) {
+        for (const mv of queue) {
+          try {
+            await api.post(`/products/${mv.productId}/adjust-stock`, {
+              quantity: mv.quantity,
+              type: mv.type,
+              notes: mv.notes
+            });
+            successCount++;
+          } catch (err: any) {
+            console.error("Failed to sync offline stock movement:", err);
+            // Se guarda para reintentar en cualquier caso (sea de red o un
+            // rechazo del servidor) — nunca se descarta en silencio un
+            // ajuste de stock pendiente.
             remaining.push(mv);
+            if (err?.status !== undefined) hadRejection = true;
           }
         }
-      }
 
-      if (remaining.length > 0) {
-        localStorage.setItem("offline_movements", JSON.stringify(remaining));
-      } else {
-        localStorage.removeItem("offline_movements");
-      }
-
-      if (successCount > 0) {
-        toast.success(`Se sincronizaron ${successCount} ajuste(s) de stock offline.`);
-        loadProducts();
-        if (activeSubTab === "MOVEMENTS") {
-          loadMovements();
+        if (remaining.length > 0) {
+          localStorage.setItem("offline_movements", JSON.stringify(remaining));
+        } else {
+          localStorage.removeItem("offline_movements");
         }
-      }
+
+        if (successCount > 0) {
+          toast.success(`Se sincronizaron ${successCount} ajuste(s) de stock offline.`);
+          loadProducts();
+          if (activeSubTab === "MOVEMENTS") {
+            loadMovements();
+          }
+        }
+        if (hadRejection) {
+          toast.error("Algunos ajustes de stock pendientes fueron rechazados por el servidor. Siguen guardados en este dispositivo — avisá a soporte.", { duration: 15000 });
+        }
+      });
     } catch (e) {
       console.error("Error parsing offline movements queue:", e);
     } finally {
@@ -756,6 +604,103 @@ export default function InventoryScreen() {
     return matchSearch && matchCat && p.isActive;
   });
 
+  // Super Admin viendo "Todas las Sucursales": agrupar por sucursal para que
+  // quede claro que es un catálogo consolidado y no productos duplicados.
+  const distinctBranchIds = [...new Set(filteredProducts.map((p) => p.branchId).filter(Boolean))];
+  const showBranchGroups = user?.role === "SUPER_ADMIN" && distinctBranchIds.length > 1;
+  const branchNameById = (id?: string) => branches.find((b) => b.id === id)?.name || "Sucursal";
+  const productGroupsByBranch = showBranchGroups
+    ? distinctBranchIds
+        .map((branchId) => ({
+          branchId: branchId as string,
+          branchName: branchNameById(branchId),
+          items: filteredProducts.filter((p) => p.branchId === branchId),
+        }))
+        .sort((a, b) => a.branchName.localeCompare(b.branchName))
+    : [];
+
+  const renderProductCard = (product: Product) => (
+    <div
+      key={product.id}
+      className="bg-card border border-border rounded-2xl p-5 hover:border-primary/20 hover:shadow-md transition-all group flex flex-col justify-between"
+    >
+      <div>
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-foreground truncate">{product.name}</h3>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${categoryBadge[product.category] || "bg-muted text-muted-foreground"}`}>
+                {product.category}
+              </span>
+            </div>
+          </div>
+          {isAdmin && (
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => {
+                  setEditProduct(product);
+                  setShowModal(true);
+                }}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+                <button
+                  onClick={() => setProductToDelete(product)}
+                  disabled={deletingId === product.id}
+                  className="p-1.5 rounded-lg hover:bg-error/10 hover:text-error text-muted-foreground transition-colors"
+                >
+                {deletingId === product.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-end justify-between mt-4">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stock</p>
+            <p className={`text-sm font-bold mt-0.5 ${product.stock < 5 ? "text-warning" : "text-foreground"}`}>
+              {product.stock} {product.unit}
+              {product.stock < 5 && (
+                <span className="ml-1.5 text-[9px] bg-warning/10 text-warning px-1.5 py-0.5 rounded-full font-bold border border-warning/20">
+                  Bajo
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Precio</p>
+            <p
+              className="text-base font-black text-primary mt-0.5"
+              style={{ fontFamily: "'Outfit', sans-serif" }}
+            >
+              ${product.price.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
+          <button
+            onClick={() => setAdjustingProduct(product)}
+            className="text-xs font-bold text-primary hover:text-primary/80 transition-all flex items-center gap-1 bg-primary/5 hover:bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/10"
+          >
+            <SlidersHorizontal className="w-3 h-3" />
+            Ajustar Stock
+          </button>
+          <div className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">
+            Acción Rápida
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const filteredMovements = movements.filter((m) => {
     const pName = m.product?.name || "";
     const matchSearch = pName.toLowerCase().includes(movementSearch.toLowerCase());
@@ -765,10 +710,6 @@ export default function InventoryScreen() {
 
   const lowStock = products.filter((p) => p.isActive && p.stock < 5);
 
-  const getTotalInventoryValue = () => {
-    return products.reduce((sum, p) => sum + (p.price * p.stock), 0);
-  };
-
   const getCostoValuation = () => {
     return branchStocks.reduce((sum, bs) => {
       const cost = bs.product?.costPrice ?? 0;
@@ -776,19 +717,30 @@ export default function InventoryScreen() {
     }, 0);
   };
 
+  // Ganancia total si vendiéramos todo el stock actual: precio de venta menos
+  // lo que costó comprarlo, por cada unidad en stock.
   const getPVPValuation = () => {
     return branchStocks.reduce((sum, bs) => {
       const price = bs.product?.price ?? 0;
-      return sum + (price * bs.stock);
+      const cost = bs.product?.costPrice ?? 0;
+      return sum + ((price - cost) * bs.stock);
     }, 0);
   };
 
+  // Valor total del catálogo si se vendiera todo: lo que invertimos (costo) +
+  // la ganancia que dejaría venderlo (margen).
+  const getTotalInventoryValue = () => {
+    return getCostoValuation() + getPVPValuation();
+  };
+
+  // Una merma es plata que ya invertiste y perdiste (no una venta que nunca
+  // pasó), así que se valora a precio de costo, no a precio de venta.
   const getTotalLossFromMovements = () => {
     return movements
       .filter(m => m.type === "STOCK_OUT" && !m.appointmentId)
       .reduce((sum, m) => {
         const prod = products.find(p => p.id === m.productId);
-        return sum + (m.quantity * (prod?.price || 0));
+        return sum + (m.quantity * (prod?.costPrice || 0));
       }, 0);
   };
 
@@ -797,6 +749,7 @@ export default function InventoryScreen() {
       name: form.name,
       category: form.category,
       price: parseFloat(form.price),
+      costPrice: form.costPrice ? parseFloat(form.costPrice) : 0,
       stock: parseInt(form.stock),
       unit: form.unit,
     };
@@ -842,7 +795,16 @@ export default function InventoryScreen() {
         notes
       });
     } catch (err: any) {
-      // Save to offline queue
+      // Si el servidor respondió (aunque con error), es un rechazo real —
+      // no una falla de red — y no hay que guardarlo para reintentar solo,
+      // porque si después se reintenta (recarga, otra pestaña, etc.) el
+      // ajuste de stock terminaría aplicado dos veces.
+      if (err?.status !== undefined) {
+        toast.error(err.message || "No se pudo registrar el ajuste de stock.");
+        return;
+      }
+
+      // Save to offline queue (solo por falla de red real)
       const movementData = {
         productId: adjustingProduct.id,
         quantity,
@@ -925,8 +887,9 @@ export default function InventoryScreen() {
 
   return (
     <div className="p-6 space-y-5">
+      <BranchTabs />
       {/* Header and Sub-tabs */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-border pb-4 gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-border pb-4 gap-4">
         <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
           <button
             onClick={() => setActiveSubTab("STOCK")}
@@ -954,15 +917,7 @@ export default function InventoryScreen() {
         </div>
 
         {isAdmin && activeSubTab === "STOCK" && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-border text-foreground hover:bg-muted text-sm font-bold rounded-xl transition-all cursor-pointer"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Transferir Stock
-            </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
               type="button"
               data-onboarding="inventory-new-product"
@@ -970,7 +925,7 @@ export default function InventoryScreen() {
                 setEditProduct(null);
                 setShowModal(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 cursor-pointer"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 cursor-pointer whitespace-nowrap w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               Nuevo Producto
@@ -1076,7 +1031,7 @@ export default function InventoryScreen() {
                 ${getPVPValuation().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-muted-foreground block font-medium">
-                PVP total en sucursales
+                Ganancia si vendemos todo el stock
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0 text-success">
@@ -1094,7 +1049,7 @@ export default function InventoryScreen() {
                 ${getTotalInventoryValue().toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-muted-foreground block font-medium">
-                PVP * stock global
+                Costo + ganancia potencial
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0 text-cyan-500">
@@ -1170,89 +1125,26 @@ export default function InventoryScreen() {
                   : "No se encontraron resultados."}
               </p>
             </div>
-          ) : (
-            <div id="tour-inventory-catalog" data-onboarding="inventory-product-table" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-card border border-border rounded-2xl p-5 hover:border-primary/20 hover:shadow-md transition-all group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-foreground truncate">{product.name}</h3>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${categoryBadge[product.category] || "bg-muted text-muted-foreground"}`}>
-                            {product.category}
-                          </span>
-                        </div>
-                      </div>
-                      {isAdmin && (
-                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => {
-                              setEditProduct(product);
-                              setShowModal(true);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
-                            <button
-                              onClick={() => setProductToDelete(product)}
-                              disabled={deletingId === product.id}
-                              className="p-1.5 rounded-lg hover:bg-error/10 hover:text-error text-muted-foreground transition-colors"
-                            >
-                            {deletingId === product.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-end justify-between mt-4">
-                      <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stock</p>
-                        <p className={`text-sm font-bold mt-0.5 ${product.stock < 5 ? "text-warning" : "text-foreground"}`}>
-                          {product.stock} {product.unit}
-                          {product.stock < 5 && (
-                            <span className="ml-1.5 text-[9px] bg-warning/10 text-warning px-1.5 py-0.5 rounded-full font-bold border border-warning/20">
-                              Bajo
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Precio</p>
-                        <p
-                          className="text-base font-black text-primary mt-0.5"
-                          style={{ fontFamily: "'Outfit', sans-serif" }}
-                        >
-                          ${product.price.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
+          ) : showBranchGroups ? (
+            <div id="tour-inventory-catalog" data-onboarding="inventory-product-table" className="space-y-8">
+              {productGroupsByBranch.map(({ branchId, branchName, items }) => (
+                <div key={branchId}>
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <h4 className="text-xs font-black text-foreground uppercase tracking-widest">{branchName}</h4>
+                    <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {items.length} producto{items.length !== 1 ? "s" : ""}
+                    </span>
                   </div>
-
-                  {isAdmin && (
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
-                      <button
-                        onClick={() => setAdjustingProduct(product)}
-                        className="text-xs font-bold text-primary hover:text-primary/80 transition-all flex items-center gap-1 bg-primary/5 hover:bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/10"
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                        Ajustar Stock
-                      </button>
-                      <div className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">
-                        Acción Rápida
-                      </div>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((product) => renderProductCard(product))}
+                  </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div id="tour-inventory-catalog" data-onboarding="inventory-product-table" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProducts.map((product) => renderProductCard(product))}
             </div>
           )}
         </>
@@ -1309,15 +1201,53 @@ export default function InventoryScreen() {
             </div>
           ) : (
             <div id="tour-inventory-wastes" className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
+              {/* Tarjetas apiladas para celular/tablet chica: 5 columnas no entran ahí. */}
+              <div className="sm:hidden divide-y divide-border">
+                {filteredMovements.map((m) => {
+                  const typeBadge = movementTypeBadges[m.type] || { label: m.type, style: "bg-muted text-muted-foreground" };
+                  const formattedDate = new Date(m.createdAt).toLocaleString("es-ES", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  let detailText = m.notes || "-";
+                  if (m.type === "SESSION_CONSUMPTION" && m.appointment) {
+                    const patientName = m.appointment.patient?.fullName || "Paciente";
+                    const srvName = m.appointment.service?.name || "Servicio";
+                    detailText = `Consumo automático por sesión - Cita de ${patientName} (${srvName})`;
+                  }
+                  return (
+                    <div key={m.id} className="p-4 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-bold text-foreground text-sm truncate">{m.product?.name || "Insumo Eliminado"}</p>
+                          <p className="text-[10px] text-muted-foreground font-medium">{m.product?.category}</p>
+                        </div>
+                        <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border ${typeBadge.style}`}>
+                          {typeBadge.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground font-medium">
+                        <span>{formattedDate}</span>
+                        <span className="font-bold text-foreground text-xs">{m.quantity} {m.product?.unit || "unid."}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-medium truncate" title={detailText}>{detailText}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-muted/40 border-b border-border text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="px-6 py-4">Fecha</th>
-                      <th className="px-6 py-4">Producto / Insumo</th>
-                      <th className="px-6 py-4">Tipo</th>
-                      <th className="px-6 py-4">Cantidad</th>
-                      <th className="px-6 py-4">Detalle / Notas</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Fecha</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Producto / Insumo</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Tipo</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Cantidad</th>
+                      <th className="px-6 py-4 whitespace-nowrap">Detalle / Notas</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border text-xs">
@@ -1370,15 +1300,6 @@ export default function InventoryScreen() {
         </>
       )}
 
-      {showTransferModal && (
-        <TransferStockModal
-          products={products}
-          branches={branches}
-          branchStocks={branchStocks}
-          onClose={() => setShowTransferModal(false)}
-          onSuccess={loadProducts}
-        />
-      )}
     </div>
   );
 }

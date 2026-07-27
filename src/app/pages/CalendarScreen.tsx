@@ -13,20 +13,32 @@ import {
   CheckCircle2,
   Circle,
   MousePointerClick,
+  Lock,
 } from "lucide-react";
 import { api } from "../services/api";
 import { animate } from "animejs";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
+import BranchTabs from "../components/BranchTabs";
+import { CATEGORIES_BY_ROLE, CABINS_BY_ROLE, DURATION_PRESETS, ALL_CABINS } from "../constants/staffAssignment";
+import type { PackageTemplate } from "./ServicesScreen";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 const CELL_H = 80;
 const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const CABINS = ["Cabina Facial 1", "Cabina Corporal 2", "Box Fisioterapia", "Ninguna"];
+const CABINS = ALL_CABINS;
 
 const LOCAL_STORAGE_KEY_APPTS = "bloom_skin_local_appointments";
 const LOCAL_STORAGE_KEY_PROFS = "bloom_skin_local_professionals";
+
+// Construye el instante exacto en hora de Bolivia (UTC-4) para una fecha y
+// hora del selector, sin depender de la zona horaria del navegador — si no
+// se fija el offset, `new Date("YYYY-MM-DDTHH:mm:00")` se interpreta con la
+// hora local del dispositivo, y eso puede correr la fecha un día para
+// adelante o atrás según dónde esté configurado el navegador.
+const boliviaDateTime = (dateStr: string, timeStr: string): Date => new Date(`${dateStr}T${timeStr}:00-04:00`);
 
 const MOCK_PROFESSIONALS: Professional[] = [
   { id: "prof1", name: "Dra. Ana Valencia", specialty: "Dermatología Facial", role: "PHYSIO" },
@@ -106,6 +118,9 @@ interface Appointment {
   patient: { fullName: string };
   professionalId: string;
   professional: { name: string };
+  serviceId?: string | null;
+  service?: { id: string; name: string; category?: string } | null;
+  additionalServiceIds?: string[];
   dateTime: string;
   duration: number;
   status: "PENDIENTE" | "CONFIRMADA" | "COMPLETADA" | "CANCELADA_CON_CARGO" | "CANCELADA_SIN_CARGO" | "NO_ASISTIO";
@@ -118,7 +133,23 @@ interface Professional {
   name: string;
   specialty?: string;
   role?: string;
+  // Solo relevante para fisios/esteticistas: si tienen turno hoy y ya
+  // ficharon entrada. Se usa para no ofrecerlos al agendar una cita si en
+  // realidad no están trabajando ahora.
+  isAvailableNow?: boolean;
 }
+
+interface Service {
+  id: string;
+  name: string;
+  category: string;
+  defaultDuration: number;
+  defaultPrice: number;
+}
+
+// CATEGORIES_BY_ROLE / CABINS_BY_ROLE / DURATION_PRESETS ahora viven en
+// ../constants/staffAssignment (también las usa la venta de paquetes desde
+// la ficha del paciente, para no duplicar esta lógica en dos pantallas).
 
 interface Patient {
   id: string;
@@ -157,6 +188,14 @@ function isSameDay(a: Date, b: Date) {
 
 function isToday(d: Date) {
   return isSameDay(d, new Date());
+}
+
+function isBeforeToday(d: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const compare = new Date(d);
+  compare.setHours(0, 0, 0, 0);
+  return compare.getTime() < today.getTime();
 }
 
 function getDayIndex(dateStr: string, weekDates: Date[]) {
@@ -300,11 +339,30 @@ export default function CalendarScreen({
   onNavigate?: (screen: string) => void;
   onSelectPatient?: (patientId: string) => void;
 }) {
+  const { user, shiftStatus } = useAuth();
+  const isSelfServiceProfessional = user?.role === "PHYSIO" || user?.role === "AESTHETICIAN";
+  // Si el propio profesional agenda para sí mismo y solo tiene una cabina/box posible
+  // (ej. Fisio -> Box Fisioterapia), se la autocompletamos en vez de dejarla en "Ninguna".
+  const defaultCabinForSelf = (() => {
+    const allowed = user?.role ? CABINS_BY_ROLE[user.role] : undefined;
+    return allowed?.length === 1 ? allowed[0] : "Ninguna";
+  })();
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState<"weekly" | "cabins" | "agenda">("weekly");
+  // En celular, la grilla semanal de 7 columnas queda muy apretada y fea; la
+  // vista "Agenda (Lista)" es de una sola columna y se ve mucho mejor ahí, así
+  // que arranca en esa vista cuando la pantalla es angosta. En PC/tablet sigue
+  // arrancando en la grilla semanal de siempre.
+  const [viewMode, setViewMode] = useState<"weekly" | "cabins" | "agenda">(() =>
+    typeof window !== "undefined" && window.innerWidth < 640 ? "agenda" : "weekly"
+  );
 
   useEffect(() => {
     if (presetAppointmentData) {
+      if (!shiftStatus.canOperate) {
+        toast.warning(shiftStatus.message || "No podés operar en este momento.");
+        clearPresetAppointmentData?.();
+        return;
+      }
       setSelectedPatientId(presetAppointmentData.patientId || "");
       setSearchQuery(presetAppointmentData.patientName || "");
       if (presetAppointmentData.date) {
@@ -313,6 +371,7 @@ export default function CalendarScreen({
       }
       setShowSlideOver(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetAppointmentData]);
   const [showSlideOver, setShowSlideOver] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -321,9 +380,18 @@ export default function CalendarScreen({
   // Form state
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  // Elegir servicios sueltos vs. vender un paquete pre-armado directo en esta
+  // misma cita (si el paquete tiene varios servicios, se combinan todos en
+  // esta misma cita, y la venta del paquete + el agendado son una sola acción
+  // atómica al confirmar — ver handleCreateAppointment).
+  const [serviceMode, setServiceMode] = useState<"services" | "package">("services");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [packageTemplates, setPackageTemplates] = useState<PackageTemplate[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState("09:00");
   const [duration, setDuration] = useState(60);
@@ -346,11 +414,14 @@ export default function CalendarScreen({
   const [quickPhone, setQuickPhone] = useState("");
 
   useEffect(() => {
+    // Un paquete elegido para un paciente no tiene sentido para otro.
+    setServiceMode("services");
+    setSelectedPackageId("");
     if (!selectedPatientId) {
       setSelectedPatientObj(null);
       return;
     }
-    api.get(`/patients/${selectedPatientId}`)
+    api.get(`/patients/${selectedPatientId}?bookingSearch=true`)
       .then(res => {
         setSelectedPatientObj(res);
       })
@@ -402,6 +473,20 @@ export default function CalendarScreen({
 
       setAppointments(apptsData);
       setProfessionals(profData);
+
+      try {
+        const svcData = await api.get<Service[]>("/services");
+        setServices(svcData);
+      } catch (err) {
+        console.warn("Error al cargar servicios de la API:", err);
+      }
+
+      try {
+        const templatesData = await api.get<PackageTemplate[]>("/services/templates");
+        setPackageTemplates(templatesData);
+      } catch (err) {
+        console.warn("Error al cargar paquetes pre-armados de la API:", err);
+      }
     } catch (err) {
       console.error("Error al cargar citas:", err);
     } finally {
@@ -427,7 +512,7 @@ export default function CalendarScreen({
     if (searchQuery.trim().length < 2) { setPatients([]); return; }
     const t = setTimeout(async () => {
       try {
-        const res = await api.get<Patient[]>(`/patients?search=${encodeURIComponent(searchQuery)}`);
+        const res = await api.get<Patient[]>(`/patients?search=${encodeURIComponent(searchQuery)}&bookingSearch=true`);
         setPatients(res);
       } catch {
         const mockPatients: Patient[] = [
@@ -448,34 +533,62 @@ export default function CalendarScreen({
   }, [searchQuery]);
 
   const openSlot = (dayDate: Date, hour: number) => {
+    if (!shiftStatus.canOperate) {
+      toast.warning(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
     setDate(dayDate.toISOString().slice(0, 10));
     setTime(`${String(hour).padStart(2, "0")}:00`);
-    setCabin("Ninguna");
+    setCabin(defaultCabinForSelf);
     setStatus("PENDIENTE");
     setError(null);
     setEditingAppointment(null);
+    setSelectedProfessionalId(isSelfServiceProfessional ? user!.id : "");
+    setSelectedServiceIds([]);
     setShowSlideOver(true);
   };
 
   const openCabinSlot = (cabinName: string, hour: number) => {
+    if (!shiftStatus.canOperate) {
+      toast.warning(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
     setDate(currentDate.toISOString().slice(0, 10));
     setTime(`${String(hour).padStart(2, "0")}:00`);
     setCabin(cabinName);
     setStatus("PENDIENTE");
     setError(null);
     setEditingAppointment(null);
+    setSelectedProfessionalId(isSelfServiceProfessional ? user!.id : "");
+    setSelectedServiceIds([]);
     setShowSlideOver(true);
+  };
+
+  // Suma la duración por defecto de los servicios elegidos y redondea hacia
+  // arriba al próximo chip disponible (30/45/60/90/120). Si supera el máximo
+  // (120), se usa el total real tal cual, sin techo.
+  const computeAutoDuration = (serviceIds: string[]): number => {
+    const totalMinutes = serviceIds.reduce((sum, id) => {
+      const svc = services.find((s) => s.id === id);
+      return sum + (svc?.defaultDuration || 0);
+    }, 0);
+    if (totalMinutes === 0) return duration;
+    const nextPreset = DURATION_PRESETS.find((preset) => preset >= totalMinutes);
+    return nextPreset ?? totalMinutes;
   };
 
   const resetForm = () => {
     setSelectedPatientId("");
-    setSelectedProfessionalId("");
+    setSelectedProfessionalId(isSelfServiceProfessional ? user!.id : "");
+    setSelectedServiceIds([]);
+    setServiceMode("services");
+    setSelectedPackageId("");
     setSearchQuery("");
     setNotes("");
     setDate(new Date().toISOString().slice(0, 10));
     setTime("09:00");
     setDuration(60);
-    setCabin("Ninguna");
+    setCabin(defaultCabinForSelf);
     setStatus("PENDIENTE");
     setEditingAppointment(null);
   };
@@ -488,6 +601,30 @@ export default function CalendarScreen({
     }
   };
 
+  // Determina si un horario puntual choca con una cita ya existente de ESE
+  // profesional en particular (tomando en cuenta la duración de esa otra cita),
+  // para bloquearlo visualmente en el selector antes de intentar guardar.
+  const isSlotOccupied = (slotTime: string): boolean => {
+    if (!selectedProfessionalId || !date) return false;
+    const slotStart = boliviaDateTime(date, slotTime).getTime();
+    const slotEnd = slotStart + duration * 60000;
+    return appointments.some((appt) => {
+      if (appt.professionalId !== selectedProfessionalId) return false;
+      if (editingAppointment && appt.id === editingAppointment.id) return false;
+      if (!["PENDIENTE", "CONFIRMADA", "COMPLETADA"].includes(appt.status)) return false;
+      const apptStart = new Date(appt.dateTime).getTime();
+      const apptEnd = apptStart + appt.duration * 60000;
+      return slotStart < apptEnd && apptStart < slotEnd;
+    });
+  };
+
+  // Determina si un horario puntual ya pasó (solo aplica si la fecha elegida es HOY).
+  const isSlotInPast = (slotTime: string): boolean => {
+    if (!date) return false;
+    const slotStart = boliviaDateTime(date, slotTime).getTime();
+    return slotStart < Date.now();
+  };
+
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -496,10 +633,45 @@ export default function CalendarScreen({
     if (!selectedPatientId) { setError("Selecciona un paciente."); setSubmitting(false); return; }
     if (!selectedProfessionalId) { setError("Selecciona un profesional."); setSubmitting(false); return; }
 
-    const dateTimeStr = new Date(`${date}T${time}:00`).toISOString();
+    const dateTimeStr = boliviaDateTime(date, time).toISOString();
+
+    // Modo "Paquete" (solo al crear, no al editar): vender el paquete
+    // pre-armado elegido y agendar la cita son una sola operación atómica en
+    // el backend — si falla el agendado, la venta también se revierte.
+    if (!editingAppointment && serviceMode === "package") {
+      if (!selectedPackageId) { setError("Elegí un paquete pre-armado."); setSubmitting(false); return; }
+      try {
+        await api.post("/packages/sell-and-schedule", {
+          templateId: selectedPackageId,
+          patientId: selectedPatientId,
+          professionalId: selectedProfessionalId,
+          dateTime: dateTimeStr,
+          duration,
+          status,
+          notes,
+          cabin: cabin !== "Ninguna" ? cabin : null,
+        });
+        const apptsData = await api.get<Appointment[]>("/appointments");
+        setAppointments(apptsData);
+        localStorage.setItem(LOCAL_STORAGE_KEY_APPTS, JSON.stringify(apptsData));
+        closeSlideOver();
+      } catch (err: any) {
+        // A diferencia del modo "Servicios", esto no se encola offline: es una
+        // venta + agendado atómico, y reintentarlo con la cola genérica de
+        // citas (que no sabe vender paquetes) podría vender el paquete sin la
+        // cita o viceversa. Si falla la red, hay que reintentar a mano.
+        setError(err.message || "No se pudo vender el paquete ni agendar la cita.");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     const payload = {
       patientId: selectedPatientId,
       professionalId: selectedProfessionalId,
+      serviceId: selectedServiceIds[0] || null,
+      additionalServiceIds: selectedServiceIds.slice(1),
       dateTime: dateTimeStr,
       duration,
       status,
@@ -518,8 +690,18 @@ export default function CalendarScreen({
       localStorage.setItem(LOCAL_STORAGE_KEY_APPTS, JSON.stringify(apptsData));
       closeSlideOver();
     } catch (err: any) {
-      console.warn("Error al guardar en el servidor, aplicando fallback local:", err);
-      
+      // El servidor respondió (aunque sea con error): NO es una falla de red, es un
+      // rechazo válido (ej. fuera de horario laboral, choque de horario, etc.). Antes esto
+      // caía al fallback offline y fabricaba una cita falsa solo local que "desaparecía"
+      // en cuanto se recargaban las citas reales del servidor. Hay que mostrar el error real.
+      if (err?.status !== undefined) {
+        setError(err.message || "No se pudo guardar la cita.");
+        setSubmitting(false);
+        return;
+      }
+
+      console.warn("Error de red al guardar la cita, aplicando fallback local:", err);
+
       // Save to offline queue
       const apptQueueData = {
         appointmentId: editingAppointment ? editingAppointment.id : null,
@@ -590,9 +772,16 @@ export default function CalendarScreen({
       const apptsData = await api.get<Appointment[]>("/appointments");
       setAppointments(apptsData);
       localStorage.setItem(LOCAL_STORAGE_KEY_APPTS, JSON.stringify(apptsData));
-    } catch (err) {
-      console.warn("Error al marcar inasistencia en servidor, aplicando fallback local:", err);
-      
+    } catch (err: any) {
+      // El servidor respondió con un rechazo real (no es una caída de red): mostrar el
+      // error real en vez de fabricar un cambio de estado que solo existe en el navegador.
+      if (err?.status !== undefined) {
+        toast.error(err.message || "No se pudo marcar la inasistencia.");
+        return;
+      }
+
+      console.warn("Error de red al marcar inasistencia, aplicando fallback local:", err);
+
       // Save status update to offline queue
       const statusData = {
         appointmentId: apptId,
@@ -656,6 +845,18 @@ export default function CalendarScreen({
 
   return (
     <div className="flex flex-col h-full overflow-hidden select-none">
+      {user?.role === "SUPER_ADMIN" && (
+        <div className="px-6 pt-3">
+          <BranchTabs />
+        </div>
+      )}
+
+      {!shiftStatus.canOperate && (
+        <div className="mx-6 mt-3 flex items-center gap-2.5 px-4 py-2.5 bg-warning/10 border border-warning/20 rounded-2xl">
+          <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+          <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+        </div>
+      )}
 
       {/* ── Toolbar ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0 gap-3" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
@@ -738,15 +939,23 @@ export default function CalendarScreen({
           </div>
           <button
             onClick={() => { resetForm(); setShowSlideOver(true); }}
+            disabled={!shiftStatus.canOperate}
+            title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
             id="tour-calendar-create-btn"
             data-onboarding="calendar-new-appointment"
-            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 cursor-pointer"
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             <Plus className="w-4 h-4" />
             Nueva Cita
           </button>
         </div>
       </div>
+
+      {viewMode !== "agenda" && (
+        <p className="sm:hidden text-[10px] text-muted-foreground text-center font-semibold px-4 -mt-1 mb-1">
+          ← Deslizá para ver el resto de la semana →
+        </p>
+      )}
 
       {/* ── Calendar Grid ── */}
       {viewMode === "agenda" ? (
@@ -959,20 +1168,35 @@ export default function CalendarScreen({
                     weekDates.map((dayDate, di) => {
                       const isHovered = hoveredSlot?.day === di && hoveredSlot?.hour === hour;
                       const todayCol = isToday(dayDate);
+                      const now = new Date();
+                      const nowFloat = now.getHours() + now.getMinutes() / 60;
+                      const isPastCell = isBeforeToday(dayDate) || (todayCol && hour <= nowFloat);
                       return (
                         <div
                           key={`cell-${hour}-${di}`}
-                          className={`border-r border-b border-border last:border-r-0 relative cursor-pointer transition-all duration-150 group ${
-                            isHovered
+                          title={isPastCell ? "Esta hora ya pasó" : undefined}
+                          className={`border-r border-b border-border last:border-r-0 relative transition-all duration-150 group ${
+                            isPastCell
+                              ? "bg-muted/60 cursor-not-allowed"
+                              : "cursor-pointer"
+                          } ${
+                            isPastCell
+                              ? ""
+                              : isHovered
                               ? "bg-primary/10"
                               : todayCol
                               ? "bg-primary/[0.02] hover:bg-primary/10"
                               : "hover:bg-primary/8"
                           }`}
-                          style={{ height: CELL_H }}
-                          onMouseEnter={() => setHoveredSlot({ day: di, hour })}
+                          style={{
+                            height: CELL_H,
+                            backgroundImage: isPastCell
+                              ? "repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(120,120,120,0.08) 6px, rgba(120,120,120,0.08) 12px)"
+                              : undefined,
+                          }}
+                          onMouseEnter={() => !isPastCell && setHoveredSlot({ day: di, hour })}
                           onMouseLeave={() => setHoveredSlot(null)}
-                          onClick={() => openSlot(dayDate, hour)}
+                          onClick={() => !isPastCell && openSlot(dayDate, hour)}
                         >
                           {/* Hover "+" indicator */}
                           <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-150 ${isHovered ? "opacity-100" : "opacity-0"}`}>
@@ -1276,16 +1500,42 @@ export default function CalendarScreen({
 
                 {/* ── Professional ── */}
                 <div id="tour-calendar-drawer-specialist">
-                  <label className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2">
+                  <label className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-1">
                     <Circle className="w-3 h-3 text-primary" />
                     Especialista / Terapeuta
                   </label>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Solo aparecen quienes tienen turno hoy y ya ficharon su entrada.
+                  </p>
                   <div className="grid grid-cols-1 gap-2">
-                    {professionals.filter((p) => p.role !== "RECEPTIONIST").map((prof) => (
+                    {professionals
+                      .filter((p) => p.role !== "RECEPTIONIST")
+                      .filter((p) => !isSelfServiceProfessional || p.id === user!.id)
+                      .filter((p) => p.isAvailableNow !== false)
+                      .map((prof) => (
                       <button
                         key={prof.id}
                         type="button"
-                        onClick={() => setSelectedProfessionalId(prof.id)}
+                        onClick={() => {
+                          setSelectedProfessionalId(prof.id);
+                          const allowedCategories = prof.role ? CATEGORIES_BY_ROLE[prof.role] : undefined;
+                          if (allowedCategories) {
+                            const filteredIds = selectedServiceIds.filter((id) => {
+                              const svc = services.find((s) => s.id === id);
+                              return svc && allowedCategories.includes(svc.category);
+                            });
+                            setSelectedServiceIds(filteredIds);
+                            if (filteredIds.length !== selectedServiceIds.length) {
+                              setDuration(computeAutoDuration(filteredIds));
+                            }
+                          }
+                          const allowedCabins = prof.role ? CABINS_BY_ROLE[prof.role] : undefined;
+                          if (allowedCabins) {
+                            // Si solo tiene una cabina posible, se autocompleta. Si tiene varias
+                            // (ej. Estética con Facial/Corporal), se resetea para que elija.
+                            setCabin(allowedCabins.length === 1 ? allowedCabins[0] : "Ninguna");
+                          }
+                        }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
                           selectedProfessionalId === prof.id
                             ? "border-primary bg-primary/5 text-primary"
@@ -1312,27 +1562,196 @@ export default function CalendarScreen({
                   </div>
                 </div>
 
+                {/* ── Service / Treatment (selección múltiple: "esto y esto") ── */}
+                <div id="tour-calendar-drawer-service">
+                  <label className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2">
+                    Servicios / Tratamientos <span className="normal-case font-semibold text-muted-foreground/70">(podés elegir más de uno)</span>
+                  </label>
+
+                  {!editingAppointment && (
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceMode("services");
+                          setSelectedPackageId("");
+                          setSelectedServiceIds([]);
+                          setDuration(60);
+                        }}
+                        className={`flex-1 px-3 py-2 text-xs font-bold rounded-lg border-2 transition-all cursor-pointer ${
+                          serviceMode === "services"
+                            ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
+                            : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                        }`}
+                      >
+                        Servicios y Tratamientos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceMode("package");
+                          setSelectedServiceIds([]);
+                        }}
+                        className={`flex-1 px-3 py-2 text-xs font-bold rounded-lg border-2 transition-all cursor-pointer ${
+                          serviceMode === "package"
+                            ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
+                            : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                        }`}
+                      >
+                        Paquete
+                      </button>
+                    </div>
+                  )}
+
+                  {serviceMode === "services" || editingAppointment ? (
+                    <>
+                      {(() => {
+                        const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
+                        const allowedCategories = selectedProf?.role ? CATEGORIES_BY_ROLE[selectedProf.role] : undefined;
+                        const availableServices = services.filter(
+                          (s) => !allowedCategories || allowedCategories.includes(s.category)
+                        );
+
+                        if (availableServices.length === 0) {
+                          return (
+                            <p className="text-[11px] text-muted-foreground italic px-1 py-2">
+                              No hay servicios cargados todavía para esta especialidad.
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                            {availableServices.map((s) => {
+                              const checked = selectedServiceIds.includes(s.id);
+                              return (
+                                <label
+                                  key={s.id}
+                                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                                    checked
+                                      ? "border-primary bg-primary/5"
+                                      : "border-border hover:border-primary/40"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      const nextIds = e.target.checked
+                                        ? [...selectedServiceIds, s.id]
+                                        : selectedServiceIds.filter((id) => id !== s.id);
+                                      setSelectedServiceIds(nextIds);
+                                      setDuration(computeAutoDuration(nextIds));
+                                    }}
+                                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 flex-shrink-0"
+                                  />
+                                  <span className="flex-1 text-sm font-semibold text-foreground">{s.name}</span>
+                                  <span className="text-xs font-bold text-primary flex-shrink-0">${s.defaultPrice}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      {selectedServiceIds.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground italic mt-1.5">
+                          Si no elegís ninguno, la cita queda como "Consulta General".
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {(() => {
+                        const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
+                        const allowedCategories = selectedProf?.role ? CATEGORIES_BY_ROLE[selectedProf.role] : undefined;
+
+                        const availableTemplates = packageTemplates.filter(
+                          (t) => !allowedCategories || allowedCategories.includes(t.category)
+                        );
+
+                        if (availableTemplates.length === 0) {
+                          return (
+                            <p className="text-[11px] text-muted-foreground italic px-1 py-2">
+                              {selectedProf
+                                ? "No hay paquetes pre-armados de la especialidad de este profesional."
+                                : "No hay paquetes pre-armados creados. Andá a Servicios → Paquetes Pre-Armados."}
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                            {availableTemplates.map((t) => {
+                              const selected = selectedPackageId === t.id;
+                              return (
+                                <div
+                                  key={t.id}
+                                  onClick={() => {
+                                    setSelectedPackageId(t.id);
+                                    const serviceIds = t.lines.map((l) => l.serviceId).filter(Boolean);
+                                    setSelectedServiceIds(serviceIds);
+                                    setDuration(computeAutoDuration(serviceIds));
+                                  }}
+                                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                    selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-sm font-bold text-foreground">{t.name}</p>
+                                    <span className="text-sm font-black text-primary flex-shrink-0">${t.totalPrice}</span>
+                                  </div>
+                                  <div className="mt-1.5 space-y-1">
+                                    {t.lines.map((l, i) => (
+                                      <div key={i} className="flex items-center justify-between text-[11px]">
+                                        <span className="text-muted-foreground">{l.serviceName}</span>
+                                        <span className="font-bold text-foreground">{l.sessions} sesiones</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground mt-1.5">Vigencia: {t.validityDays} días</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      {selectedPackageId && (
+                        <p className="text-[10px] text-success font-semibold mt-1.5">
+                          Al confirmar la cita, este paquete se vende al paciente y se agenda junto con la cita.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* ── Cabin Selection ── */}
                 <div id="tour-calendar-drawer-cabin">
                   <label className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2.5">
                     Cabina / Box
                   </label>
-                  <div className="flex flex-wrap gap-2">
-                    {CABINS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setCabin(c)}
-                        className={`px-4 py-2.5 text-xs font-bold rounded-lg border-2 transition-all cursor-pointer ${
-                          cabin === c
-                            ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
-                            : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  {(() => {
+                    const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
+                    const allowedCabins = selectedProf?.role ? CABINS_BY_ROLE[selectedProf.role] : undefined;
+                    const availableCabins = allowedCabins ? [...allowedCabins, "Ninguna"] : CABINS;
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {availableCabins.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCabin(c)}
+                            className={`px-4 py-2.5 text-xs font-bold rounded-lg border-2 transition-all cursor-pointer ${
+                              cabin === c
+                                ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
+                                : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* ── Date ── */}
@@ -1358,21 +1777,39 @@ export default function CalendarScreen({
                   </label>
                   {/* Quick chips */}
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {TIME_SLOTS.map((slot) => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setTime(slot)}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 transition-all cursor-pointer ${
-                          time === slot
-                            ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
-                            : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5"
-                        }`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
+                    {TIME_SLOTS.map((slot) => {
+                      const occupied = isSlotOccupied(slot);
+                      const isPast = !occupied && isSlotInPast(slot);
+                      const blocked = occupied || isPast;
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          disabled={blocked}
+                          onClick={() => setTime(slot)}
+                          title={
+                            occupied
+                              ? "Este profesional ya tiene una cita en este horario"
+                              : isPast
+                                ? "Esta hora ya pasó"
+                                : undefined
+                          }
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 transition-all ${
+                            blocked
+                              ? "border-border/50 text-muted-foreground/40 bg-muted/40 line-through cursor-not-allowed"
+                              : time === slot
+                                ? "border-primary bg-primary text-white shadow-md shadow-primary/25 cursor-pointer"
+                                : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer"
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
                   </div>
+                  <p className="text-[10px] text-muted-foreground mb-3 -mt-1.5">
+                    Las horas tachadas ya están ocupadas por otra cita, o ya pasaron (si elegiste el día de hoy).
+                  </p>
                   {/* Manual input */}
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -1387,6 +1824,18 @@ export default function CalendarScreen({
                     </div>
                     <span className="text-xs text-muted-foreground font-semibold">hora exacta</span>
                   </div>
+                  {isSlotOccupied(time) && (
+                    <div className="flex items-center gap-2 mt-2 p-2.5 bg-warning/10 border border-warning/20 rounded-xl text-warning text-xs font-semibold">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Este profesional ya tiene una cita que se cruza con este horario.
+                    </div>
+                  )}
+                  {!isSlotOccupied(time) && isSlotInPast(time) && (
+                    <div className="flex items-center gap-2 mt-2 p-2.5 bg-warning/10 border border-warning/20 rounded-xl text-warning text-xs font-semibold">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Esa hora ya pasó — elegí un horario más adelante.
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Duration ── */}
@@ -1418,25 +1867,23 @@ export default function CalendarScreen({
                   </div>
                 </div>
 
-                {/* ── Status Dropdown (only visible if editing) ── */}
-                {editingAppointment && (
-                  <div>
-                    <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
-                      Estado de la Cita
-                    </label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full px-4 py-3 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary transition-colors text-foreground bg-background"
-                    >
-                      {getAvailableStatuses(editingAppointment.status).map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {/* ── Status Dropdown (visible siempre, tanto al crear como al editar) ── */}
+                <div>
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-2 block">
+                    Estado de la Cita
+                  </label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className="w-full px-4 py-3 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary transition-colors text-foreground bg-background"
+                  >
+                    {getAvailableStatuses(editingAppointment ? editingAppointment.status : "PENDIENTE").map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* ── Notes ── */}
                 <div>
@@ -1605,10 +2052,14 @@ export default function CalendarScreen({
 
                 <div>
                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] block mb-1">
-                    Tratamiento / Servicio
+                    Tratamiento{(selectedAppointment.additionalServiceIds?.length || 0) > 0 ? "s" : ""} / Servicio{(selectedAppointment.additionalServiceIds?.length || 0) > 0 ? "s" : ""}
                   </span>
                   <span className="text-sm font-bold text-secondary block">
                     {selectedAppointment.service?.name || "Consulta General"}
+                    {(selectedAppointment.additionalServiceIds || []).map((sid) => {
+                      const extra = services.find((s) => s.id === sid);
+                      return extra ? `, ${extra.name}` : "";
+                    }).join("")}
                   </span>
                 </div>
 
@@ -1657,6 +2108,11 @@ export default function CalendarScreen({
                     setSelectedPatientId(selectedAppointment.patientId);
                     setSearchQuery(selectedAppointment.patient?.fullName || "");
                     setSelectedProfessionalId(selectedAppointment.professionalId);
+                    setSelectedServiceIds(
+                      selectedAppointment.serviceId
+                        ? [selectedAppointment.serviceId, ...(selectedAppointment.additionalServiceIds || [])]
+                        : []
+                    );
                     setDate(new Date(selectedAppointment.dateTime).toISOString().slice(0, 10));
                     setTime(
                       new Date(selectedAppointment.dateTime)

@@ -1,19 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { 
-  FileText, 
-  Search, 
-  Plus, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Loader2, 
-  Signature, 
-  X, 
-  Check, 
-  RefreshCw 
+import {
+  FileText,
+  Search,
+  Plus,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Signature,
+  X,
+  Check,
+  RefreshCw,
+  Lock
 } from "lucide-react";
 import { api } from "../services/api";
 import { toast } from "sonner";
+import BranchTabs from "../components/BranchTabs";
+import { useAuth } from "../context/AuthContext";
 
 interface ConsentDocument {
   id: string;
@@ -41,6 +44,7 @@ interface Patient {
 }
 
 export default function ConsentScreen() {
+  const { shiftStatus } = useAuth();
   const [consents, setConsents] = useState<ConsentDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -194,6 +198,10 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
   };
 
   const handleSaveConsent = async () => {
+    if (!shiftStatus.canOperate) {
+      toast.error(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
     if (!selectedPatientId) {
       toast.error("Debes seleccionar un paciente.");
       return;
@@ -258,6 +266,7 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
 
   return (
     <div className="space-y-6">
+      <BranchTabs />
       {/* Bento Stats Grid */}
       <div id="tour-consent-stats" data-onboarding="consent-stats" className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-card border border-border rounded-3xl p-6 relative overflow-hidden group shadow-lg">
@@ -334,13 +343,22 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
               setSelectedPatientId("");
               setSearchPatientQuery("");
             }}
-            className="flex items-center justify-center gap-1.5 bg-primary text-primary-foreground text-xs font-black px-5 py-2.5 rounded-2xl hover:bg-primary/95 transition-all shadow-md shadow-primary/15 cursor-pointer"
+            disabled={!shiftStatus.canOperate}
+            title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+            className="flex items-center justify-center gap-1.5 bg-primary text-primary-foreground text-xs font-black px-5 py-2.5 rounded-2xl hover:bg-primary/95 transition-all shadow-md shadow-primary/15 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             Firma Rápida
           </button>
         </div>
       </div>
+
+      {!shiftStatus.canOperate && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-warning/10 border border-warning/20 rounded-2xl">
+          <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+          <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+        </div>
+      )}
 
       {/* Main Table list */}
       <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-lg">
@@ -360,69 +378,130 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
-                  <th className="p-4 pl-6">Paciente</th>
-                  <th className="p-4">Contacto</th>
-                  <th className="p-4">Tratamiento / Servicio</th>
-                  <th className="p-4">Fecha y Hora</th>
-                  <th className="p-4 pr-6 text-right">Firma Digital</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border text-xs font-medium text-foreground">
-                {filteredConsents.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="p-4 pl-6 font-bold text-foreground">
-                      {doc.patient?.fullName || "Paciente no encontrado"}
-                    </td>
-                    <td className="p-4 text-muted-foreground font-mono">
-                      {doc.patient?.phone || "N/A"}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                        doc.service?.name.includes("General") 
-                          ? "bg-primary/10 text-primary border border-primary/20" 
-                          : "bg-success/10 text-success border border-success/20"
-                      }`}>
-                        {doc.service?.name || "Consentimiento General"}
-                      </span>
-                    </td>
-                    <td className="p-4 text-muted-foreground">
-                      {new Date(doc.signedAt).toLocaleDateString("es-MX", { 
-                        weekday: 'short', 
-                        day: '2-digit', 
-                        month: '2-digit', 
+          <>
+            {/* Tarjetas apiladas: en celular/tablet chica, 5 columnas no entran
+                y el encabezado se corta feo, así que cada consentimiento se
+                muestra como tarjeta con sus datos etiquetados. */}
+            <div className="sm:hidden divide-y divide-border">
+              {filteredConsents.map((doc) => (
+                <div key={doc.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">
+                        {doc.patient?.fullName || "Paciente no encontrado"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                        {doc.patient?.phone || "N/A"}
+                      </p>
+                    </div>
+                    {!doc.signatureData ? (
+                      <span className="text-[9px] text-muted-foreground italic flex-shrink-0">Sin acceso</span>
+                    ) : doc.signatureData.startsWith("scanned:") ? (
+                      <button
+                        onClick={() => setSelectedConsentForView(doc)}
+                        className="px-2.5 py-1 bg-primary/10 text-primary text-[9px] font-black rounded-lg border border-primary/20 flex-shrink-0"
+                      >
+                        Ver Documento
+                      </button>
+                    ) : doc.signatureData.startsWith("data:") ? (
+                      <div
+                        onClick={() => setSelectedConsentForView(doc)}
+                        className="bg-white p-1 rounded border border-border h-8 w-20 overflow-hidden select-none flex-shrink-0"
+                      >
+                        <img src={doc.signatureData} alt="Firma digital" className="h-full w-full object-contain" />
+                      </div>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground italic flex-shrink-0">Manuscrito</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                      doc.service?.name.includes("General")
+                        ? "bg-primary/10 text-primary border border-primary/20"
+                        : "bg-success/10 text-success border border-success/20"
+                    }`}>
+                      {doc.service?.name || "Consentimiento General"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(doc.signedAt).toLocaleDateString("es-MX", {
+                        day: '2-digit',
+                        month: '2-digit',
                         year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      {doc.signatureData.startsWith("scanned:") ? (
-                        <button
-                          onClick={() => setSelectedConsentForView(doc)}
-                          className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg hover:bg-primary/20 transition-all border border-primary/20 cursor-pointer"
-                        >
-                          Ver Documento
-                        </button>
-                      ) : doc.signatureData.startsWith("data:") ? (
-                        <div 
-                          onClick={() => setSelectedConsentForView(doc)}
-                          className="inline-block bg-white p-1 rounded border border-border h-8 w-24 overflow-hidden select-none cursor-pointer hover:border-primary transition-all"
-                        >
-                          <img src={doc.signatureData} alt="Firma digital" className="h-full w-full object-contain filter invert-0" />
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Firmado manuscrito</span>
-                      )}
-                    </td>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                    <th className="p-4 pl-6 whitespace-nowrap">Paciente</th>
+                    <th className="p-4 whitespace-nowrap">Contacto</th>
+                    <th className="p-4 whitespace-nowrap">Tratamiento / Servicio</th>
+                    <th className="p-4 whitespace-nowrap">Fecha y Hora</th>
+                    <th className="p-4 pr-6 text-right whitespace-nowrap">Firma Digital</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border text-xs font-medium text-foreground">
+                  {filteredConsents.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="p-4 pl-6 font-bold text-foreground">
+                        {doc.patient?.fullName || "Paciente no encontrado"}
+                      </td>
+                      <td className="p-4 text-muted-foreground font-mono">
+                        {doc.patient?.phone || "N/A"}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                          doc.service?.name.includes("General")
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "bg-success/10 text-success border border-success/20"
+                        }`}>
+                          {doc.service?.name || "Consentimiento General"}
+                        </span>
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        {new Date(doc.signedAt).toLocaleDateString("es-MX", {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="p-4 pr-6 text-right">
+                        {!doc.signatureData ? (
+                          <span className="text-[10px] text-muted-foreground italic">Sin acceso a la firma</span>
+                        ) : doc.signatureData.startsWith("scanned:") ? (
+                          <button
+                            onClick={() => setSelectedConsentForView(doc)}
+                            className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg hover:bg-primary/20 transition-all border border-primary/20 cursor-pointer"
+                          >
+                            Ver Documento
+                          </button>
+                        ) : doc.signatureData.startsWith("data:") ? (
+                          <div
+                            onClick={() => setSelectedConsentForView(doc)}
+                            className="inline-block bg-white p-1 rounded border border-border h-8 w-24 overflow-hidden select-none cursor-pointer hover:border-primary transition-all"
+                          >
+                            <img src={doc.signatureData} alt="Firma digital" className="h-full w-full object-contain filter invert-0" />
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic">Firmado manuscrito</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -442,7 +521,14 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
               <X className="w-4.5 h-4.5" />
             </button>
 
-            <div className="space-y-4">
+            {!shiftStatus.canOperate && (
+              <div className="flex items-center gap-2.5 px-4 py-2.5 bg-warning/10 border border-warning/20 rounded-2xl">
+                <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+                <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+              </div>
+            )}
+
+            <div className={`space-y-4 ${!shiftStatus.canOperate ? "pointer-events-none opacity-40 select-none" : ""}`}>
               {/* Buscador y selector de Paciente */}
               <div className="space-y-1.5 relative">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -676,8 +762,8 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
                 id="tour-consent-submit"
                 type="button"
                 onClick={handleSaveConsent}
-                disabled={isSigning}
-                className="px-6 py-2.5 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/95 shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
+                disabled={isSigning || !shiftStatus.canOperate}
+                className="px-6 py-2.5 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/95 shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isSigning ? (
                   <>

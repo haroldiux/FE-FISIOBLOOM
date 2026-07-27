@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText,
   Activity,
@@ -13,6 +14,7 @@ import {
   Phone,
   Mail,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
   PenTool,
@@ -24,14 +26,44 @@ import {
   Calendar,
   Edit3,
   Check,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Lock
 } from "lucide-react";
 import { api, API_URL } from "../services/api";
 import { toast } from "sonner";
 const SERVER_URL = API_URL.replace(/\/api$/, "");
 import { animate } from "animejs";
+import { useAuth } from "../context/AuthContext";
+import BranchTabs from "../components/BranchTabs";
 
 type PatientTab = "historial" | "evolucion" | "consentimiento" | "galeria" | "facturacion";
+
+// Solo letras (de cualquier idioma, incluye acentos) y espacios; todo en mayúsculas.
+function sanitizeFullName(value: string): string {
+  return value.replace(/[^\p{L}\s]/gu, "").toUpperCase();
+}
+
+// Solo dígitos, debe empezar con 6 o 7 (celulares de Bolivia), máximo 8 dígitos.
+function sanitizePhone(value: string, previous: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits === "" || /^[67]/.test(digits)) {
+    return digits;
+  }
+  return previous;
+}
+
+// Formatea el tiempo restante hasta una cita futura, ej. "2h 15min" o "45min".
+function formatTimeUntil(dateTime: string): string {
+  const diffMs = new Date(dateTime).getTime() - Date.now();
+  if (diffMs <= 0) return "0min";
+  const totalMinutes = Math.ceil(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}min`;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -148,6 +180,8 @@ export default function PatientScreen({
   searchSelectedPatientId?: string | null;
   clearSearchSelectedPatientId?: () => void;
 }) {
+  const { user, shiftStatus } = useAuth();
+
   // List panel
   const [patientList, setPatientList] = useState<PatientListItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
@@ -181,6 +215,13 @@ export default function PatientScreen({
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<PatientTab>("evolucion");
+  // Si se dispara más de un loadPatient() en paralelo (ej. dos "Registrar
+  // Sesión" casi al mismo tiempo), las respuestas del servidor pueden llegar
+  // en otro orden del que salieron — la más lenta puede pisar los datos ya
+  // actualizados de la más rápida, dejando la pantalla en blanco o con datos
+  // viejos hasta refrescar. Este contador descarta cualquier respuesta que no
+  // sea la del pedido más reciente.
+  const patientLoadSeq = useRef(0);
 
   // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
   useEffect(() => {
@@ -217,11 +258,23 @@ export default function PatientScreen({
     return () => window.removeEventListener('onboarding-action', handleOnboardingAction);
   }, [patientList, selectedPatientId]);
 
+  // Facturación tab
+  const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+
+  const [availableServices, setAvailableServices] = useState<{ id: string; name: string; defaultDuration: number; category: string }[]>([]);
+
   // Register session modal
   const [showModal, setShowModal] = useState(false);
   const [pendingAppointments, setPendingAppointments] = useState<any[]>([]);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState("");
   const [selectedLineId, setSelectedLineId] = useState("");
+  // Cuando la cita elegida combina varios servicios de un mismo paquete
+  // vendido como combo (ver "Nueva Cita" → "Paquete"), se auto-detectan y se
+  // descuentan TODAS esas líneas juntas al completar la sesión, en vez de
+  // obligar a elegir una sola del desplegable manual.
+  const [selectedAdditionalLineIds, setSelectedAdditionalLineIds] = useState<string[]>([]);
+  const [matchedPackageLines, setMatchedPackageLines] = useState<{ id: string; serviceName: string }[] | null>(null);
   const [evolutionNotes, setEvolutionNotes] = useState("");
   const [weight, setWeight] = useState("");
   const [waist, setWaist] = useState("");
@@ -251,6 +304,39 @@ export default function PatientScreen({
   const [newEmail, setNewEmail] = useState("");
   const [newMedicalHistory, setNewMedicalHistory] = useState("");
   const [signConsentNow, setSignConsentNow] = useState(false);
+  const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  // Al abrir la firma en pantalla completa, si ya había una firma capturada
+  // antes, la redibuja en el canvas nuevo para poder verla o seguir editando
+  // (el canvas de pantalla completa es un elemento nuevo cada vez que se abre).
+  useEffect(() => {
+    if (!showFullscreenSignature || !signatureDataUrl) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    img.src = signatureDataUrl;
+  }, [showFullscreenSignature]);
+
+  // Si el usuario sale de pantalla completa con el botón/gesto de atrás del
+  // celular (en vez de tocar "Firma Lista"), hay que enterarse igual para
+  // guardar lo que llevaba firmado, liberar la rotación forzada y volver la
+  // vista del formulario a la normalidad.
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && showFullscreenSignature) {
+        const canvas = canvasRef.current;
+        if (canvas) setSignatureDataUrl(canvas.toDataURL("image/png"));
+        try { (screen.orientation as any)?.unlock?.(); } catch { /* no soportado */ }
+        setShowFullscreenSignature(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [showFullscreenSignature]);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -290,16 +376,31 @@ export default function PatientScreen({
 
   useEffect(() => { loadList(); }, []);
 
+  // Catálogo real de servicios de la sucursal, usado para armar el selector de
+  // "Servicio a Consentir" con IDs reales (antes usaba opciones inventadas que
+  // no existían en la base de datos y hacían fallar el guardado del consentimiento).
+  useEffect(() => {
+    api.get<{ id: string; name: string }[]>("/services").then(setAvailableServices).catch(() => {});
+  }, []);
+
   // ── Load patient detail ────────────────────────────────────────────────────
 
   const loadPatient = async (id: string) => {
+    const requestId = ++patientLoadSeq.current;
     try {
       setDetailLoading(true);
       setPatient(null);
-      
+
       loadPhotos(id); // Cargar fotos locales para el paciente seleccionado
-      
+      loadInvoices(id); // Cargar historial de facturación del paciente
+
       const data = await api.get<PatientData>(`/patients/${id}`);
+
+      // Si mientras esperábamos esta respuesta se disparó un loadPatient()
+      // más nuevo (ej. otra sesión guardada casi al mismo tiempo), esta
+      // respuesta ya está vieja — se descarta para no pisar los datos
+      // correctos que el pedido más reciente ya puso en pantalla.
+      if (requestId !== patientLoadSeq.current) return;
 
       // CARGAR CONSENTIMIENTOS DESDE LOCAL STORAGE COMO FALLBACK OFFLINE Y FUSIONARLOS
       const localConsentsKey = `offline_consents_${id}`;
@@ -334,19 +435,40 @@ export default function PatientScreen({
       // Build session timeline from packages and retouch schedules
       const items: TimelineItem[] = [];
 
-      // 1. Sesiones de tratamiento
+      // 1. Sesiones de tratamiento (de un bono/paquete, o sesiones únicas sin bono)
+      const packageLineNameById = new Map<string, string>();
       data.treatmentPackages?.forEach((pkg) => {
         pkg.lines.forEach((line: any) => {
-          if (line.sessionDetails) {
-            line.sessionDetails.forEach((sess: any) => {
-              items.push({
-                type: "SESSION",
-                ...sess,
-                packageLine: { serviceName: line.serviceName }
-              });
-            });
-          }
+          packageLineNameById.set(line.id, line.serviceName);
         });
+      });
+
+      // El backend no guarda un "número de sesión" — se calcula acá contando
+      // en orden cronológico TODAS las sesiones del paciente (sin importar el
+      // tratamiento), para que coincida con la numeración que ya usa el panel
+      // "Resumen de Medidas" de al lado: "Sesión #1" es su primera sesión en
+      // la clínica, "Sesión #2" la segunda, etc.
+      const sessionAppts = ((data.appointments as any[]) || [])
+        .filter((appt) => appt.sessionDetail)
+        .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
+      const sessionNumberByAppointmentId = new Map<string, number>();
+      sessionAppts.forEach((appt, idx) => {
+        sessionNumberByAppointmentId.set(appt.id, idx + 1);
+      });
+
+      (data.appointments as any[])?.forEach((appt) => {
+        if (appt.sessionDetail) {
+          const serviceName = (appt.sessionDetail.packageLineId && packageLineNameById.get(appt.sessionDetail.packageLineId))
+            || appt.service?.name
+            || "Sesión única";
+          items.push({
+            type: "SESSION",
+            ...appt.sessionDetail,
+            sessionNumber: sessionNumberByAppointmentId.get(appt.id) || 1,
+            appointment: { dateTime: appt.dateTime, professional: { name: appt.professional?.name || "—" } },
+            packageLine: { serviceName },
+          });
+        }
       });
 
       // 2. Retoques programados (Fase 2)
@@ -372,7 +494,21 @@ export default function PatientScreen({
       console.error("Error al cargar expediente:", err);
       toast.error("Error al cargar expediente clínico: " + (err.response?.data?.message || err.message || "Error desconocido"));
     } finally {
-      setDetailLoading(false);
+      if (requestId === patientLoadSeq.current) setDetailLoading(false);
+    }
+  };
+
+  // Helper para cargar el historial de facturación (ventas/cobros) del paciente
+  const loadInvoices = async (patientId: string) => {
+    try {
+      setInvoicesLoading(true);
+      const data = await api.get<any[]>(`/invoices?patientId=${patientId}`);
+      setPatientInvoices(data);
+    } catch (err: any) {
+      console.error("Error al cargar facturación del paciente:", err);
+      setPatientInvoices([]);
+    } finally {
+      setInvoicesLoading(false);
     }
   };
 
@@ -465,6 +601,10 @@ export default function PatientScreen({
   const handlePhotoUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patient) return;
+    if (!shiftStatus.canOperate) {
+      setPhotoUploadError(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
     if (!photoFile) {
       setPhotoUploadError("Por favor, selecciona una imagen.");
       return;
@@ -561,6 +701,14 @@ export default function PatientScreen({
       setCreateError("El nombre completo y el teléfono son campos obligatorios.");
       return;
     }
+    if (newPhone.length !== 8) {
+      setCreateError("El teléfono debe tener 8 dígitos y empezar con 6 o 7.");
+      return;
+    }
+    if (newEmail && !newEmail.trim().toLowerCase().endsWith("@gmail.com")) {
+      setCreateError("El correo debe terminar en @gmail.com.");
+      return;
+    }
     setCreateSubmitting(true);
     setCreateError(null);
     try {
@@ -596,32 +744,54 @@ export default function PatientScreen({
         });
 
         const createdPatient = result.patient || result;
+        const wasAlreadyRegistered = result.message === "Patient already registered.";
+
+        if (wasAlreadyRegistered) {
+          toast.error(`Ya existe un paciente registrado con ese teléfono (${createdPatient.fullName}). Pedile a un administrador o recepción que te lo asigne a una cita para poder verlo.`);
+          setShowCreateModal(false);
+          setIsEditingPatient(false);
+          setNewFullName("");
+          setNewPhone("");
+          setNewEmail("");
+          setNewMedicalHistory("");
+          setSignConsentNow(false);
+          setSignatureDataUrl(null);
+          setCreateSubmitting(false);
+          return;
+        }
 
         let consentSavedSuccessfully = false;
         if (signConsentNow) {
-          const canvas = canvasRef.current;
-          if (canvas) {
-            const signatureBase64 = canvas.toDataURL("image/png");
+          const signatureBase64 = signatureDataUrl;
+          if (signatureBase64) {
             try {
               await api.post(`/patients/${createdPatient.id}/consent`, {
                 serviceId: "general",
                 signatureData: signatureBase64,
               });
               consentSavedSuccessfully = true;
-            } catch (e) {
-              console.warn("Error al registrar consentimiento en API, guardando en local storage offline:", e);
-              const localConsentsKey = `offline_consents_${createdPatient.id}`;
-              const localConsents = [{
-                id: `offline-${Date.now()}`,
-                patientId: createdPatient.id,
-                serviceId: "general",
-                service: { id: "general", name: "Consentimiento General" },
-                signatureData: signatureBase64,
-                signedAt: new Date().toISOString(),
-              }];
-              localStorage.setItem(localConsentsKey, JSON.stringify(localConsents));
-              localStorage.setItem(`consent_signed_${createdPatient.id}`, "true");
-              consentSavedSuccessfully = true;
+            } catch (e: any) {
+              // Mismo criterio que en handleSaveConsent: un error con status
+              // es un rechazo real del servidor, no una falla de red — no hay
+              // que guardarlo local para reintentar solo, o se duplica.
+              if (e?.status !== undefined) {
+                console.warn("El servidor rechazó el consentimiento al registrar el paciente:", e);
+                toast.error(e.message || "El paciente se creó, pero no se pudo registrar el consentimiento.");
+              } else {
+                console.warn("Error de red al registrar consentimiento, guardando en local storage offline:", e);
+                const localConsentsKey = `offline_consents_${createdPatient.id}`;
+                const localConsents = [{
+                  id: `offline-${Date.now()}`,
+                  patientId: createdPatient.id,
+                  serviceId: "general",
+                  service: { id: "general", name: "Consentimiento General" },
+                  signatureData: signatureBase64,
+                  signedAt: new Date().toISOString(),
+                }];
+                localStorage.setItem(localConsentsKey, JSON.stringify(localConsents));
+                localStorage.setItem(`consent_signed_${createdPatient.id}`, "true");
+                consentSavedSuccessfully = true;
+              }
             }
           }
         }
@@ -648,6 +818,7 @@ export default function PatientScreen({
       setNewEmail("");
       setNewMedicalHistory("");
       setSignConsentNow(false);
+      setSignatureDataUrl(null);
     } catch (err: any) {
       const errMsg = err.response?.data?.message || err.message || "Error al procesar el paciente.";
       setCreateError(errMsg);
@@ -689,17 +860,61 @@ export default function PatientScreen({
 
   // ── Register session ────────────────────────────────────────────────────────
 
+  // Si la cita elegida combina 2+ servicios que coinciden todos con líneas
+  // (con sesiones disponibles) de un mismo paquete activo del paciente, se
+  // auto-selecciona ese paquete completo — ya no hay que elegir una sola
+  // línea a mano, porque las 3 se consumen juntas al completar esta sesión.
+  useEffect(() => {
+    const appt = pendingAppointments.find((a) => a.id === selectedAppointmentId);
+    const apptServiceIds: string[] = appt
+      ? [appt.serviceId, ...(appt.additionalServiceIds || [])].filter(Boolean)
+      : [];
+
+    if (apptServiceIds.length < 2 || !patient) {
+      setMatchedPackageLines(null);
+      return;
+    }
+
+    const pkg = patient.treatmentPackages.find(
+      (p) =>
+        p.status === "ACTIVE" &&
+        apptServiceIds.every((sid) => p.lines.some((l) => l.serviceId === sid && l.usedSessions < l.totalSessions))
+    );
+
+    if (!pkg) {
+      setMatchedPackageLines(null);
+      setSelectedLineId("");
+      setSelectedAdditionalLineIds([]);
+      return;
+    }
+
+    const matchedLines = apptServiceIds
+      .map((sid) => pkg.lines.find((l) => l.serviceId === sid))
+      .filter((l): l is (typeof pkg.lines)[number] => !!l);
+
+    setMatchedPackageLines(matchedLines.map((l) => ({ id: l.id, serviceName: l.serviceName })));
+    setSelectedLineId(matchedLines[0].id);
+    setSelectedAdditionalLineIds(matchedLines.slice(1).map((l) => l.id));
+  }, [selectedAppointmentId, patient, pendingAppointments]);
+
   const handleCompleteSession = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
     if (!selectedAppointmentId) { setError("Debes seleccionar una cita."); setSubmitting(false); return; }
-    if (!selectedLineId) { setError("Selecciona el servicio a descontar del bono."); setSubmitting(false); return; }
+
+    const chosenAppt = pendingAppointments.find((a) => a.id === selectedAppointmentId);
+    if (chosenAppt && new Date(chosenAppt.dateTime).getTime() > Date.now()) {
+      setError("Todavía no llegó la hora de esta cita. Esperá a que empiece para registrar la sesión.");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       await api.post(`/appointments/${selectedAppointmentId}/complete`, {
-        packageLineId: selectedLineId,
+        packageLineId: selectedLineId || undefined,
+        additionalPackageLineIds: selectedAdditionalLineIds,
         evolutionNotes,
         measurements: {
           weight: weight ? Number(weight) : undefined,
@@ -715,7 +930,7 @@ export default function PatientScreen({
       setShowModal(false);
       setEvolutionNotes(""); setWeight(""); setWaist(""); setHip("");
       setLaser(""); setNozzles(""); setShots("");
-      setSelectedAppointmentId(""); setSelectedLineId("");
+      setSelectedAppointmentId(""); setSelectedLineId(""); setSelectedAdditionalLineIds([]); setMatchedPackageLines(null);
     } catch (err: any) {
       setError(err.message || "Error al registrar la sesión.");
     } finally {
@@ -763,17 +978,22 @@ export default function PatientScreen({
     canvas: HTMLCanvasElement
   ) => {
     const rect = canvas.getBoundingClientRect();
+    // El canvas puede mostrarse más chico o más grande que su resolución
+    // interna (ej. firma en pantalla completa vs. vista previa chica), así
+    // que hay que escalar el punto tocado a la resolución real del canvas.
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
     if ("touches" in e) {
       if (e.touches.length === 0) return { x: 0, y: 0 };
       e.preventDefault();
       return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
       };
     } else {
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
       };
     }
   };
@@ -784,6 +1004,38 @@ export default function PatientScreen({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureDataUrl(null);
+  };
+
+  // Abre la firma en pantalla completa y, si el navegador lo permite (Android),
+  // fuerza la rotación a horizontal para tener más espacio y firmar cómodo —
+  // el celular queda "acostado" solo mientras se firma. En iPhone o navegadores
+  // que no lo soporten, simplemente se omite y queda en pantalla completa vertical.
+  const openFullscreenSignature = async () => {
+    setShowFullscreenSignature(true);
+    try {
+      await document.documentElement.requestFullscreen();
+      await (screen.orientation as any)?.lock?.("landscape");
+    } catch {
+      // El navegador no soporta rotación forzada (ej. iPhone) — no es un error,
+      // simplemente sigue funcionando sin girar la pantalla.
+    }
+  };
+
+  // Guarda el dibujo actual del canvas de pantalla completa como imagen,
+  // libera la rotación forzada y vuelve a la vista normal del formulario.
+  const closeFullscreenSignature = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      setSignatureDataUrl(canvas.toDataURL("image/png"));
+    }
+    try {
+      (screen.orientation as any)?.unlock?.();
+      if (document.fullscreenElement) document.exitFullscreen();
+    } catch {
+      // Nada que hacer si el navegador no soporta esto.
+    }
+    setShowFullscreenSignature(false);
   };
 
   // ── Submit Consent ──────────────────────────────────────────────────────────
@@ -808,6 +1060,12 @@ export default function PatientScreen({
   const handleSaveConsent = async () => {
     if (!patient) return;
     setConsentError(null);
+
+    if (!shiftStatus.canOperate) {
+      setConsentError(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
+
     setIsSigning(true);
 
     if (!selectedConsentServiceId) {
@@ -855,21 +1113,31 @@ export default function PatientScreen({
       setUploadedFileBase64(null);
       setUploadedFileName("");
     } catch (err: any) {
-      console.warn("Fallo al guardar consentimiento en API, usando fallback offline en LocalStorage:", err);
-      toast.error("Error al registrar consentimiento en el servidor. Guardando copia local offline.");
-      
+      // Si el servidor respondió (aunque sea con un error), NO es una falla de
+      // red: es un rechazo válido (ej. no tenés turno hoy, servicio inválido,
+      // etc.). Antes esto caía siempre al fallback offline, y si después se
+      // reintentaba (ej. al recargar la página, o desde otra pestaña) la firma
+      // terminaba guardándose duplicada. Solo se debe guardar localmente para
+      // reintentar más tarde cuando de verdad no hay conexión.
+      if (err?.status !== undefined) {
+        setConsentError(err.message || "No se pudo registrar el consentimiento.");
+        setIsSigning(false);
+        return;
+      }
+
+      console.warn("Fallo de red al guardar consentimiento, usando fallback offline en LocalStorage:", err);
+      toast.error("Sin conexión. Guardando copia local offline.");
+
       const localConsentsKey = `offline_consents_${patient.id}`;
       const localConsentsRaw = localStorage.getItem(localConsentsKey);
       const localConsents: ConsentDocumentItem[] = localConsentsRaw ? JSON.parse(localConsentsRaw) : [];
 
-      const selectedServiceName = selectedConsentServiceId === "general" ? "Consentimiento General" : patient.treatmentPackages
+      const selectedServiceName = selectedConsentServiceId === "general" ? "Consentimiento General" : (patient.treatmentPackages || [])
         .flatMap((pkg) => pkg.lines)
         .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
-        ?.serviceName || 
-        (selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
-         selectedConsentServiceId === "fallback-cavitacion" ? "Cavitación Corporal" :
-         selectedConsentServiceId === "fallback-facial" ? "Tratamiento Facial" :
-         selectedConsentServiceId === "fallback-rehab" ? "Fisioterapia" : "Servicio General");
+        ?.serviceName ||
+        availableServices.find((s) => s.id === selectedConsentServiceId)?.name ||
+        "Servicio General";
 
       const newConsent: ConsentDocumentItem = {
         id: `offline-${Date.now()}`,
@@ -899,7 +1167,7 @@ export default function PatientScreen({
   };
 
   const getConsentText = (serviceName: string) => {
-    const name = serviceName.toLowerCase();
+    const name = (serviceName || "").toLowerCase();
     if (name === "general" || name.includes("general")) {
       return `CONSENTIMIENTO INFORMADO GENERAL - REGISTRO CLÍNICO Y TRATAMIENTOS
 Yo, ${patient?.fullName || "el paciente"}, en pleno uso de mis facultades, autorizo el registro de mi historial clínico, evolución física y la realización de tratamientos generales de fisioterapia y estética en BLOOM SKIN.
@@ -955,6 +1223,12 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
       {/* ══ LEFT — Patient List ══════════════════════════════════════════════ */}
       <aside id="tour-patients-list" className={`w-full md:w-[280px] flex-shrink-0 border-r border-border flex-col ${selectedPatientId ? 'hidden md:flex' : 'flex'}`} style={{ background: 'var(--card)', backdropFilter: 'blur(20px)' }}>
 
+        {user?.role === "SUPER_ADMIN" && (
+          <div className="px-4 pt-4">
+            <BranchTabs />
+          </div>
+        )}
+
         <div className="p-4 border-b border-border flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -973,12 +1247,19 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               setCreateError(null);
               setShowCreateModal(true);
             }}
-            className="flex-shrink-0 p-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
-            title="Nuevo Paciente"
+            disabled={!shiftStatus.canOperate}
+            className="flex-shrink-0 p-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : "Nuevo Paciente"}
           >
             <Plus className="w-4 h-4" />
           </button>
         </div>
+        {!shiftStatus.canOperate && (
+          <div className="mx-4 mb-3 flex items-start gap-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-xl">
+            <Lock className="w-3.5 h-3.5 text-warning flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] font-bold text-warning leading-snug">{shiftStatus.message}</p>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden">
           {listLoading ? (
@@ -1099,8 +1380,9 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           setCreateError(null);
                           setShowCreateModal(true);
                         }}
-                        className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-colors cursor-pointer"
-                        title="Editar datos de contacto"
+                        disabled={!shiftStatus.canOperate}
+                        className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : "Editar datos de contacto"}
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
@@ -1130,8 +1412,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
                 <div className="flex flex-wrap gap-2">
                   {patient.treatmentPackages.map((pkg) => {
-                    const totalUsed = pkg.lines.reduce((s, l) => s + l.usedSessions, 0);
-                    const totalSess = pkg.lines.reduce((s, l) => s + l.totalSessions, 0);
+                    // Un paquete combo (varios servicios distintos vendidos y usados
+                    // juntos en una misma visita, ver "Nueva Cita" → "Paquete") se
+                    // completa como UNIDAD: sumar las sesiones de cada línea por
+                    // separado mostraría de más (ej. 3 servicios de 1 sesión cada
+                    // uno se vería como "0/3" en vez de "0/1"). El mínimo entre
+                    // líneas refleja cuántas veces se puede repetir el combo entero.
+                    const totalUsed = Math.min(...pkg.lines.map((l) => l.usedSessions));
+                    const totalSess = Math.min(...pkg.lines.map((l) => l.totalSessions));
                     return (
                       <div key={pkg.id} className="bg-success/10 border border-success/20 rounded-xl px-3 py-2">
                         <p className="text-[10px] font-black text-success uppercase tracking-wider truncate max-w-[160px]">{pkg.packageName}</p>
@@ -1172,16 +1460,18 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   <div className="flex justify-between items-center border-b border-border pb-3">
                     <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Antecedentes Médicos y Ficha Clínica</h3>
                     {!isEditingHistory ? (
-                      <button
-                        onClick={() => {
-                          setEditedHistory(patient.medicalHistory || "");
-                          setIsEditingHistory(true);
-                        }}
-                        className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/10"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Editar Ficha
-                      </button>
+                      user?.role !== "RECEPTIONIST" && (
+                        <button
+                          onClick={() => {
+                            setEditedHistory(patient.medicalHistory || "");
+                            setIsEditingHistory(true);
+                          }}
+                          className="flex items-center gap-1 bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/10"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Editar Ficha
+                        </button>
+                      )
                     ) : (
                       <div className="flex items-center gap-2">
                         <button
@@ -1223,15 +1513,17 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
                           <AlertCircle className="w-8 h-8 text-muted-foreground/30" />
                           <p className="text-xs text-muted-foreground font-semibold">Sin antecedentes médicos registrados.</p>
-                          <button
-                            onClick={() => {
-                              setEditedHistory("");
-                              setIsEditingHistory(true);
-                            }}
-                            className="text-xs text-primary font-bold hover:underline"
-                          >
-                            Registrar ficha clínica →
-                          </button>
+                          {user?.role !== "RECEPTIONIST" && (
+                            <button
+                              onClick={() => {
+                                setEditedHistory("");
+                                setIsEditingHistory(true);
+                              }}
+                              className="text-xs text-primary font-bold hover:underline"
+                            >
+                              Registrar ficha clínica →
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1244,25 +1536,33 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   <div id="tour-patients-history" className="lg:col-span-2 bg-card rounded-2xl border border-border p-6 flex flex-col">
                     <div className="flex justify-between items-center mb-5">
                       <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">Evolución de Sesiones</h3>
-                      <button
-                        id="tour-session-modal-trigger"
-                        onClick={() => { setError(null); setShowModal(true); }}
-                        className="flex-items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Registrar Sesión
-                      </button>
+                      {user?.role !== "RECEPTIONIST" && (
+                        <button
+                          id="tour-session-modal-trigger"
+                          onClick={() => { setError(null); setShowModal(true); }}
+                          disabled={!shiftStatus.canOperate}
+                          className="flex-items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-3 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-md shadow-primary/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Registrar Sesión
+                        </button>
+                      )}
                     </div>
                     {timeline.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
                         <Activity className="w-10 h-10 text-muted-foreground/30" />
                         <p className="text-sm text-muted-foreground">Aún no hay sesiones registradas.</p>
-                        <button
-                          onClick={() => { setError(null); setShowModal(true); }}
-                          className="text-xs font-bold text-primary hover:underline"
-                        >
-                          Registrar primera sesión →
-                        </button>
+                        {user?.role !== "RECEPTIONIST" && (
+                          <button
+                            onClick={() => { setError(null); setShowModal(true); }}
+                            disabled={!shiftStatus.canOperate}
+                            className="text-xs font-bold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                            title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+                          >
+                            Registrar primera sesión →
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -1472,6 +1772,14 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       </div>
                     )}
 
+                    {!shiftStatus.canOperate && (
+                      <div className="flex items-center gap-2.5 px-4 py-2.5 bg-warning/10 border border-warning/20 rounded-xl">
+                        <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+                        <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+                      </div>
+                    )}
+
+                    <div className={`space-y-4 ${!shiftStatus.canOperate ? "pointer-events-none opacity-40 select-none" : ""}`}>
                     <div>
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
                         Servicio o Tratamiento a Consentir
@@ -1487,21 +1795,16 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       >
                         <option value="" disabled>Selecciona el servicio</option>
                         <option value="general">Consentimiento Informado General (Clínica)</option>
-                        {patient.treatmentPackages.flatMap((pkg) =>
+                        {(patient.treatmentPackages || []).flatMap((pkg) =>
                           pkg.lines.map((line) => (
                             <option key={line.id} value={line.serviceId || line.id}>
                               {pkg.packageName} — {line.serviceName}
                             </option>
                           ))
                         )}
-                        {patient.treatmentPackages.length === 0 && (
-                          <>
-                            <option value="fallback-laser">Depilación Láser Soprano Titanium</option>
-                            <option value="fallback-cavitacion">Cavitación Corporal Reductora</option>
-                            <option value="fallback-facial">Tratamiento Facial Anti-Edad</option>
-                            <option value="fallback-rehab">Fisioterapia y Rehabilitación</option>
-                          </>
-                        )}
+                        {availableServices.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -1547,14 +1850,11 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           <div className="bg-muted border border-border rounded-xl p-4 text-xs text-muted-foreground max-h-40 overflow-y-auto leading-relaxed whitespace-pre-line font-medium border-l-4 border-l-primary shadow-inner">
                             {selectedConsentServiceId ? (
                               getConsentText(
-                                patient.treatmentPackages.flatMap((pkg) => pkg.lines)
+                                (patient.treatmentPackages || []).flatMap((pkg) => pkg.lines)
                                   .find((l) => l.serviceId === selectedConsentServiceId || l.id === selectedConsentServiceId)
-                                  ?.serviceName || 
-                                (selectedConsentServiceId === "general" ? "General" :
-                                 selectedConsentServiceId === "fallback-laser" ? "Depilación Láser" :
-                                 selectedConsentServiceId === "fallback-cavitacion" ? "Cavitación Corporal" :
-                                 selectedConsentServiceId === "fallback-facial" ? "Tratamiento Facial" :
-                                 selectedConsentServiceId === "fallback-rehab" ? "Fisioterapia" : "Servicio")
+                                  ?.serviceName ||
+                                availableServices.find((s) => s.id === selectedConsentServiceId)?.name ||
+                                (selectedConsentServiceId === "general" ? "General" : "Servicio")
                               )
                             ) : (
                               <span className="italic text-muted-foreground">
@@ -1648,7 +1948,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                         type="button"
                         id="tour-patients-consent-submit"
                         onClick={handleSaveConsent}
-                        disabled={isSigning || !selectedConsentServiceId || (signMethod === "digital" && !acceptTerms)}
+                        disabled={isSigning || !selectedConsentServiceId || (signMethod === "digital" && !acceptTerms) || !shiftStatus.canOperate}
                         className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {isSigning ? (
@@ -1663,6 +1963,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           </>
                         )}
                       </button>
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -1704,7 +2005,17 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       </div>
                     )}
 
-                    <form onSubmit={handlePhotoUpload} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    {!shiftStatus.canOperate && (
+                      <div className="flex items-center gap-2.5 px-4 py-2.5 mb-4 bg-warning/10 border border-warning/20 rounded-xl">
+                        <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+                        <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={handlePhotoUpload}
+                      className={`grid grid-cols-1 lg:grid-cols-3 gap-6 items-start ${!shiftStatus.canOperate ? "pointer-events-none opacity-40 select-none" : ""}`}
+                    >
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
                           Seleccionar Imagen
@@ -1811,7 +2122,7 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                           <button
                             id="tour-gallery-submit"
                             type="submit"
-                            disabled={isUploading || !photoFile}
+                            disabled={isUploading || !shiftStatus.canOperate}
                             className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isUploading ? (
@@ -1970,9 +2281,53 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               )}
 
               {activeTab === "facturacion" && (
-                <div className="bg-card rounded-2xl border border-border p-10 text-center">
-                  <Receipt className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground font-medium">Historial de facturas del paciente en desarrollo.</p>
+                <div className="space-y-3">
+                  {invoicesLoading ? (
+                    <div className="bg-card rounded-2xl border border-border p-10 text-center">
+                      <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+                    </div>
+                  ) : patientInvoices.length === 0 ? (
+                    <div className="bg-card rounded-2xl border border-border p-10 text-center">
+                      <Receipt className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground font-medium">Este paciente todavía no tiene facturas registradas.</p>
+                    </div>
+                  ) : (
+                    patientInvoices.map((inv) => (
+                      <div key={inv.id} className="bg-card rounded-2xl border border-border p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-bold text-foreground">
+                              {new Date(inv.paidAt).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {new Date(inv.paidAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {
+                                { EFECTIVO: "Efectivo", TARJETA: "Tarjeta", TRANSFERENCIA: "Transferencia", BILLETERA_VIRTUAL: "Billetera virtual" }[inv.paymentMethod as string] || inv.paymentMethod
+                              }
+                            </p>
+                          </div>
+                          <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${
+                            inv.status === "PAGADO" ? "bg-success/10 text-success border border-success/20"
+                            : inv.status === "CANCELADO" ? "bg-error/10 text-error border border-error/20"
+                            : "bg-warning/10 text-warning border border-warning/20"
+                          }`}>
+                            {inv.status}
+                          </span>
+                        </div>
+                        <div className="space-y-1 border-t border-border pt-3">
+                          {inv.items?.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between text-xs">
+                              <span className="text-foreground">{item.quantity}x {item.description}</span>
+                              <span className="text-muted-foreground font-semibold">${item.total.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between border-t border-border mt-3 pt-3">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total</span>
+                          <span className="text-base font-black text-foreground">${inv.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -1996,8 +2351,11 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                 </p>
               </div>
               <button
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground"
+                type="button"
+                onClick={() => { if (!submitting) setShowModal(false); }}
+                disabled={submitting}
+                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                title={submitting ? "Esperá a que termine de guardar" : "Cerrar"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2028,71 +2386,101 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                       className="w-full px-3 py-2.5 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
                     >
                       <option value="" disabled>Selecciona la cita</option>
-                      {pendingAppointments.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {new Date(a.dateTime).toLocaleDateString("es-MX")} · {new Date(a.dateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {a.professional.name}
-                        </option>
-                      ))}
+                      {pendingAppointments.map((a) => {
+                        const notYetTime = new Date(a.dateTime).getTime() > Date.now();
+                        return (
+                          <option key={a.id} value={a.id} disabled={notYetTime} className={notYetTime ? "text-muted-foreground" : undefined}>
+                            {new Date(a.dateTime).toLocaleDateString("es-MX")} · {new Date(a.dateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {a.professional?.name || "—"}
+                            {notYetTime ? ` · (falta ${formatTimeUntil(a.dateTime)})` : ""}
+                          </option>
+                        );
+                      })}
                     </select>
+                  )}
+                  {pendingAppointments.some((a) => new Date(a.dateTime).getTime() > Date.now()) && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Las citas en gris todavía no llegaron a su horario — se habilitan automáticamente cuando empiecen.
+                    </p>
                   )}
                 </div>
 
                 <div>
                   <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">
-                    Servicio a Descontar del Bono
+                    {matchedPackageLines ? "Servicios del Paquete a Descontar" : "Servicio a Descontar del Bono (opcional)"}
                   </label>
-                  <select
-                    value={selectedLineId}
-                    required
-                    onChange={(e) => setSelectedLineId(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
-                  >
-                    <option value="" disabled>Selecciona el servicio</option>
-                    {patient?.treatmentPackages.flatMap((pkg) =>
-                      pkg.lines.map((line) => (
-                        <option key={line.id} value={line.id}>
-                          {pkg.packageName} — {line.serviceName} ({line.usedSessions}/{line.totalSessions} usadas)
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  {matchedPackageLines ? (
+                    <div className="bg-success/10 border border-success/20 rounded-xl p-3 space-y-1">
+                      <p className="text-[10px] font-bold text-success uppercase tracking-wider mb-1">
+                        Esta cita combina un paquete — se van a descontar las {matchedPackageLines.length} sesiones juntas
+                      </p>
+                      {matchedPackageLines.map((l) => (
+                        <p key={l.id} className="text-xs text-foreground font-semibold">• {l.serviceName}</p>
+                      ))}
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedLineId}
+                      onChange={(e) => setSelectedLineId(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border-2 border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground"
+                    >
+                      <option value="">Sesión única (sin descontar de un bono)</option>
+                      {patient?.treatmentPackages.flatMap((pkg) =>
+                        pkg.lines.map((line) => (
+                          <option key={line.id} value={line.id}>
+                            {pkg.packageName} — {line.serviceName} ({line.usedSessions}/{line.totalSessions} usadas)
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-4">
-                  {selectedLineId && (
-                    <div className="bg-muted border border-border rounded-xl p-3 flex items-center justify-between shadow-inner">
-                      <span className="text-xs font-bold text-foreground">
-                        Tipo de Servicio:
-                      </span>
-                      <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${
-                        patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("laser") ||
-                        patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
-                        patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila")
-                          ? "bg-secondary/10 text-secondary border border-secondary/20"
-                          : "bg-success/10 text-success border border-success/20"
-                      }`}>
-                        {patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("laser") ||
-                        patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
-                        patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                          .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila")
-                          ? "Tecnología Láser"
-                          : "Corporal / Reductor"}
-                      </span>
-                    </div>
-                  )}
+                  {(() => {
+                    const isLaserOrDepil = (name?: string) => {
+                      if (!name) return false;
+                      const n = name.toLowerCase();
+                      return n.includes("laser") || n.includes("láser") || n.includes("depila");
+                    };
+                    const relevantNames = matchedPackageLines
+                      ? matchedPackageLines.map((l) => l.serviceName)
+                      : [
+                          patient?.treatmentPackages
+                            .flatMap((pkg) => pkg.lines)
+                            .find((line) => line.id === selectedLineId)?.serviceName,
+                        ].filter((n): n is string => !!n);
+                    const hasLaserService = relevantNames.some(isLaserOrDepil);
+                    return selectedLineId ? (
+                      <div className="bg-muted border border-border rounded-xl p-3 flex items-center justify-between shadow-inner">
+                        <span className="text-xs font-bold text-foreground">
+                          Tipo de Servicio:
+                        </span>
+                        <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${
+                          hasLaserService
+                            ? "bg-secondary/10 text-secondary border border-secondary/20"
+                            : "bg-success/10 text-success border border-success/20"
+                        }`}>
+                          {hasLaserService ? "Tecnología Láser" : "Corporal / Reductor"}
+                        </span>
+                      </div>
+                    ) : null;
+                  })()}
 
-                  {(!selectedLineId ||
-                    patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("laser") ||
-                    patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
-                    patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila")) ? (
+                  {(() => {
+                    const isLaserOrDepil = (name?: string) => {
+                      if (!name) return false;
+                      const n = name.toLowerCase();
+                      return n.includes("laser") || n.includes("láser") || n.includes("depila");
+                    };
+                    const relevantNames = matchedPackageLines
+                      ? matchedPackageLines.map((l) => l.serviceName)
+                      : [
+                          patient?.treatmentPackages
+                            .flatMap((pkg) => pkg.lines)
+                            .find((line) => line.id === selectedLineId)?.serviceName,
+                        ].filter((n): n is string => !!n);
+                    return !selectedLineId || relevantNames.some(isLaserOrDepil);
+                  })() ? (
                     <div id="tour-session-modal-laser" className="space-y-3 bg-secondary/10 border border-secondary/20 rounded-2xl p-4">
                       <h4 className="text-[10px] font-black text-secondary uppercase tracking-wider">
                         ⚡ Parámetros Técnicos Láser
@@ -2132,13 +2520,21 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     </div>
                   ) : null}
 
-                  {(!selectedLineId ||
-                    !(patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("laser") ||
-                    patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("láser") ||
-                    patient?.treatmentPackages.flatMap((pkg) => pkg.lines)
-                      .find((line) => line.id === selectedLineId)?.serviceName.toLowerCase().includes("depila"))) ? (
+                  {(() => {
+                    const isLaserOrDepil = (name?: string) => {
+                      if (!name) return false;
+                      const n = name.toLowerCase();
+                      return n.includes("laser") || n.includes("láser") || n.includes("depila");
+                    };
+                    const relevantNames = matchedPackageLines
+                      ? matchedPackageLines.map((l) => l.serviceName)
+                      : [
+                          patient?.treatmentPackages
+                            .flatMap((pkg) => pkg.lines)
+                            .find((line) => line.id === selectedLineId)?.serviceName,
+                        ].filter((n): n is string => !!n);
+                    return !selectedLineId || !relevantNames.some(isLaserOrDepil);
+                  })() ? (
                     <div id="tour-session-modal-measurements" className="space-y-3 bg-success/10 border border-success/20 rounded-2xl p-4">
                       <h4 className="text-[10px] font-black text-success uppercase tracking-wider">
                         📏 Mediciones Corporales
@@ -2202,7 +2598,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 text-sm font-bold border-2 border-border rounded-xl hover:bg-muted transition-colors text-muted-foreground"
+                  disabled={submitting}
+                  className="flex-1 py-3 text-sm font-bold border-2 border-border rounded-xl hover:bg-muted transition-colors text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
@@ -2252,8 +2649,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   type="text"
                   required
                   value={newFullName}
-                  onChange={(e) => setNewFullName(e.target.value)}
-                  placeholder="Ej. Ana María Rodríguez"
+                  onChange={(e) => setNewFullName(sanitizeFullName(e.target.value))}
+                  placeholder="Ej. ANA MARÍA RODRÍGUEZ"
                   className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                 />
               </div>
@@ -2265,10 +2662,11 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                   </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
                     required
                     value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="Ej. 5551234567"
+                    onChange={(e) => setNewPhone(sanitizePhone(e.target.value, newPhone))}
+                    placeholder="Ej. 70012345"
                     className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
@@ -2280,33 +2678,43 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="Ej. ana@correo.com"
+                    placeholder="Ej. ana@gmail.com"
                     className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
-                  Ficha / Antecedentes Médicos Iniciales
-                </label>
-                <textarea
-                  id="tour-patient-form-history"
-                  rows={5}
-                  value={newMedicalHistory}
-                  onChange={(e) => setNewMedicalHistory(e.target.value)}
-                  placeholder="Ej. Sin cirugías previas, padece de alergia cutánea leve, piel mixta..."
-                  className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground resize-none leading-relaxed"
-                />
-              </div>
+              {user?.role !== "RECEPTIONIST" && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
+                    Ficha / Antecedentes Médicos Iniciales
+                  </label>
+                  <textarea
+                    id="tour-patient-form-history"
+                    rows={5}
+                    value={newMedicalHistory}
+                    onChange={(e) => setNewMedicalHistory(e.target.value)}
+                    placeholder="Ej. Sin cirugías previas, padece de alergia cutánea leve, piel mixta..."
+                    className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground resize-none leading-relaxed"
+                  />
+                </div>
+              )}
 
               {!isEditingPatient && (
+                <>
                 <div className="pt-2 border-t border-border space-y-3">
                   <label className="flex items-start gap-3 cursor-pointer select-none py-1">
                     <input
                       type="checkbox"
                       checked={signConsentNow}
-                      onChange={(e) => setSignConsentNow(e.target.checked)}
+                      onChange={(e) => {
+                        setSignConsentNow(e.target.checked);
+                        if (e.target.checked) {
+                          openFullscreenSignature();
+                        } else {
+                          setSignatureDataUrl(null);
+                        }
+                      }}
                       className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
                     />
                     <span className="text-xs font-bold text-foreground">
@@ -2316,42 +2724,96 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
 
                   {signConsentNow && (
                     <div className="space-y-2.5 p-3.5 bg-muted rounded-2xl border border-border animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line font-medium p-3 bg-card border border-border rounded-xl max-h-28 overflow-y-auto [&::-webkit-scrollbar]:hidden shadow-inner">
-                        {getConsentText("general")}
+                      <div className="flex justify-between items-center">
+                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">
+                          Firma del Paciente
+                        </label>
+                        <button
+                          type="button"
+                          onClick={openFullscreenSignature}
+                          className="text-[9px] text-primary font-black hover:underline"
+                        >
+                          {signatureDataUrl ? "Editar Firma" : "Firmar en Pantalla Completa"}
+                        </button>
                       </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                          <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block">
-                            Firma del Paciente
-                          </label>
+                      <div className="border-2 border-dashed border-border rounded-xl bg-card p-1 relative overflow-hidden flex justify-center items-center h-[120px]">
+                        {signatureDataUrl ? (
+                          <img src={signatureDataUrl} alt="Firma del paciente" className="max-w-full max-h-full" />
+                        ) : (
                           <button
                             type="button"
-                            onClick={clearCanvas}
-                            className="text-[9px] text-primary font-black hover:underline"
+                            onClick={openFullscreenSignature}
+                            className="text-xs text-muted-foreground italic"
                           >
-                            Limpiar
+                            Toque aquí para firmar
                           </button>
-                        </div>
-                        <div className="border-2 border-dashed border-border rounded-xl bg-card p-1 relative overflow-hidden flex justify-center items-center">
-                          <canvas
-                            ref={canvasRef}
-                            width={450}
-                            height={120}
-                            onMouseDown={startDrawing}
-                            onMouseMove={draw}
-                            onMouseUp={stopDrawing}
-                            onMouseLeave={stopDrawing}
-                            onTouchStart={startDrawing}
-                            onTouchMove={draw}
-                            onTouchEnd={stopDrawing}
-                            className="bg-card rounded-lg cursor-crosshair max-w-full h-[120px]"
-                          />
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
+
+                {/* ── Firma en pantalla completa (portal a document.body para que ocupe realmente toda la pantalla) ── */}
+                {showFullscreenSignature && createPortal(
+                  <div className="fixed inset-0 bg-background z-[100] flex flex-col p-3 sm:p-6">
+                    <div className="flex items-center justify-between pb-2 border-b border-border flex-shrink-0">
+                      <div>
+                        <h3 className="text-base font-black text-foreground uppercase tracking-widest">
+                          Firma del Paciente
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Consentimiento General · Firme dentro del recuadro
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeFullscreenSignature}
+                        className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-all"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line font-medium p-2 mt-2 bg-muted border border-border rounded-xl max-h-14 overflow-y-auto [&::-webkit-scrollbar]:hidden flex-shrink-0">
+                      {getConsentText("general")}
+                    </div>
+
+                    <div className="flex-1 min-h-0 mt-2 border-2 border-dashed border-border rounded-2xl bg-card p-2 relative overflow-hidden">
+                      <canvas
+                        ref={canvasRef}
+                        width={900}
+                        height={300}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing}
+                        onTouchMove={draw}
+                        onTouchEnd={stopDrawing}
+                        className="bg-card rounded-xl cursor-crosshair w-full h-full"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={clearCanvas}
+                        className="flex-1 py-1.5 text-xs font-bold border border-border rounded-xl hover:bg-muted transition-colors text-muted-foreground"
+                      >
+                        Limpiar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={closeFullscreenSignature}
+                        className="flex-1 py-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                      >
+                        Firma Lista
+                      </button>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+                </>
               )}
 
               <div className="pt-4 border-t border-border flex gap-3">

@@ -143,7 +143,11 @@ export default function PatientPortalScreen() {
       setSubmitting(true);
       setErrorMsg(null);
       
-      const dateTimeString = `${selectedDate}T${selectedSlot}:00`;
+      // Se fija explícitamente el offset de Bolivia (UTC-4): sin esto, el
+      // servidor interpreta la hora elegida por el paciente según su propia
+      // zona horaria (normalmente UTC en el contenedor), corriendo la cita
+      // varias horas — y a veces de día — respecto a lo que el paciente vio.
+      const dateTimeString = `${selectedDate}T${selectedSlot}:00-04:00`;
       
       const payload = {
         fullName,

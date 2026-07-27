@@ -141,16 +141,63 @@ export default function SuperAdminScreen() {
         </div>
       ) : (
         <div id="tour-saas-tenant-list" className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          {/* Tarjetas apiladas para celular/tablet chica: 6 columnas no entran ahí. */}
+          <div className="sm:hidden divide-y divide-border">
+            {tenants.map((t) => (
+              <div key={t.id} className="p-4 space-y-2.5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                  <p className="text-2xs text-muted-foreground font-mono">{t.slug}</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold ${
+                      t.isActive
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
+                  >
+                    {t.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    {t.isActive ? "Activo" : "Suspendido"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={t.plan}
+                    onChange={(e) => handleChangePlan(t, e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground font-semibold focus:outline-none"
+                  >
+                    <option value="BASIC">BASIC</option>
+                    <option value="PREMIUM">PREMIUM</option>
+                  </select>
+                  <button
+                    onClick={() => handleToggleActive(t)}
+                    className={`flex-1 px-3 py-1.5 text-2xs font-bold rounded-lg transition-all cursor-pointer ${
+                      t.isActive
+                        ? "bg-red-50 text-red-600 hover:bg-red-100/50"
+                        : "bg-green-50 text-green-600 hover:bg-green-100/50"
+                    }`}
+                  >
+                    {t.isActive ? "Suspender" : "Activar"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/10">
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Inquilino</th>
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Slug</th>
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Plan</th>
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Estado</th>
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Fecha Registro</th>
-                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Acciones</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Inquilino</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Slug</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Plan</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Estado</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Fecha Registro</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

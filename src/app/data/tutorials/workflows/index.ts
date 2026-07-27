@@ -12,7 +12,6 @@ import { whatsappIntegrationWorkflow } from "./whatsappIntegration";
 import { payrollSettlementWorkflow } from "./payrollSettlement";
 
 // New workflows
-import { inventoryTransferWorkflow } from "./inventoryTransfer";
 import { staffAttendanceWorkflow } from "./staffAttendance";
 import { createProductWorkflow } from "./createProduct";
 import { createPackageWorkflow } from "./createPackage";
@@ -36,7 +35,6 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
   "payroll-settlement": payrollSettlementWorkflow,
   
   // New workflows mapping
-  "inventory-transfer": inventoryTransferWorkflow,
   "staff-attendance": staffAttendanceWorkflow,
   "create-product": createProductWorkflow,
   "create-package": createPackageWorkflow,

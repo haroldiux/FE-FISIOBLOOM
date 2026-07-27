@@ -34,13 +34,15 @@ import {
   Clock,
 } from "lucide-react";
 import { api } from "../services/api";
+import BranchTabs from "../components/BranchTabs";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 
 interface Campaign {
   id: string;
   name: string;
   serviceId: string;
-  discountType: "PERCENT" | "FIXED";
+  discountType: "PERCENTAGE" | "FIXED";
   discountValue: number;
   startDate: string;
   endDate: string;
@@ -50,13 +52,13 @@ interface Campaign {
 interface Coupon {
   id: string;
   code: string;
-  discountType: "PERCENT" | "FIXED";
+  discountType: "PERCENTAGE" | "FIXED";
   discountValue: number;
-  expiryDate: string;
+  endDate: string;
   isActive: boolean;
-  usageStock: number;
+  maxUses: number;
   usedCount: number;
-  minPurchase: number;
+  minSubtotal: number;
 }
 
 interface Professional {
@@ -132,6 +134,7 @@ interface Service {
   id: string;
   name: string;
   defaultPrice: number;
+  branchId?: string;
 }
 
 interface Product {
@@ -139,6 +142,8 @@ interface Product {
   name: string;
   price: number;
   stock: number;
+  recommendedCategory?: string | null;
+  branchId?: string;
 }
 
 interface CartItem {
@@ -147,6 +152,8 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  appointmentId?: string;
+  autoLoaded?: boolean;
 }
 
 interface CashRegister {
@@ -167,6 +174,7 @@ interface CashRegister {
 }
 
 export default function FinanceScreen() {
+  const { user, shiftStatus } = useAuth();
   const [activeTab, setActiveTab] = useState<"pos" | "caja" | "schedules" | "performance" | "payroll" | "promotions" | "attendance">("pos");
 
   // Listen for onboarding tutorial actions (e.g., auto-switching tabs)
@@ -206,7 +214,7 @@ export default function FinanceScreen() {
   const [campaignForm, setCampaignForm] = useState({
     name: "",
     serviceId: "",
-    discountType: "PERCENT" as "PERCENT" | "FIXED",
+    discountType: "PERCENTAGE" as "PERCENTAGE" | "FIXED",
     discountValue: 10,
     startDate: "",
     endDate: ""
@@ -214,7 +222,7 @@ export default function FinanceScreen() {
 
   const [couponForm, setCouponForm] = useState({
     code: "",
-    discountType: "PERCENT" as "PERCENT" | "FIXED",
+    discountType: "PERCENTAGE" as "PERCENTAGE" | "FIXED",
     discountValue: 10,
     expiryDate: "",
     usageStock: 100,
@@ -261,6 +269,7 @@ export default function FinanceScreen() {
   // Carrito de compras del POS
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "BILLETERA_VIRTUAL">("EFECTIVO");
   const [paymentReference, setPaymentReference] = useState("");
@@ -290,13 +299,12 @@ export default function FinanceScreen() {
   const [showPayrollModal, setShowPayrollModal] = useState(false);
   const [payrollsForm, setPayrollsForm] = useState({
     professionalId: "",
-    baseSalary: 1500,
-    commissions: 0,
-    deductions: 150,
-    bonuses: 0,
-    period: "Julio 2026",
+    startDate: "",
+    endDate: "",
   });
-  
+  const [calculatingPayroll, setCalculatingPayroll] = useState(false);
+
+
   const [showPayConfirmModal, setShowPayConfirmModal] = useState(false);
   const [selectedPayrollToPay, setSelectedPayrollToPay] = useState<StaffPayroll | null>(null);
   const [payMethod, setPayMethod] = useState<"TRANSFERENCIA" | "EFECTIVO" | "TARJETA">("TRANSFERENCIA");
@@ -304,11 +312,36 @@ export default function FinanceScreen() {
   // Asistencia States
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendancePeriod, setAttendancePeriod] = useState<"day" | "week" | "month">("month");
+  const [attendanceRoleFilter, setAttendanceRoleFilter] = useState<"ALL" | "PHYSIO" | "AESTHETICIAN" | "RECEPTIONIST">("ALL");
 
-  const loadAttendanceHistory = async () => {
+  // Calcula el rango de fechas [inicio, fin] según el período elegido (día
+  // actual, semana actual de lunes a domingo, o mes actual) para no traer
+  // "todo" el historial de golpe y que sea más fácil de leer.
+  const getAttendancePeriodRange = (period: "day" | "week" | "month"): { startDate: string; endDate: string } => {
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+    if (period === "day") {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (period === "week") {
+      const dayOfWeek = now.getDay(); // 0=domingo
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+    return { startDate: start.toISOString(), endDate: end.toISOString() };
+  };
+
+  const loadAttendanceHistory = async (period: "day" | "week" | "month" = attendancePeriod) => {
     try {
       setAttendanceLoading(true);
-      const data = await api.get<any[]>("/attendance/history");
+      const { startDate, endDate } = getAttendancePeriodRange(period);
+      const data = await api.get<any[]>(`/attendance/history?startDate=${startDate}&endDate=${endDate}`);
       setAttendanceHistory(data || []);
     } catch (err) {
       console.error("Error al cargar historial de asistencia:", err);
@@ -316,6 +349,16 @@ export default function FinanceScreen() {
       setAttendanceLoading(false);
     }
   };
+
+  const filteredAttendanceHistory = attendanceHistory
+    .filter((att: any) => attendanceRoleFilter === "ALL" || att.user?.role === attendanceRoleFilter)
+    .sort((a: any, b: any) => {
+      // Agrupado por nombre de profesional (alfabético) para que sea fácil
+      // de leer; dentro de la misma persona, lo más reciente primero.
+      const nameCompare = (a.user?.name || "").localeCompare(b.user?.name || "");
+      if (nameCompare !== 0) return nameCompare;
+      return new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime();
+    });
 
   useEffect(() => {
     loadData();
@@ -325,10 +368,10 @@ export default function FinanceScreen() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "attendance") {
-      loadAttendanceHistory();
+    if (activeTab === "attendance" && user?.role === "ADMIN") {
+      loadAttendanceHistory(attendancePeriod);
     }
-  }, [activeTab]);
+  }, [activeTab, attendancePeriod]);
 
   const loadStaffFinanceData = async () => {
     setLoadingStaff(true);
@@ -349,13 +392,17 @@ export default function FinanceScreen() {
         setSelectedProfHours(hours);
       }
 
-      // 2. Cargar comisiones / desempeño
-      const perfData = await api.get<StaffPerformance[]>("/finance/staff/commissions");
-      setPerformances(perfData);
+      // 2. Cargar comisiones / desempeño y nóminas (ADMIN y SÚPER ADMIN tienen permiso en el backend)
+      if (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") {
+        const perfData = await api.get<StaffPerformance[]>("/finance/staff/commissions");
+        setPerformances(perfData);
 
-      // 3. Cargar historial de nóminas
-      const payData = await api.get<StaffPayroll[]>("/finance/staff/payroll");
-      setPayrolls(payData);
+        const payData = await api.get<StaffPayroll[]>("/finance/staff/payroll");
+        setPayrolls(payData);
+      } else {
+        setPerformances([]);
+        setPayrolls([]);
+      }
     } catch (e: any) {
       setStaffError("Error cargando datos del staff financiero. Conexión fallida con el servidor.");
       console.error(e);
@@ -437,7 +484,7 @@ export default function FinanceScreen() {
     if (!editingPerformance) return;
     const target = Number(newGoal) || 0;
     const rate = Number(newRate) || 0;
-    
+
     setLoadingStaff(true);
     try {
       await api.put(`/finance/staff/${editingPerformance.professionalId}/target`, {
@@ -462,6 +509,26 @@ export default function FinanceScreen() {
     setShowPayConfirmModal(true);
   };
 
+  const [recalculatingId, setRecalculatingId] = useState<string | null>(null);
+
+  // Una nómina PENDIENTE es un cálculo, no un hecho consumado: si cambiaste
+  // el sueldo base del profesional (o ganó comisiones nuevas) después de
+  // generarla, esto la vuelve a calcular con los valores actuales sin
+  // necesidad de borrarla y crearla de nuevo. Una vez pagada, ya no se puede
+  // tocar — el backend la rechaza.
+  const handleRecalculatePayroll = async (payId: string) => {
+    setRecalculatingId(payId);
+    try {
+      await api.put(`/finance/staff/payroll/${payId}/recalculate`, {});
+      toast.success("Nómina recalculada con el sueldo y las comisiones actuales.");
+      loadStaffFinanceData();
+    } catch (err: any) {
+      toast.error(err.message || "Error al recalcular la nómina.");
+    } finally {
+      setRecalculatingId(null);
+    }
+  };
+
   const handleConfirmPay = async () => {
     if (!selectedPayrollToPay) return;
     setLoadingStaff(true);
@@ -479,70 +546,55 @@ export default function FinanceScreen() {
   };
 
   const handleOpenPayrollModal = () => {
-    let initialComm = 0;
-    let initialName = "";
-    let initialRole = "PHYSIO";
-    
-    const firstProf = professionals[0];
-    if (firstProf) {
-      const perf = performances.find(p => p.professionalId === firstProf.id);
-      initialComm = perf ? perf.commissionEarned : 0;
-      initialName = firstProf.name;
-      initialRole = firstProf.role;
-    }
-    
+    const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
     setPayrollsForm({
-      professionalId: firstProf?.id || "",
-      baseSalary: firstProf?.role === "PHYSIO" ? 2500 : firstProf?.role === "AESTHETICIAN" ? 1800 : 1500,
-      commissions: initialComm,
-      deductions: 150,
-      bonuses: 0,
-      period: "Julio 2026",
+      professionalId: "",
+      startDate: monthStart,
+      endDate: monthEnd,
     });
     setShowPayrollModal(true);
   };
 
   const handlePayrollFormChange = (field: string, value: any) => {
-    setPayrollsForm(prev => {
-      const updated = { ...prev, [field]: value };
-      if (field === "professionalId") {
-        const prof = professionals.find(p => p.id === value);
-        if (prof) {
-          const perf = performances.find(p => p.professionalId === value);
-          updated.commissions = perf ? perf.commissionEarned : 0;
-          updated.baseSalary = prof.role === "PHYSIO" ? 2500 : prof.role === "AESTHETICIAN" ? 1800 : 1500;
-        }
-      }
-      return updated;
-    });
+    setPayrollsForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleCreatePayroll = () => {
-    const prof = professionals.find(p => p.id === payrollsForm.professionalId);
-    if (!prof) {
-      toast.error("Seleccione un profesional.");
+  // Llama al cálculo real del backend: toma el sueldo base configurado por
+  // cada profesional (Configuración > Profesionales) más las comisiones que
+  // ya ganó en el período (calculadas automáticamente al completar ventas),
+  // y crea la(s) nómina(s) pendiente(s) de pago. No hay nada para "inventar"
+  // a mano — sueldo y comisión ya están definidos en el sistema.
+  const handleCreatePayroll = async () => {
+    if (!payrollsForm.startDate || !payrollsForm.endDate) {
+      toast.error("Seleccioná el período (fecha de inicio y fin).");
       return;
     }
-    
-    const netPay = Number(payrollsForm.baseSalary) + Number(payrollsForm.commissions) + Number(payrollsForm.bonuses) - Number(payrollsForm.deductions);
-    const entry: StaffPayroll = {
-      id: `pay-${Date.now()}`,
-      professionalId: payrollsForm.professionalId,
-      name: prof.name,
-      role: prof.role,
-      period: payrollsForm.period,
-      baseSalary: Number(payrollsForm.baseSalary),
-      commissions: Number(payrollsForm.commissions),
-      deductions: Number(payrollsForm.deductions),
-      bonuses: Number(payrollsForm.bonuses),
-      netPay,
-      status: "PENDIENTE",
-    };
-    
-    const updated = [entry, ...payrolls];
-    setPayrolls(updated);
-    setShowPayrollModal(false);
-    toast.success("Nómina generada con éxito.");
+    setCalculatingPayroll(true);
+    try {
+      const result = await api.post<{ message: string; payrolls: any[]; skipped: { staffName: string; existingPeriod: string }[] }>("/finance/staff/payroll/calculate", {
+        staffId: payrollsForm.professionalId || undefined,
+        startDate: payrollsForm.startDate,
+        endDate: payrollsForm.endDate,
+      });
+      const payData = await api.get<StaffPayroll[]>("/finance/staff/payroll");
+      setPayrolls(payData);
+      setShowPayrollModal(false);
+
+      if (result.payrolls.length > 0) {
+        toast.success(`Nómina calculada para ${result.payrolls.length} profesional(es).`);
+      }
+      if (result.skipped?.length > 0) {
+        toast.warning(
+          `Ya tenían nómina para ese período (no se duplicó): ${result.skipped.map((s) => s.staffName).join(", ")}.`
+        );
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error al calcular la nómina.");
+    } finally {
+      setCalculatingPayroll(false);
+    }
   };
 
   const loadData = async () => {
@@ -666,7 +718,7 @@ export default function FinanceScreen() {
     if (!coupon) return;
     const sub = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     let calcDiscount = 0;
-    if (coupon.discountType === "PERCENT") {
+    if (coupon.discountType === "PERCENTAGE") {
       calcDiscount = Math.round(sub * (coupon.discountValue / 100));
     } else {
       calcDiscount = coupon.discountValue;
@@ -679,33 +731,36 @@ export default function FinanceScreen() {
     setCouponValidationLoading(true);
     setCouponError(null);
     setCouponSuccessMsg(null);
+    // Si un cobro anterior había fallado (ej. por este mismo cupón antes de
+    // corregirlo), ese aviso quedaba pegado arriba para siempre aunque el
+    // cupón ahora se aplique bien — se limpia acá para no confundir.
+    setPosError(null);
     const codeUpper = couponCode.trim().toUpperCase();
     const currentSubtotal = getSubtotal();
 
     try {
+      // El backend ya valida el subtotal mínimo del cupón y devuelve 400 si no
+      // se cumple, así que no hay "minPurchase" que revisar acá — y tampoco
+      // devuelve "code" (ya lo tenemos nosotros mismos como codeUpper).
       const res = await api.post<{
-        code: string;
-        discountType: "PERCENT" | "FIXED";
+        valid: boolean;
+        discountType: "PERCENTAGE" | "FIXED";
         discountValue: number;
-        minPurchase?: number;
+        discountAmount: number;
       }>("/coupons/validate", {
         code: codeUpper,
-        cartTotal: currentSubtotal,
+        subtotal: currentSubtotal,
       });
-      
-      if (res.minPurchase && currentSubtotal < res.minPurchase) {
-        throw new Error(`La compra mínima para este cupón es de $${res.minPurchase}`);
-      }
 
       const verifiedCoupon: Coupon = {
         id: `coup-verified-${Date.now()}`,
-        code: res.code,
+        code: codeUpper,
         discountType: res.discountType,
         discountValue: res.discountValue,
-        minPurchase: res.minPurchase || 0,
-        expiryDate: "",
+        minSubtotal: 0,
+        endDate: "",
         isActive: true,
-        usageStock: 9999,
+        maxUses: 9999,
         usedCount: 0
       };
 
@@ -723,16 +778,124 @@ export default function FinanceScreen() {
     setAppliedCoupon(coupon);
     let calcDiscount = 0;
     const currentSubtotal = getSubtotal();
-    if (coupon.discountType === "PERCENT") {
+    if (coupon.discountType === "PERCENTAGE") {
       calcDiscount = Math.round(currentSubtotal * (coupon.discountValue / 100));
     } else {
       calcDiscount = coupon.discountValue;
     }
     setDiscount(calcDiscount);
-    setCouponSuccessMsg(`¡Cupón ${coupon.code} aplicado! Descuento de ${coupon.discountType === "PERCENT" ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}`);
+    setCouponSuccessMsg(`¡Cupón ${coupon.code} aplicado! Descuento de ${coupon.discountType === "PERCENTAGE" ? `${coupon.discountValue}%` : `$${coupon.discountValue}`}`);
+  };
+
+  // Al elegir un paciente en el cobro, se autocompleta el carrito con los
+  // servicios de sus citas ya atendidas (COMPLETADA) que todavía no se cobraron,
+  // para no tener que buscar y agregar cada ítem a mano.
+  const handleSelectPatientForBilling = async (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setDiscount(0);
+    setAppliedCoupon(null);
+    setCouponSuccessMsg(null);
+    setCouponCode("");
+
+    // Lo que el cajero ya haya agregado a mano (antes o después de elegir
+    // paciente) nunca se pierde: solo reemplazamos los ítems auto-cargados
+    // de un paciente anterior, no el carrito completo.
+    if (!patientId) {
+      setCart((prev) => prev.filter((c) => !c.autoLoaded));
+      setRecommendedProducts([]);
+      return;
+    }
+
+    try {
+      const appts = await api.get<any[]>(`/appointments?patientId=${patientId}`);
+      const pendingCharges = appts.filter((a) => a.status === "COMPLETADA" && !a.invoice && a.service);
+
+      // Si la cita combina varios servicios de un mismo paquete vendido como
+      // combo (ver "Nueva Cita" → "Paquete"), hay que cobrar el precio del
+      // COMBO guardado en el paquete, no la suma de precios sueltos de cada
+      // servicio — sumarlos por separado cobra de más y pierde el descuento
+      // que el paciente ya pagó.
+      let patientPackages: any[] = [];
+      try {
+        const patientDetail = await api.get<any>(`/patients/${patientId}`);
+        patientPackages = patientDetail.treatmentPackages || [];
+      } catch (err) {
+        console.error("Error al cargar paquetes del paciente para facturación:", err);
+      }
+
+      const findBundledPackage = (a: any) => {
+        const apptServiceIds: string[] = [a.serviceId, ...(a.additionalServiceIds || [])].filter(Boolean);
+        if (apptServiceIds.length < 2) return null;
+        return patientPackages.find(
+          (pkg: any) =>
+            pkg.totalPrice != null &&
+            apptServiceIds.every((sid) => pkg.lines.some((l: any) => l.serviceId === sid))
+        ) || null;
+      };
+
+      // Cada cita puede tener un servicio principal + servicios adicionales
+      // (ej. "esto y esto"). Resolvemos los adicionales contra el catálogo ya cargado.
+      const resolveServices = (a: any): any[] => {
+        const extra = (a.additionalServiceIds || [])
+          .map((sid: string) => services.find((s) => s.id === sid))
+          .filter(Boolean);
+        return [a.service, ...extra];
+      };
+
+      // Sugerir productos según la(s) categoría(s) de servicio atendidas
+      // (ej. fisioterapia -> productos de fisio, facial/corporal -> productos de estética).
+      const allAttendedServices = pendingCharges.flatMap((a) =>
+        resolveServices(a).map((s) => ({ service: s, appointmentId: a.id }))
+      );
+      const attendedCategories = new Set(allAttendedServices.map((x) => x.service.category));
+      const suggestions = products.filter(
+        (p) => p.recommendedCategory && attendedCategories.has(p.recommendedCategory)
+      );
+      setRecommendedProducts(suggestions);
+
+      if (pendingCharges.length === 0) {
+        setCart((prev) => prev.filter((c) => !c.autoLoaded));
+        toast.info("Este paciente no tiene atenciones pendientes de cobro. Agregá manualmente lo que corresponda.");
+        return;
+      }
+
+      const autoCart: CartItem[] = pendingCharges.flatMap((a) => {
+        const bundledPackage = findBundledPackage(a);
+        if (bundledPackage) {
+          return [{
+            id: bundledPackage.id,
+            type: "SERVICE" as const,
+            name: bundledPackage.packageName,
+            price: bundledPackage.totalPrice,
+            quantity: 1,
+            appointmentId: a.id,
+            autoLoaded: true,
+          }];
+        }
+        return resolveServices(a).map((service) => ({
+          id: service.id,
+          type: "SERVICE" as const,
+          name: service.name,
+          price: service.defaultPrice,
+          quantity: 1,
+          appointmentId: a.id,
+          autoLoaded: true,
+        }));
+      });
+      setCart((prev) => [...prev.filter((c) => !c.autoLoaded), ...autoCart]);
+      toast.success(`Se cargaron ${autoCart.length} ítem(s) pendiente(s) de cobro de este paciente.`);
+    } catch (err) {
+      console.error("Error al cargar atenciones pendientes del paciente:", err);
+      setCart((prev) => prev.filter((c) => !c.autoLoaded));
+      setRecommendedProducts([]);
+    }
   };
 
   const addToCart = (item: any, type: "SERVICE" | "PRODUCT") => {
+    if (!shiftStatus.canOperate) {
+      toast.warning(shiftStatus.message || "No podés operar en este momento.");
+      return;
+    }
     if (type === "PRODUCT") {
       const branchStockEntry = branchStocks.find(
         (bs) => bs.productId === item.id && bs.branchId === selectedBranchId
@@ -757,7 +920,7 @@ export default function FinanceScreen() {
     if (type === "SERVICE") {
       const campaign = getActiveCampaignForService(item.id);
       if (campaign) {
-        itemPrice = campaign.discountType === "PERCENT" 
+        itemPrice = campaign.discountType === "PERCENTAGE" 
           ? Math.max(0, item.defaultPrice * (1 - campaign.discountValue / 100))
           : Math.max(0, item.defaultPrice - campaign.discountValue);
       }
@@ -780,6 +943,12 @@ export default function FinanceScreen() {
   };
 
   const removeFromCart = (id: string, type: "SERVICE" | "PRODUCT") => {
+    // Las sesiones ya atendidas se auto-cargan al carrito y no se pueden
+    // quitar: son un servicio que el cliente ya recibió y hay que cobrarlo sí
+    // o sí, no algo que el cajero pueda simplemente borrar.
+    const target = cart.find(c => c.id === id && c.type === type);
+    if (target?.autoLoaded) return;
+
     const nextCart = cart.filter(c => !(c.id === id && c.type === type));
     setCart(nextCart);
     if (nextCart.length === 0) {
@@ -793,6 +962,9 @@ export default function FinanceScreen() {
   };
 
   const updateQuantity = (id: string, type: "SERVICE" | "PRODUCT", qty: number) => {
+    const target = cart.find(c => c.id === id && c.type === type);
+    if (target?.autoLoaded) return;
+
     if (qty <= 0) {
       removeFromCart(id, type);
       return;
@@ -826,8 +998,20 @@ export default function FinanceScreen() {
         total: c.price * c.quantity
       }));
 
+      // Si el carrito viene de atenciones ya realizadas, vinculamos la factura
+      // a esas citas — puede haber más de una (ej. se cobran 2 sesiones
+      // distintas juntas). appointmentId solo guarda la primera (así queda el
+      // link 1:1 que ya usa el resto del sistema); additionalAppointmentIds
+      // guarda las demás, para que ninguna quede marcada como "sin cobrar"
+      // después de haberse pagado en esta misma venta.
+      const distinctAppointmentIds = [...new Set(cart.map((c) => c.appointmentId).filter(Boolean))] as string[];
+      const linkedAppointmentId = distinctAppointmentIds[0] || null;
+      const additionalAppointmentIds = distinctAppointmentIds.slice(1);
+
       await api.post("/invoices", {
         patientId: selectedPatientId,
+        appointmentId: linkedAppointmentId,
+        additionalAppointmentIds,
         items,
         subtotal: getSubtotal(),
         tax: 0,
@@ -911,7 +1095,7 @@ export default function FinanceScreen() {
     setCampaignForm({
       name: "",
       serviceId: "",
-      discountType: "PERCENT",
+      discountType: "PERCENTAGE",
       discountValue: 10,
       startDate: "",
       endDate: ""
@@ -937,7 +1121,17 @@ export default function FinanceScreen() {
     };
 
     try {
-      await api.post<Coupon>("/coupons", newCoup);
+      // El backend espera startDate/endDate/maxUses/minSubtotal (no expiryDate/usageStock/minPurchase)
+      await api.post<Coupon>("/coupons", {
+        code: newCoup.code,
+        discountType: newCoup.discountType,
+        discountValue: newCoup.discountValue,
+        minSubtotal: newCoup.minPurchase,
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: newCoup.expiryDate,
+        maxUses: newCoup.usageStock,
+        isActive: true,
+      });
       const updated = [newCoup, ...coupons];
       setCoupons(updated);
     } catch (err) {
@@ -946,7 +1140,7 @@ export default function FinanceScreen() {
 
     setCouponForm({
       code: "",
-      discountType: "PERCENT",
+      discountType: "PERCENTAGE",
       discountValue: 10,
       expiryDate: "",
       usageStock: 100,
@@ -955,44 +1149,49 @@ export default function FinanceScreen() {
     setShowCouponModal(false);
   };
 
-  const handleToggleCampaignState = async (id: string) => {
+  const handleToggleCampaignState = async (id: string, currentlyActive: boolean) => {
     try {
-      await api.put(`/campaigns/${id}/toggle`, {});
+      await api.put(`/campaigns/${id}`, { isActive: !currentlyActive });
       const updated = campaigns.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
       setCampaigns(updated);
-    } catch (err) {
-      toast.error("Error al cambiar estado de campaña en el servidor.");
+    } catch (err: any) {
+      toast.error(err.message || "Error al cambiar estado de campaña en el servidor.");
     }
   };
 
-  const handleToggleCouponState = async (id: string) => {
+  const handleToggleCouponState = async (id: string, currentlyActive: boolean) => {
     try {
-      await api.put(`/coupons/${id}/toggle`, {});
+      await api.put(`/coupons/${id}`, { isActive: !currentlyActive });
       const updated = coupons.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
       setCoupons(updated);
-    } catch (err) {
-      toast.error("Error al cambiar estado de cupón en el servidor.");
+    } catch (err: any) {
+      toast.error(err.message || "Error al cambiar estado de cupón en el servidor.");
     }
   };
 
   // Buscador filtrado
-  const filteredServices = services.filter(s => s.name.toLowerCase().includes(posSearch.toLowerCase()));
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(posSearch.toLowerCase()));
+  const filteredServices = services.filter(
+    (s) => s.name.toLowerCase().includes(posSearch.toLowerCase()) && (!selectedBranchId || s.branchId === selectedBranchId)
+  );
+  const filteredProducts = products.filter(
+    (p) => p.name.toLowerCase().includes(posSearch.toLowerCase()) && (!selectedBranchId || p.branchId === selectedBranchId)
+  );
 
   return (
     <div className="p-6 space-y-6">
-      
+      <BranchTabs />
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-foreground uppercase tracking-widest flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary" />
+          <h2 className="text-base sm:text-xl font-black text-foreground uppercase tracking-wide sm:tracking-widest flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-primary flex-shrink-0" />
             Control Financiero & POS
           </h2>
           <p className="text-xs text-muted-foreground font-medium">Terminal de venta rápida y flujo de caja diario en tiempo real</p>
         </div>
 
         {/* Tab Selector */}
+        <div className="relative w-full sm:w-auto">
         <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full scrollbar-hide flex-nowrap flex-shrink-0">
           <button
             id="tour-finance-pos-tab"
@@ -1029,56 +1228,75 @@ export default function FinanceScreen() {
           >
             Horarios de Staff
           </button>
-          <button
-            id="tour-finance-performance-tab"
-            onClick={() => setActiveTab("performance")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
-              activeTab === "performance"
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
-            Desempeño y Metas
-          </button>
-          <button
-            id="tour-finance-payroll-tab"
-            onClick={() => setActiveTab("payroll")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
-              activeTab === "payroll"
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
-            Nóminas y Liquidación
-          </button>
-          <button
-            id="tour-finance-attendance-tab"
-            onClick={() => setActiveTab("attendance")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
-              activeTab === "attendance"
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
-            Asistencia
-          </button>
-          <button
-            id="tour-finance-promotions-tab"
-            onClick={() => setActiveTab("promotions")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
-              activeTab === "promotions"
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
-            Promociones
-          </button>
+          {user?.role !== "RECEPTIONIST" && (
+            <button
+              id="tour-finance-performance-tab"
+              onClick={() => setActiveTab("performance")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
+                activeTab === "performance"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              Desempeño y Metas
+            </button>
+          )}
+          {user?.role !== "RECEPTIONIST" && (
+            <button
+              id="tour-finance-payroll-tab"
+              onClick={() => setActiveTab("payroll")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
+                activeTab === "payroll"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              Nóminas y Liquidación
+            </button>
+          )}
+          {user?.role !== "RECEPTIONIST" && (
+            <button
+              id="tour-finance-attendance-tab"
+              onClick={() => setActiveTab("attendance")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
+                activeTab === "attendance"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              Asistencia
+            </button>
+          )}
+          {user?.role !== "RECEPTIONIST" && (
+            <button
+              id="tour-finance-promotions-tab"
+              onClick={() => setActiveTab("promotions")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
+                activeTab === "promotions"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              Promociones
+            </button>
+          )}
+        </div>
+        {/* Degradado que insinúa que hay más pestañas para deslizar, en vez de que se vea cortado */}
+        <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-muted rounded-r-xl" />
         </div>
       </div>
 
+      {/* Aviso de turno/fichaje bloqueado (fisio/estetica/recepcion sin turno hoy o sin fichar entrada) */}
+      {!shiftStatus.canOperate && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-warning/10 border border-warning/20 rounded-2xl">
+          <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+          <p className="text-xs font-bold text-warning">{shiftStatus.message}</p>
+        </div>
+      )}
+
       {/* Caja Abierta Alerta Banner */}
       {!cajaLoading && !cashRegister && (
-        <div className="flex items-center justify-between gap-4 p-4 bg-warning/10 border border-warning/20 rounded-2xl backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-warning/10 border border-warning/20 rounded-2xl backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <Lock className="w-5 h-5 text-warning flex-shrink-0" />
             <div>
@@ -1088,7 +1306,9 @@ export default function FinanceScreen() {
           </div>
           <button
             onClick={() => { setPosError(null); setShowOpenModal(true); }}
-            className="flex items-center gap-1.5 bg-warning/20 border border-warning/30 text-warning text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/30 transition-colors"
+            disabled={!shiftStatus.canOperate}
+            title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+            className="flex items-center justify-center gap-1.5 bg-warning/20 border border-warning/30 text-warning text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/30 transition-colors whitespace-nowrap w-full sm:w-auto flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Unlock className="w-3.5 h-3.5" />
             Abrir Caja Diaria
@@ -1131,18 +1351,19 @@ export default function FinanceScreen() {
               </div>
             </div>
 
-            {/* Listado de Servicios */}
+            {/* Listado de Servicios (oculto para Recepción y Admin: no deben poder cobrar tratamientos clínicos por error) */}
+            {user?.role !== "RECEPTIONIST" && user?.role !== "ADMIN" && (
             <div id="tour-pos-add-service" className="bg-card rounded-2xl border border-border p-5 space-y-3">
               <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-secondary" />
                 Tratamientos Clínicos
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredServices.map((srv) => {
                   const campaign = getActiveCampaignForService(srv.id);
                   const finalPrice = campaign
-                    ? (campaign.discountType === "PERCENT"
+                    ? (campaign.discountType === "PERCENTAGE"
                         ? Math.max(0, srv.defaultPrice * (1 - campaign.discountValue / 100))
                         : Math.max(0, srv.defaultPrice - campaign.discountValue))
                     : srv.defaultPrice;
@@ -1153,7 +1374,7 @@ export default function FinanceScreen() {
                       className="p-3 border border-border rounded-xl hover:border-primary hover:bg-muted/50 transition-all flex justify-between items-center group"
                     >
                       <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-foreground truncate flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-bold text-foreground leading-snug flex items-center gap-1.5 flex-wrap">
                           {srv.name}
                           {campaign && (
                             <span className="bg-success/10 text-success text-[8px] px-1.5 py-0.5 rounded-full font-bold">
@@ -1185,6 +1406,7 @@ export default function FinanceScreen() {
                 })}
               </div>
             </div>
+            )}
 
             {/* Listado de Productos */}
             <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
@@ -1206,7 +1428,7 @@ export default function FinanceScreen() {
                       className="p-3 border border-border rounded-xl hover:border-success hover:bg-muted/50 transition-all flex justify-between items-center group animate-fade-in"
                     >
                       <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-foreground truncate">{prod.name}</p>
+                        <p className="text-xs font-bold text-foreground leading-snug">{prod.name}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-[11px] font-black text-success">${prod.price}</span>
                           <span className={`text-[9px] font-bold ${currentStock <= 0 ? "text-error" : "text-muted-foreground"}`}>
@@ -1240,6 +1462,13 @@ export default function FinanceScreen() {
                 Resumen del Cobro
               </h3>
 
+              {!shiftStatus.canOperate && (
+                <div className="flex items-center gap-2.5 px-3 py-2.5 bg-warning/10 border border-warning/20 rounded-xl">
+                  <Lock className="w-4 h-4 text-warning flex-shrink-0" />
+                  <p className="text-[11px] font-bold text-warning leading-snug">{shiftStatus.message}</p>
+                </div>
+              )}
+
               {posSuccess && (
                 <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/20 rounded-xl text-success text-xs font-bold animate-fade-in">
                   <CheckCircle className="w-4 h-4 text-success" />
@@ -1254,13 +1483,14 @@ export default function FinanceScreen() {
                 </div>
               )}
 
+              <div className={!shiftStatus.canOperate ? "pointer-events-none opacity-40 select-none space-y-5" : "space-y-5"}>
               {/* Paciente */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Paciente *</label>
                 <select
                   id="tour-pos-patient-search"
                   value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  onChange={(e) => handleSelectPatientForBilling(e.target.value)}
                   className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                 >
                   <option value="">-- Asignar Paciente --</option>
@@ -1281,30 +1511,76 @@ export default function FinanceScreen() {
                     {cart.map((item) => (
                       <div key={`${item.type}-${item.id}`} className="flex justify-between items-center gap-2 p-2 bg-muted rounded-xl border border-border">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-foreground truncate">{item.name}</p>
-                          <p className="text-[9px] font-black text-muted-foreground">${item.price} c/u</p>
+                          <p className="text-[11px] font-bold text-foreground leading-snug flex items-center gap-1">
+                            {item.name}
+                            {item.autoLoaded && (
+                              <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            )}
+                          </p>
+                          <p className="text-[9px] font-black text-muted-foreground">
+                            ${item.price} c/u
+                            {item.autoLoaded && " · Sesión ya atendida, no se puede quitar"}
+                          </p>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.id, item.type, Number(e.target.value))}
-                            className="w-10 text-center text-xs font-bold bg-card border border-border rounded-lg p-1"
-                          />
-                          <button
-                            onClick={() => removeFromCart(item.id, item.type)}
-                            className="text-muted-foreground hover:text-error p-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {item.autoLoaded ? (
+                          <span className="text-xs font-bold text-foreground px-2">{item.quantity}</span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.id, item.type, Number(e.target.value))}
+                              className="w-10 text-center text-xs font-bold bg-card border border-border rounded-lg p-1"
+                            />
+                            <button
+                              onClick={() => removeFromCart(item.id, item.type)}
+                              className="text-muted-foreground hover:text-error p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              {/* Productos Recomendados según lo atendido */}
+              {recommendedProducts.length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-border">
+                  <label className="text-[10px] font-bold text-secondary uppercase block flex items-center gap-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    ¿Le ofrecemos algo más?
+                  </label>
+                  <p className="text-[10px] text-muted-foreground -mt-1">
+                    Productos sugeridos según el tratamiento realizado.
+                  </p>
+                  <div className="space-y-1.5">
+                    {recommendedProducts.map((p) => {
+                      const alreadyInCart = cart.some((c) => c.id === p.id && c.type === "PRODUCT");
+                      return (
+                        <div key={p.id} className="flex items-center justify-between gap-2 p-2 bg-secondary/5 border border-secondary/20 rounded-xl">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-foreground leading-snug">{p.name}</p>
+                            <p className="text-[9px] font-black text-secondary">${p.price}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(p, "PRODUCT")}
+                            disabled={alreadyInCart}
+                            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                          >
+                            {alreadyInCart ? "Agregado" : "+ Ofrecer"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Forma de Pago */}
               <div className="space-y-4 pt-3 border-t border-border">
@@ -1417,7 +1693,7 @@ export default function FinanceScreen() {
                   <div className="flex justify-between text-xs font-bold text-success items-center">
                     <span>Cupón ({appliedCoupon.code}):</span>
                     <span className="bg-success/20 text-success text-[9px] px-2 py-0.5 rounded-full font-black border border-success/20">
-                      -{appliedCoupon.discountType === "PERCENT" ? `${appliedCoupon.discountValue}%` : `$${appliedCoupon.discountValue}`}
+                      -{appliedCoupon.discountType === "PERCENTAGE" ? `${appliedCoupon.discountValue}%` : `$${appliedCoupon.discountValue}`}
                     </span>
                   </div>
                 )}
@@ -1432,12 +1708,14 @@ export default function FinanceScreen() {
                   <span className="text-primary text-base">${getTotal().toLocaleString()}</span>
                 </div>
               </div>
+              </div>
 
               {/* Botón Checkout */}
               <button
                 id="tour-pos-submit-sale"
                 onClick={handleCheckout}
-                disabled={!cashRegister || cart.length === 0 || !selectedPatientId}
+                disabled={!cashRegister || cart.length === 0 || !selectedPatientId || !shiftStatus.canOperate}
+                title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
                 className="w-full py-3 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/20 disabled:opacity-40 flex items-center justify-center gap-2 uppercase tracking-wider"
               >
                 Completar Venta y Cobro
@@ -1496,7 +1774,9 @@ export default function FinanceScreen() {
                     <button
                       id="tour-cash-expense-btn"
                       onClick={() => setShowExpenseModal(true)}
-                      className="flex-1 py-2 bg-muted hover:bg-muted/70 border border-border text-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                      disabled={!shiftStatus.canOperate}
+                      title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+                      className="flex-1 py-2 bg-muted hover:bg-muted/70 border border-border text-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <TrendingDown className="w-3.5 h-3.5" />
                       Registrar Egreso
@@ -1504,7 +1784,9 @@ export default function FinanceScreen() {
                     <button
                       id="tour-cash-close-btn"
                       onClick={() => { setFinanceNotes(""); setActualBalance(""); setShowCloseModal(true); }}
-                      className="flex-1 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-destructive/20"
+                      disabled={!shiftStatus.canOperate}
+                      title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+                      className="flex-1 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-destructive/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Lock className="w-3.5 h-3.5" />
                       Cerrar Caja
@@ -1526,15 +1808,43 @@ export default function FinanceScreen() {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Tarjetas apiladas para celular/tablet chica: 5 columnas no entran ahí. */}
+                <div className="sm:hidden divide-y divide-border">
+                  {cashRegister.movements.length === 0 ? (
+                    <p className="px-5 py-8 text-center text-xs text-muted-foreground italic">
+                      Aún no se registran movimientos en esta sesión de caja.
+                    </p>
+                  ) : (
+                    cashRegister.movements.map((mv) => (
+                      <div key={mv.id} className="px-5 py-3.5 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-foreground truncate">{mv.description}</span>
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                            mv.type === "INCOME" ? "bg-success/10 text-success border border-success/20" : "bg-error/10 text-error border border-error/20"
+                          }`}>
+                            {mv.type === "INCOME" ? "Ingreso" : "Egreso"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground font-bold">
+                          <span>{new Date(mv.createdAt).toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })} · {mv.user?.name || "Sistema"}</span>
+                          <span className="text-xs font-black text-foreground">
+                            {mv.type === "INCOME" ? "+" : "-"}${mv.amount.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
-                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Hora</th>
-                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Descripción</th>
-                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Tipo</th>
-                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Monto</th>
-                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase">Usuario</th>
+                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase whitespace-nowrap">Hora</th>
+                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase whitespace-nowrap">Descripción</th>
+                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase whitespace-nowrap">Tipo</th>
+                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase whitespace-nowrap">Monto</th>
+                        <th className="px-5 py-3 text-left text-[10px] font-black text-muted-foreground uppercase whitespace-nowrap">Usuario</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1584,7 +1894,9 @@ export default function FinanceScreen() {
               </div>
               <button
                 onClick={() => { setPosError(null); setShowOpenModal(true); }}
-                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-colors shadow-md shadow-primary/10"
+                disabled={!shiftStatus.canOperate}
+                title={!shiftStatus.canOperate ? shiftStatus.message || "No podés operar en este momento." : undefined}
+                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-colors shadow-md shadow-primary/10 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Unlock className="w-3.5 h-3.5" />
                 Abrir Caja Diaria
@@ -1829,14 +2141,16 @@ export default function FinanceScreen() {
                 </p>
               </div>
 
-              <button
-                onClick={handleSaveHours}
-                disabled={loadingStaff || !selectedProfId}
-                className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
-              >
-                {loadingStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                Guardar Jornada Semanal
-              </button>
+              {user?.role !== "RECEPTIONIST" && (
+                <button
+                  onClick={handleSaveHours}
+                  disabled={loadingStaff || !selectedProfId}
+                  className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
+                >
+                  {loadingStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Guardar Jornada Semanal
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1904,7 +2218,7 @@ export default function FinanceScreen() {
       )}
 
       {/* ── SECCIÓN DESEMPEÑO Y METAS ── */}
-      {activeTab === "performance" && (
+      {activeTab === "performance" && user?.role !== "RECEPTIONIST" && (
         <div className="space-y-6 animate-fade-in">
           {/* KPI Dashboard */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1942,7 +2256,7 @@ export default function FinanceScreen() {
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tasa de Cumplimiento</p>
                 <p className="text-xl font-black text-warning mt-0.5">
                   {Math.round(
-                    (performances.reduce((sum, p) => sum + p.actualSales, 0) / 
+                    (performances.reduce((sum, p) => sum + p.actualSales, 0) /
                      Math.max(1, performances.reduce((sum, p) => sum + p.salesTarget, 0))) * 100
                   )}%
                 </p>
@@ -1960,7 +2274,7 @@ export default function FinanceScreen() {
                 const progressPct = Math.min(100, Math.round((perf.actualSales / perf.salesTarget) * 100)) || 0;
                 return (
                   <div key={perf.professionalId} className="bg-card border border-border rounded-2xl p-5 space-y-4 hover:shadow-md transition-shadow">
-                    
+
                     {/* Header de Tarjeta */}
                     <div className="flex items-center justify-between pb-3 border-b border-border">
                       <div className="flex items-center gap-3">
@@ -1990,7 +2304,7 @@ export default function FinanceScreen() {
                         <span className="text-muted-foreground">Meta de Ventas:</span>
                         <span className="text-foreground">${perf.actualSales.toLocaleString()} / ${perf.salesTarget.toLocaleString()}</span>
                       </div>
-                      
+
                       <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                         <div
                           className={`h-full transition-all duration-700 ${
@@ -1999,7 +2313,7 @@ export default function FinanceScreen() {
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      
+
                       <div className="flex justify-between text-[9px] font-bold">
                         <span className="text-muted-foreground">{progressPct}% Completado</span>
                         <span className="text-primary font-black">{perf.month}</span>
@@ -2045,7 +2359,7 @@ export default function FinanceScreen() {
       )}
 
       {/* ── SECCIÓN NÓMINAS Y LIQUIDACIÓN ── */}
-      {activeTab === "payroll" && (
+      {activeTab === "payroll" && user?.role !== "RECEPTIONIST" && (
         <div id="tour-pos-payroll" className="space-y-6 animate-fade-in">
           {/* Resumen nóminas */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5">
@@ -2134,13 +2448,23 @@ export default function FinanceScreen() {
 
                       <div>
                         {pay.status === "PENDIENTE" ? (
-                          <button
-                            onClick={() => handleOpenPayConfirm(pay)}
-                            className="bg-warning text-foreground text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/90 transition-colors shadow-sm flex items-center gap-1.5"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" />
-                            Pagar Nómina
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleRecalculatePayroll(pay.id)}
+                              disabled={recalculatingId === pay.id}
+                              title="Volver a calcular con el sueldo/comisiones actuales"
+                              className="text-muted-foreground hover:text-foreground p-2 rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${recalculatingId === pay.id ? "animate-spin" : ""}`} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenPayConfirm(pay)}
+                              className="bg-warning text-foreground text-xs font-bold px-3.5 py-2 rounded-xl hover:bg-warning/90 transition-colors shadow-sm flex items-center gap-1.5"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              Pagar Nómina
+                            </button>
+                          </div>
                         ) : (
                           <div className="text-right">
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">
@@ -2163,7 +2487,7 @@ export default function FinanceScreen() {
       )}
 
       {/* ── SECCIÓN PROMOCIONES, CAMPAÑAS Y CUPONES ── */}
-      {activeTab === "promotions" && (
+      {activeTab === "promotions" && user?.role !== "RECEPTIONIST" && (
         <div className="space-y-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5">
             <div>
@@ -2218,14 +2542,14 @@ export default function FinanceScreen() {
                             Aplica a: <span className="font-bold text-foreground">{srv ? srv.name : "Servicio no encontrado"}</span>
                           </p>
                           <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                            Descuento: <span className="font-bold text-primary">{c.discountType === "PERCENT" ? `${c.discountValue}%` : `$${c.discountValue}`}</span>
+                            Descuento: <span className="font-bold text-primary">{c.discountType === "PERCENTAGE" ? `${c.discountValue}%` : `$${c.discountValue}`}</span>
                           </p>
                           <p className="text-[9px] font-bold text-muted-foreground mt-1">
                             Vigencia: {c.startDate || "N/A"} al {c.endDate || "N/A"}
                           </p>
                         </div>
                         <button
-                          onClick={() => handleToggleCampaignState(c.id)}
+                          onClick={() => handleToggleCampaignState(c.id, c.isActive)}
                           className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
                             c.isActive ? 'border-error/20 text-error hover:bg-error/10' : 'border-success/20 text-success hover:bg-success/10'
                           }`}
@@ -2258,14 +2582,14 @@ export default function FinanceScreen() {
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1.5">
-                          <p>Valor: <span className="text-foreground">{cp.discountType === "PERCENT" ? `${cp.discountValue}%` : `$${cp.discountValue}`}</span></p>
-                          <p>Compra Mínima: <span className="text-foreground">${cp.minPurchase}</span></p>
-                          <p>Usos: <span className="text-foreground">{cp.usedCount || 0} / {cp.usageStock}</span></p>
-                          <p className="col-span-2 text-[9px] font-bold text-muted-foreground mt-1">Expiración: {cp.expiryDate || "N/A"}</p>
+                          <p>Valor: <span className="text-foreground">{cp.discountType === "PERCENTAGE" ? `${cp.discountValue}%` : `$${cp.discountValue}`}</span></p>
+                          <p>Compra Mínima: <span className="text-foreground">${cp.minSubtotal ?? 0}</span></p>
+                          <p>Usos: <span className="text-foreground">{cp.usedCount || 0} / {cp.maxUses}</span></p>
+                          <p className="col-span-2 text-[9px] font-bold text-muted-foreground mt-1">Expiración: {cp.endDate ? new Date(cp.endDate).toLocaleDateString("es-MX", { timeZone: "UTC" }) : "N/A"}</p>
                         </div>
                       </div>
                       <button
-                        onClick={() => handleToggleCouponState(cp.id)}
+                        onClick={() => handleToggleCouponState(cp.id, cp.isActive)}
                         className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
                           cp.isActive ? 'border-error/20 text-error hover:bg-error/10' : 'border-success/20 text-success hover:bg-success/10'
                         }`}
@@ -2281,7 +2605,7 @@ export default function FinanceScreen() {
         </div>
       )}
 
-      {activeTab === "attendance" && (
+      {activeTab === "attendance" && user?.role !== "RECEPTIONIST" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -2294,7 +2618,7 @@ export default function FinanceScreen() {
               </p>
             </div>
             <button
-              onClick={loadAttendanceHistory}
+              onClick={() => loadAttendanceHistory()}
               disabled={attendanceLoading}
               className="flex items-center gap-1.5 border border-border text-xs font-bold px-3 py-2 rounded-xl hover:bg-muted text-foreground transition-all flex-shrink-0"
             >
@@ -2303,13 +2627,57 @@ export default function FinanceScreen() {
             </button>
           </div>
 
+          {/* Filtros: período (día/semana/mes) y rol, para no ver todo el
+              historial mezclado y desordenado por nombre. */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl border border-border/50 w-fit">
+              {([
+                { key: "day", label: "Día" },
+                { key: "week", label: "Semana" },
+                { key: "month", label: "Mes" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setAttendancePeriod(key)}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    attendancePeriod === key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl border border-border/50 w-fit flex-wrap">
+              {([
+                { key: "ALL", label: "Todos" },
+                { key: "PHYSIO", label: "Fisio" },
+                { key: "AESTHETICIAN", label: "Esteticista" },
+                { key: "RECEPTIONIST", label: "Recepción" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setAttendanceRoleFilter(key)}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    attendanceRoleFilter === key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
             {attendanceLoading && attendanceHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground font-semibold">Cargando asistencias...</span>
               </div>
-            ) : attendanceHistory.length === 0 ? (
+            ) : filteredAttendanceHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <Clock className="w-10 h-10 text-muted-foreground/30" />
                 <div>
@@ -2318,57 +2686,93 @@ export default function FinanceScreen() {
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
-                      <th className="p-4">Profesional</th>
-                      <th className="p-4">Rol</th>
-                      <th className="p-4">Fecha</th>
-                      <th className="p-4">Entrada</th>
-                      <th className="p-4">Salida</th>
-                      <th className="p-4">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border text-xs font-medium text-foreground">
-                    {attendanceHistory.map((att: any) => {
-                      const checkInDate = new Date(att.checkIn);
-                      const checkOutDate = att.checkOut ? new Date(att.checkOut) : null;
-                      
-                      return (
-                        <tr key={att.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-4 font-bold text-foreground">
-                            {att.user?.name || "Desconocido"}
-                          </td>
-                          <td className="p-4 uppercase tracking-widest text-[9px] font-black">
-                            <span className="px-2 py-0.5 rounded-md border border-border bg-background">
-                              {att.user?.role || "STAFF"}
-                            </span>
-                          </td>
-                          <td className="p-4 text-muted-foreground">
-                            {checkInDate.toLocaleDateString("es-MX", { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                          </td>
-                          <td className="p-4 font-bold text-success">
-                            {checkInDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="p-4 font-bold text-error">
-                            {checkOutDate 
+              <>
+                {/* Tarjetas apiladas para celular/tablet chica: 6 columnas no entran ahí. */}
+                <div className="sm:hidden divide-y divide-border">
+                  {filteredAttendanceHistory.map((att: any) => {
+                    const checkInDate = new Date(att.checkIn);
+                    const checkOutDate = att.checkOut ? new Date(att.checkOut) : null;
+                    return (
+                      <div key={att.id} className="p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-foreground truncate">{att.user?.name || "Desconocido"}</p>
+                          <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black ${
+                            att.status === "PRESENT" ? "bg-success/10 text-success border border-success/20" : "bg-warning/10 text-warning border border-warning/20"
+                          }`}>
+                            {att.status === "PRESENT" ? "PRESENTE" : "TARDÍO"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground font-bold">
+                          <span className="px-2 py-0.5 rounded-md border border-border bg-background uppercase tracking-widest text-[9px] font-black">
+                            {att.user?.role || "STAFF"}
+                          </span>
+                          <span>{checkInDate.toLocaleDateString("es-MX", { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs font-bold">
+                          <span className="text-success">Entrada: {checkInDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-error">
+                            Salida: {checkOutDate
                               ? checkOutDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })
-                              : <span className="text-warning italic font-bold">Activo</span>}
-                          </td>
-                          <td className="p-4 font-black">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] ${
-                              att.status === "PRESENT" ? "bg-success/10 text-success border border-success/20" : "bg-warning/10 text-warning border border-warning/20"
-                            }`}>
-                              {att.status === "PRESENT" ? "PRESENTE" : "TARDÍO"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              : <span className="text-warning italic">Activo</span>}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                        <th className="p-4 whitespace-nowrap">Profesional</th>
+                        <th className="p-4 whitespace-nowrap">Rol</th>
+                        <th className="p-4 whitespace-nowrap">Fecha</th>
+                        <th className="p-4 whitespace-nowrap">Entrada</th>
+                        <th className="p-4 whitespace-nowrap">Salida</th>
+                        <th className="p-4 whitespace-nowrap">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border text-xs font-medium text-foreground">
+                      {filteredAttendanceHistory.map((att: any) => {
+                        const checkInDate = new Date(att.checkIn);
+                        const checkOutDate = att.checkOut ? new Date(att.checkOut) : null;
+
+                        return (
+                          <tr key={att.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4 font-bold text-foreground">
+                              {att.user?.name || "Desconocido"}
+                            </td>
+                            <td className="p-4 uppercase tracking-widest text-[9px] font-black">
+                              <span className="px-2 py-0.5 rounded-md border border-border bg-background">
+                                {att.user?.role || "STAFF"}
+                              </span>
+                            </td>
+                            <td className="p-4 text-muted-foreground">
+                              {checkInDate.toLocaleDateString("es-MX", { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                            </td>
+                            <td className="p-4 font-bold text-success">
+                              {checkInDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="p-4 font-bold text-error">
+                              {checkOutDate
+                                ? checkOutDate.toLocaleTimeString("es-MX", { hour: '2-digit', minute: '2-digit' })
+                                : <span className="text-warning italic font-bold">Activo</span>}
+                            </td>
+                            <td className="p-4 font-black">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] ${
+                                att.status === "PRESENT" ? "bg-success/10 text-success border border-success/20" : "bg-warning/10 text-warning border border-warning/20"
+                              }`}>
+                                {att.status === "PRESENT" ? "PRESENTE" : "TARDÍO"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -2417,7 +2821,7 @@ export default function FinanceScreen() {
                     onChange={(e: any) => setCampaignForm({ ...campaignForm, discountType: e.target.value })}
                     className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   >
-                    <option value="PERCENT">Porcentaje (%)</option>
+                    <option value="PERCENTAGE">Porcentaje (%)</option>
                     <option value="FIXED">Monto Fijo ($)</option>
                   </select>
                 </div>
@@ -2503,7 +2907,7 @@ export default function FinanceScreen() {
                     onChange={(e: any) => setCouponForm({ ...couponForm, discountType: e.target.value })}
                     className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
                   >
-                    <option value="PERCENT">Porcentaje (%)</option>
+                    <option value="PERCENTAGE">Porcentaje (%)</option>
                     <option value="FIXED">Monto Fijo ($)</option>
                   </select>
                 </div>
@@ -2644,7 +3048,7 @@ export default function FinanceScreen() {
                   onChange={(e) => handlePayrollFormChange("professionalId", e.target.value)}
                   className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-3 focus:outline-none"
                 >
-                  <option value="">-- Seleccionar Profesional --</option>
+                  <option value="">Todos los profesionales</option>
                   {professionals.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -2653,78 +3057,44 @@ export default function FinanceScreen() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Periodo</label>
-                  <select
-                    value={payrollsForm.period}
-                    onChange={(e) => handlePayrollFormChange("period", e.target.value)}
-                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
-                  >
-                    <option value="Julio 2026">Julio 2026</option>
-                    <option value="Junio 2026">Junio 2026</option>
-                    <option value="Mayo 2026">Mayo 2026</option>
-                  </select>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Fecha de Inicio</label>
+                  <input
+                    type="date"
+                    value={payrollsForm.startDate}
+                    onChange={(e) => handlePayrollFormChange("startDate", e.target.value)}
+                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Sueldo Base ($)</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Fecha de Fin</label>
                   <input
-                    type="number"
-                    value={payrollsForm.baseSalary}
-                    onChange={(e) => handlePayrollFormChange("baseSalary", e.target.value)}
+                    type="date"
+                    value={payrollsForm.endDate}
+                    onChange={(e) => handlePayrollFormChange("endDate", e.target.value)}
                     className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-muted-foreground uppercase">Comisiones ($)</label>
-                  <input
-                    type="number"
-                    value={payrollsForm.commissions}
-                    onChange={(e) => handlePayrollFormChange("commissions", e.target.value)}
-                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-muted-foreground uppercase">Bonos ($)</label>
-                  <input
-                    type="number"
-                    value={payrollsForm.bonuses}
-                    onChange={(e) => handlePayrollFormChange("bonuses", e.target.value)}
-                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-muted-foreground uppercase">Deducciones ($)</label>
-                  <input
-                    type="number"
-                    value={payrollsForm.deductions}
-                    onChange={(e) => handlePayrollFormChange("deductions", e.target.value)}
-                    className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Neto a pagar de previsualización */}
-              <div className="bg-muted border border-border p-4 rounded-xl flex justify-between items-center font-bold text-xs">
-                <span className="text-muted-foreground">Neto Precalculado:</span>
-                <span className="text-base font-extrabold text-primary">
-                  ${(Number(payrollsForm.baseSalary) + Number(payrollsForm.commissions) + Number(payrollsForm.bonuses) - Number(payrollsForm.deductions)).toLocaleString()}
-                </span>
-              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed bg-muted border border-border rounded-xl p-3">
+                El sueldo base y las comisiones ganadas en este período se toman automáticamente de lo configurado para cada profesional — no hace falta cargarlos a mano. Podés ajustar el sueldo base y la comisión de cada uno en Configuración → Profesionales.
+              </p>
             </div>
 
             <div className="flex gap-2 pt-2 justify-end">
               <button
                 onClick={() => setShowPayrollModal(false)}
-                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted"
+                disabled={calculatingPayroll}
+                className="px-4 py-2 border border-border text-xs font-bold text-muted-foreground rounded-xl hover:bg-muted disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreatePayroll}
-                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm"
+                disabled={calculatingPayroll}
+                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm disabled:opacity-60 flex items-center gap-2"
               >
+                {calculatingPayroll && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Generar Nómina
               </button>
             </div>

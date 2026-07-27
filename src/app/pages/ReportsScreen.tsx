@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { api, API_URL } from "../services/api";
+import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   BarChart3,
-  Calendar,
   DollarSign,
   TrendingUp,
   TrendingDown,
@@ -15,8 +16,6 @@ import {
   CalendarDays,
   Download,
   Loader2,
-  AlertCircle,
-  FileSpreadsheet,
   Layers,
   ChevronRight,
   RefreshCw,
@@ -30,16 +29,43 @@ interface ReportData {
     ingresosNetosDiff: number;
     egresos: number;
     egresosDiff: number;
+    gananciaReal: number;
+    gananciaRealDiff: number;
     citasCompletadas: number;
     citasCompletadasDiff: number;
     valorAlmacen: number;
     valorAlmacenDiff: number;
+  };
+  egresosBreakdown: {
+    gastosManuales: number;
+    nomina: number;
+    insumosConsumidos: number;
+    productosVendidos: number;
+    mermas: number;
   };
   dailyEvolution: { label: string; ingresos: number }[];
   paymentMethods: { method: string; amount: number; percentage: number; color: string }[];
   topTreatments: { name: string; count: number }[];
   topSupplies: { name: string; count: number }[];
   porSucursal?: Record<string, number>;
+  staffBreakdown: { name: string; role: string; citasAtendidas: number; ingresos: number; costoInsumos: number }[];
+  almacenDetalle: { name: string; stock: number; costPrice: number; price: number; valorCosto: number; valorVenta: number }[];
+  nominaDetalle: { name: string; role: string; status: string; periodStart: string; periodEnd: string; baseSalary: number; commissionsAmount: number; totalPaid: number; paidAt: string | null }[];
+  insumosDetalle: { name: string; profesional: string; cantidad: number; costoUnitario: number; costoTotal: number }[];
+  productosVendidosDetalle: { name: string; cantidad: number; ingresoTotal: number; costoTotal: number }[];
+  mermasDetalle: { name: string; cantidad: number; costoUnitario: number; costoTotal: number; motivo: string; fecha: string }[];
+  gastosManualesDetalle: { fecha: string; descripcion: string; registradoPor: string; monto: number }[];
+  ingresosServiciosDetalle: { fecha: string; folio: string; cliente: string; servicio: string; profesional: string; monto: number }[];
+  ingresosProductosDetalle: { fecha: string; producto: string; cantidad: number; precioUnitario: number; ingresoTotal: number; vendidoPor: string }[];
+  otrosIngresosDetalle: { concepto: string; monto: number }[];
+  ingresosBreakdown: {
+    subtotalServicios: number;
+    subtotalProductos: number;
+    otrosIngresos: number;
+    totalDescuentos: number;
+    totalImpuestos: number;
+  };
+  auditChecks: { label: string; expected: number; actual: number; ok: boolean }[];
 }
 
 const EMPTY_REPORT_DATA: ReportData = {
@@ -48,16 +74,43 @@ const EMPTY_REPORT_DATA: ReportData = {
     ingresosNetosDiff: 0,
     egresos: 0,
     egresosDiff: 0,
+    gananciaReal: 0,
+    gananciaRealDiff: 0,
     citasCompletadas: 0,
     citasCompletadasDiff: 0,
     valorAlmacen: 0,
     valorAlmacenDiff: 0,
+  },
+  egresosBreakdown: {
+    gastosManuales: 0,
+    nomina: 0,
+    insumosConsumidos: 0,
+    productosVendidos: 0,
+    mermas: 0,
   },
   dailyEvolution: [],
   paymentMethods: [],
   topTreatments: [],
   topSupplies: [],
   porSucursal: {},
+  staffBreakdown: [],
+  almacenDetalle: [],
+  nominaDetalle: [],
+  insumosDetalle: [],
+  productosVendidosDetalle: [],
+  mermasDetalle: [],
+  gastosManualesDetalle: [],
+  ingresosServiciosDetalle: [],
+  ingresosProductosDetalle: [],
+  otrosIngresosDetalle: [],
+  ingresosBreakdown: {
+    subtotalServicios: 0,
+    subtotalProductos: 0,
+    otrosIngresos: 0,
+    totalDescuentos: 0,
+    totalImpuestos: 0,
+  },
+  auditChecks: [],
 };
 
 export default function ReportsScreen() {
@@ -76,23 +129,13 @@ export default function ReportsScreen() {
   const [hoveredLineIdx, setHoveredLineIdx] = useState<number | null>(null);
   const [hoveredDonutIdx, setHoveredDonutIdx] = useState<number | null>(null);
 
-  // Accounting Export State
-  const [exportType, setExportType] = useState<"Ventas" | "Gastos" | "Nóminas">("Ventas");
-  const [exportStart, setExportStart] = useState("");
-  const [exportEnd, setExportEnd] = useState("");
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [exportSuccess, setExportSuccess] = useState(false);
-
-  // Set default dates for Custom Range & Exporter
+  // Set default dates for Custom Range
   useEffect(() => {
     const today = new Date();
     const startStr = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
     const endStr = today.toISOString().split("T")[0];
     setCustomStart(startStr);
     setCustomEnd(endStr);
-    setExportStart(startStr);
-    setExportEnd(endStr);
   }, []);
 
   // Load reports data when range/dates change
@@ -132,52 +175,6 @@ export default function ReportsScreen() {
   };
 
 
-  // ── CSV Exporter Handler ──
-  const handleExport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setExporting(true);
-    setExportError(null);
-    setExportSuccess(false);
-
-    try {
-      const queryParams = new URLSearchParams({
-        type: exportType,
-        startDate: exportStart,
-        endDate: exportEnd,
-      }).toString();
-
-      // Attempt to hit the backend route
-      // Attempt to hit the backend route
-      const response = await fetch(`${API_URL}/reports/export?${queryParams}`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
-          "X-Tenant-ID": localStorage.getItem("tenantId") || "",
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("El endpoint del backend respondió con error o no existe.");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reporte_${exportType.toLowerCase()}_${exportStart}_a_${exportEnd}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      setExportSuccess(true);
-      toast.success("Métricas exportadas correctamente.");
-    } catch (err: any) {
-      console.error("Backend API export failed:", err);
-      toast.error("La exportación falló debido a problemas de comunicación con el servidor.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
   // ── Calculation Helpers for Line Chart ──
   const lineValues = data.dailyEvolution.map((d) => d.ingresos);
   const maxLineVal = Math.max(...lineValues, 100) * 1.1; // 10% headroom
@@ -206,6 +203,346 @@ export default function ReportsScreen() {
   const areaPathD = points.length > 0
     ? `${linePathD} L ${points[points.length - 1].x} ${svgHeight - paddingBottom} L ${points[0].x} ${svgHeight - paddingBottom} Z`
     : "";
+
+  // ── Reporte de auditoría (para impresión / PDF) ──
+  const rangeLabel = {
+    hoy: "Hoy",
+    esta_semana: "Esta Semana",
+    este_mes: "Este Mes",
+    mes_anterior: "Mes Anterior",
+    anio_actual: "Año Actual",
+    personalizado: `Personalizado (${customStart} a ${customEnd})`,
+  }[range];
+
+  const roleLabel: Record<string, string> = {
+    ADMIN: "Administrador/a",
+    PHYSIO: "Fisioterapeuta",
+    AESTHETICIAN: "Esteticista",
+    RECEPTIONIST: "Recepcionista",
+    SUPER_ADMIN: "Súper Admin",
+  };
+
+  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+
+  // ── Generar y descargar el PDF de auditoría (archivo real, no diálogo de impresión) ──
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 15;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reporte de Auditoría de Bloom Skin", pageWidth / 2, y, { align: "center" });
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Período: ${rangeLabel}`, 14, y);
+    y += 5;
+    doc.text(`Generado el: ${new Date().toLocaleString("es-MX")}`, 14, y);
+    y += 8;
+
+    const section = (title: string) => {
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, 14, y);
+      y += 2;
+    };
+    const subsection = (title: string) => {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, 14, y);
+      y += 2;
+    };
+    // Evita que un título de sección quede pegado al pie de la página, sin
+    // su tabla — si no hay espacio suficiente, salta de página antes.
+    const ensureSpace = (minSpace: number) => {
+      if (y > 297 - minSpace) { doc.addPage(); y = 15; }
+    };
+
+    // ── 1. Resumen General ──────────────────────────────────────────────
+    section("1. Resumen General");
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 9 },
+      body: [
+        ["Ingresos Netos", fmt(data.kpis.ingresosNetos)],
+        ["Gastos y Egresos", fmt(data.kpis.egresos)],
+        ["Ganancia Real", fmt(data.kpis.gananciaReal)],
+        ["Citas Completadas", String(data.kpis.citasCompletadas)],
+        ["Valor de Almacén (costo)", fmt(data.kpis.valorAlmacen)],
+      ],
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    // Si alguna verificación de cuadre no dio exacta, se muestra acá mismo,
+    // justo después del resumen — nunca se oculta un error de auditoría.
+    const failedChecks = data.auditChecks.filter((c) => !c.ok);
+    if (failedChecks.length > 0) {
+      ensureSpace(20 + failedChecks.length * 6);
+      const boxHeight = 10 + failedChecks.length * 6;
+      doc.setFillColor(254, 226, 226);
+      doc.setDrawColor(220, 38, 38);
+      doc.rect(14, y, pageWidth - 28, boxHeight, "FD");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(185, 28, 28);
+      doc.text("⚠ DISCREPANCIA DETECTADA — revisar antes de usar este reporte", 17, y + 6);
+      let checkY = y + 12;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      failedChecks.forEach((c) => {
+        doc.text(`- ${c.label}: esperado ${fmt(c.expected)}, calculado ${fmt(c.actual)} (dif. ${fmt(c.actual - c.expected)})`, 17, checkY);
+        checkY += 6;
+      });
+      doc.setTextColor(0);
+      y += boxHeight + 6;
+      console.error("Discrepancias detectadas en el reporte de auditoría:", failedChecks);
+    }
+
+    // ── 2. Desglose de Ingresos ──────────────────────────────────────────
+    ensureSpace(50);
+    section("2. Desglose de Ingresos");
+    y += 2;
+
+    subsection("2.1 Ingresos por Servicios / Citas");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 7 },
+      head: [["Fecha", "Folio", "Cliente", "Servicio", "Profesional", "Monto"]],
+      body: data.ingresosServiciosDetalle.length > 0
+        ? data.ingresosServiciosDetalle.map((r) => [
+            new Date(r.fecha).toLocaleDateString("es-MX"),
+            r.folio,
+            r.cliente,
+            r.servicio,
+            r.profesional,
+            fmt(r.monto),
+          ])
+        : [["Sin ingresos por servicios en este período", "-", "-", "-", "-", "-"]],
+      foot: [["", "", "", "", "Subtotal Servicios", fmt(data.ingresosBreakdown.subtotalServicios)]],
+      footStyles: { fontStyle: "bold" },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    ensureSpace(50);
+    subsection("2.2 Ingresos por Venta de Productos (Terminal POS)");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Fecha", "Producto", "Cantidad", "Precio Unit.", "Ingreso Total", "Vendido por"]],
+      body: data.ingresosProductosDetalle.length > 0
+        ? data.ingresosProductosDetalle.map((r) => [
+            new Date(r.fecha).toLocaleDateString("es-MX"),
+            r.producto,
+            String(r.cantidad),
+            fmt(r.precioUnitario),
+            fmt(r.ingresoTotal),
+            r.vendidoPor,
+          ])
+        : [["Sin ventas de productos en este período", "-", "-", "-", "-", "-"]],
+      foot: [["", "", "", "", "Subtotal Productos", fmt(data.ingresosBreakdown.subtotalProductos)]],
+      footStyles: { fontStyle: "bold" },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    ensureSpace(30);
+    subsection("2.3 Otros Ingresos");
+    y += 2;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("El sistema no registra actualmente anticipos, propinas ni venta de paquetes como un ingreso", 14, y);
+    y += 4;
+    doc.text("independiente de servicios/productos — por eso esta subsección no tiene datos que mostrar.", 14, y);
+    y += 8;
+
+    ensureSpace(45);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total de Ingresos", 14, y);
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 9 },
+      body: [
+        ["Servicios (2.1)", fmt(data.ingresosBreakdown.subtotalServicios)],
+        ["Productos POS (2.2)", fmt(data.ingresosBreakdown.subtotalProductos)],
+        ["Otros Ingresos (2.3)", fmt(data.ingresosBreakdown.otrosIngresos)],
+        ["Descuentos Aplicados", `-${fmt(data.ingresosBreakdown.totalDescuentos)}`],
+        ["Impuestos", fmt(data.ingresosBreakdown.totalImpuestos)],
+        ["= Ingresos Netos", fmt(data.kpis.ingresosNetos)],
+      ],
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    // ── 3. Ingresos por Método de Pago ──────────────────────────────────
+    ensureSpace(40);
+    section("3. Ingresos por Método de Pago");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 9 },
+      head: [["Método", "Monto", "% del Total"]],
+      body: data.paymentMethods.length > 0
+        ? data.paymentMethods.map((pm) => [pm.method, fmt(pm.amount), `${pm.percentage}%`])
+        : [["Sin facturas pagadas en este período", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    // ── 4. Desglose de Gastos y Egresos ─────────────────────────────────
+    ensureSpace(40);
+    section("4. Desglose de Gastos y Egresos");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 9 },
+      body: [
+        ["Gastos manuales (Caja Diaria)", fmt(data.egresosBreakdown.gastosManuales)],
+        ["Nómina pagada", fmt(data.egresosBreakdown.nomina)],
+        ["Insumos consumidos en sesiones (costo)", fmt(data.egresosBreakdown.insumosConsumidos)],
+        ["Productos vendidos por POS (costo)", fmt(data.egresosBreakdown.productosVendidos)],
+        ["Mermas (dañado/vencido/perdido, a costo)", fmt(data.egresosBreakdown.mermas)],
+        ["Total Gastos y Egresos", fmt(data.kpis.egresos)],
+      ],
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    ensureSpace(40);
+    subsection("4.1 Gastos manuales (Caja Diaria)");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Fecha", "Descripción / Concepto", "Registrado por", "Monto"]],
+      body: data.gastosManualesDetalle.length > 0
+        ? data.gastosManualesDetalle.map((g) => [
+            new Date(g.fecha).toLocaleDateString("es-MX"), g.descripcion, g.registradoPor, fmt(g.monto),
+          ])
+        : [["Sin gastos manuales registrados en este período", "-", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    ensureSpace(40);
+    subsection("4.2 Nómina — a quién se le pagó y quién sigue pendiente");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Trabajador", "Rol", "Estado", "Período", "Sueldo Base", "Comisiones", "Total"]],
+      body: data.nominaDetalle.length > 0
+        ? data.nominaDetalle.map((n) => [
+            n.name,
+            roleLabel[n.role] || n.role,
+            n.status,
+            `${new Date(n.periodStart).toLocaleDateString("es-MX")} - ${new Date(n.periodEnd).toLocaleDateString("es-MX")}`,
+            fmt(n.baseSalary),
+            fmt(n.commissionsAmount),
+            fmt(n.totalPaid),
+          ])
+        : [["Sin nóminas generadas para este período", "-", "-", "-", "-", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    ensureSpace(40);
+    subsection("4.3 Insumos consumidos en sesión (por profesional)");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Insumo", "Profesional", "Cantidad", "Costo Unit.", "Costo Total"]],
+      body: data.insumosDetalle.length > 0
+        ? data.insumosDetalle.map((i) => [i.name, i.profesional, String(i.cantidad), fmt(i.costoUnitario), fmt(i.costoTotal)])
+        : [["Sin insumos consumidos en este período", "-", "-", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    ensureSpace(40);
+    subsection("4.4 Costo de Productos vendidos por Terminal POS");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Producto", "Cantidad", "Costo Total"]],
+      body: data.productosVendidosDetalle.length > 0
+        ? data.productosVendidosDetalle.map((p) => [p.name, String(p.cantidad), fmt(p.costoTotal)])
+        : [["Sin ventas de productos en este período", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    ensureSpace(40);
+    subsection("4.5 Mermas (pérdidas de stock)");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Producto", "Cantidad", "Costo Total", "Motivo", "Fecha"]],
+      body: data.mermasDetalle.length > 0
+        ? data.mermasDetalle.map((m) => [m.name, String(m.cantidad), fmt(m.costoTotal), m.motivo, new Date(m.fecha).toLocaleDateString("es-MX")])
+        : [["Sin mermas registradas en este período", "-", "-", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // ── 5. Desglose por Profesional ─────────────────────────────────────
+    ensureSpace(40);
+    section("5. Desglose por Profesional");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 9 },
+      head: [["Profesional", "Rol", "Citas Atendidas", "Ingresos Generados", "Costo de Insumos"]],
+      body: data.staffBreakdown.length > 0
+        ? data.staffBreakdown.map((s) => [s.name, roleLabel[s.role] || s.role, String(s.citasAtendidas), fmt(s.ingresos), fmt(s.costoInsumos)])
+        : [["Sin citas completadas en este período", "-", "-", "-", "-"]],
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // ── 6. Valorización de Almacén ──────────────────────────────────────
+    doc.addPage();
+    y = 15;
+    section("6. Valorización de Almacén (stock actual)");
+    y += 2;
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      head: [["Producto", "Stock", "Costo Unit.", "Venta Unit.", "Valor Costo", "Valor Venta"]],
+      body: data.almacenDetalle.map((p) => [p.name, String(p.stock), fmt(p.costPrice), fmt(p.price), fmt(p.valorCosto), fmt(p.valorVenta)]),
+      foot: [[
+        "Total", "", "", "",
+        fmt(data.kpis.valorAlmacen),
+        fmt(data.almacenDetalle.reduce((s, p) => s + p.valorVenta, 0)),
+      ]],
+      footStyles: { fontStyle: "bold" },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount}`, pageWidth - 30, 290);
+    }
+
+    doc.save(`reporte_auditoria_${range}_${new Date().toISOString().split("T")[0]}.pdf`);
+    if (failedChecks.length > 0) {
+      toast.error(`Reporte descargado, pero con ${failedChecks.length} discrepancia(s) detectada(s) — revisá el PDF.`, { duration: 8000 });
+    } else {
+      toast.success("Reporte PDF descargado correctamente.");
+    }
+  };
 
   // ── Donut Chart Parameters ──
   const donutCx = 100;
@@ -242,8 +579,8 @@ export default function ReportsScreen() {
 
         {/* Range Selector & PDF Export */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-muted p-1 rounded-xl flex gap-1 border border-border/50 no-print">
-            {(["este_mes", "mes_anterior", "anio_actual", "personalizado"] as DateRange[]).map((r) => (
+          <div className="bg-muted p-1 rounded-xl flex flex-wrap gap-1 border border-border/50 no-print">
+            {(["hoy", "esta_semana", "este_mes", "mes_anterior", "anio_actual", "personalizado"] as DateRange[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
@@ -253,6 +590,8 @@ export default function ReportsScreen() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
+                {r === "hoy" && "Hoy"}
+                {r === "esta_semana" && "Esta Semana"}
                 {r === "este_mes" && "Este Mes"}
                 {r === "mes_anterior" && "Mes Anterior"}
                 {r === "anio_actual" && "Año Actual"}
@@ -280,7 +619,7 @@ export default function ReportsScreen() {
           )}
 
           <button
-            onClick={() => window.print()}
+            onClick={handleExportPdf}
             className="no-print flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
@@ -290,7 +629,7 @@ export default function ReportsScreen() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div id="tour-reports-kpi" data-onboarding="reports-kpis" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div id="tour-reports-kpi" data-onboarding="reports-kpis" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
         {/* KPI 1: Ingresos Netos */}
         <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex justify-between items-start">
@@ -342,7 +681,7 @@ export default function ReportsScreen() {
               ${data.kpis.egresos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </p>
             <p className="text-[10px] text-muted-foreground font-medium mt-1">
-              Insumos, nómina y costos fijos
+              Insumos, mermas, nómina y costos fijos
             </p>
           </div>
         </div>
@@ -371,6 +710,34 @@ export default function ReportsScreen() {
             </p>
             <p className="text-[10px] text-muted-foreground font-medium mt-1">
               Tratamientos finalizados con éxito
+            </p>
+          </div>
+        </div>
+
+        {/* KPI: Ganancia Real */}
+        <div className="bg-card rounded-2xl border border-border p-5 relative overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <div className="flex justify-between items-start">
+            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-success" />
+            </div>
+            <span className={`flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${
+              data.kpis.gananciaRealDiff >= 0
+                ? "bg-success/15 text-success border border-success/25"
+                : "bg-error/15 text-error border border-error/25"
+            }`}>
+              {data.kpis.gananciaRealDiff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+              {Math.abs(data.kpis.gananciaRealDiff)}%
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">
+              Ganancia Real
+            </h3>
+            <p className={`text-2xl font-black mt-2 font-sans ${data.kpis.gananciaReal >= 0 ? "text-foreground" : "text-error"}`}>
+              ${data.kpis.gananciaReal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium mt-1">
+              Ingresos menos gastos e insumos usados
             </p>
           </div>
         </div>
@@ -534,14 +901,21 @@ export default function ReportsScreen() {
                   })}
                 </svg>
 
-                {/* Floating CSS Tooltip relative to the SVG container */}
+                {/* Floating CSS Tooltip relative to the SVG container. El
+                    contenedor scrollea horizontal (overflow-x-auto), lo que
+                    por espec de CSS también recorta el overflow vertical —
+                    así que si el punto está muy arriba (picos altos), el
+                    tooltip se dibuja hacia ABAJO en vez de hacia arriba para
+                    no quedar cortado y desaparecer. */}
                 {hoveredLineIdx !== null && points[hoveredLineIdx] && (
                   <div
                     className="absolute bg-popover text-popover-foreground px-3 py-2 rounded-xl text-xs shadow-xl pointer-events-none flex flex-col gap-0.5 border border-border z-10 animate-fadeIn"
                     style={{
                       left: `${((points[hoveredLineIdx].x) / svgWidth) * 100}%`,
-                      top: `${((points[hoveredLineIdx].y) / svgHeight) * 100 - 18}%`,
-                      transform: "translate(-50%, -100%)",
+                      top: `${((points[hoveredLineIdx].y) / svgHeight) * 100}%`,
+                      transform: points[hoveredLineIdx].y < 50
+                        ? "translate(-50%, 14px)"
+                        : "translate(-50%, calc(-100% - 14px))",
                     }}
                   >
                     <span className="font-semibold text-muted-foreground">
@@ -791,104 +1165,6 @@ export default function ReportsScreen() {
         </div>
       </div>
 
-      {/* Accounting Export Panel */}
-      <div id="tour-reports-export" data-onboarding="reports-export" className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-        <div className="border-b border-border pb-4 mb-5">
-          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-success" />
-            Exportar Información Contable
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Descarga cierres de caja, egresos de almacén e informes de comisiones en formato CSV para contabilidad
-          </p>
-        </div>
-
-        <form onSubmit={handleExport} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          {/* Report Type */}
-          <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
-              Tipo de Reporte Contable
-            </label>
-            <select
-              value={exportType}
-              onChange={(e) => setExportType(e.target.value as any)}
-              className="w-full px-3 py-2.5 text-xs border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background font-semibold"
-            >
-              <option value="Ventas">Reporte de Ventas (Facturas/Ingresos)</option>
-              <option value="Gastos">Reporte de Gastos (Egresos/Compras)</option>
-              <option value="Nóminas">Reporte de Nóminas (Comisiones/Haberes)</option>
-            </select>
-          </div>
-
-          {/* Start Date */}
-          <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
-              Fecha de Inicio
-            </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="date"
-                value={exportStart}
-                onChange={(e) => setExportStart(e.target.value)}
-                className="pl-9 pr-3 py-2.5 w-full text-xs border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background font-semibold"
-                required
-              />
-            </div>
-          </div>
-
-          {/* End Date */}
-          <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
-              Fecha de Fin
-            </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="date"
-                value={exportEnd}
-                onChange={(e) => setExportEnd(e.target.value)}
-                className="pl-9 pr-3 py-2.5 w-full text-xs border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background font-semibold"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Download Button */}
-          <div>
-            <button
-              type="submit"
-              disabled={exporting}
-              className="w-full bg-success text-primary-foreground hover:bg-success/90 rounded-xl py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-success/20 cursor-pointer disabled:opacity-60"
-            >
-              {exporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Procesando...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  Descargar Reporte CSV
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-
-        {/* Status Messages */}
-        {exportSuccess && (
-          <div className="mt-4 p-3 bg-success/10 border border-success/20 text-success rounded-xl text-xs font-semibold flex items-center gap-2">
-            <span>¡Descarga iniciada con éxito!</span>
-          </div>
-        )}
-        {exportError && (
-          <div className="mt-4 p-3 bg-error/10 border border-error/20 text-error rounded-xl text-xs font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            <span>{exportError}</span>
-          </div>
-        )}
-      </div>
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           body {

@@ -15,6 +15,7 @@ import {
   Activity,
   MessageCircle,
   CalendarPlus,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   BarChart,
@@ -28,11 +29,13 @@ import {
 import { api } from "../services/api";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import BranchTabs from "../components/BranchTabs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface DashboardData {
   todayAppointments: number;
+  todayAppointmentsAttended: number;
   todayRevenue: number;
   activePatients: number;
   packagesExpiringSoon: number;
@@ -43,6 +46,13 @@ interface DashboardData {
     treatment: string;
     professional: string;
     status: string;
+  }[];
+  branchesSummary?: {
+    branchId: string;
+    branchName: string;
+    todayRevenue: number;
+    todayAppointments: number;
+    activePatients: number;
   }[];
 }
 
@@ -76,6 +86,7 @@ interface StaffPerformance {
 // Empty initial state data
 const EMPTY_DATA: DashboardData = {
   todayAppointments: 0,
+  todayAppointmentsAttended: 0,
   todayRevenue: 0,
   activePatients: 0,
   packagesExpiringSoon: 0,
@@ -134,21 +145,21 @@ function KPICard({
   return (
     <div
       ref={ref}
-      className="glass-panel spring-hover rounded-2xl border border-border p-4 sm:p-5 flex items-center gap-3 sm:gap-4 shadow-lg"
+      className="glass-panel spring-hover rounded-2xl border border-border p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 shadow-lg"
       style={{ opacity: 0 }}
     >
-      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-        <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+      <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[9px] sm:text-[10px] text-muted-foreground font-black uppercase tracking-wider truncate">{title}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground font-black uppercase tracking-wider leading-tight">{title}</p>
         <p
           className="text-xl sm:text-2xl font-black text-foreground mt-1 tabular-nums leading-none"
           style={{ fontFamily: "'Inter', sans-serif" }}
         >
           {value}
         </p>
-        <p className="text-[9px] sm:text-[10px] text-muted-foreground/60 font-semibold mt-1 truncate">{subtitle}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground/60 font-semibold mt-1 leading-tight">{subtitle}</p>
       </div>
     </div>
   );
@@ -166,10 +177,10 @@ export default function DashboardScreen({
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [retouchAlerts, setRetouchAlerts] = useState<RetouchAlert[]>([]);
-  const [performances, setPerformances] = useState<StaffPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [retouchToDismiss, setRetouchToDismiss] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [performances, setPerformances] = useState<StaffPerformance[]>([]);
   const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -195,17 +206,21 @@ export default function DashboardScreen({
       const [result, retouches, perfData] = await Promise.all([
         api.get<DashboardData>("/dashboard"),
         api.get<RetouchAlert[]>("/appointments/alerts/retouches"),
-        api.get<StaffPerformance[]>("/finance/staff/commissions").catch(() => []),
+        user?.role === "PHYSIO" || user?.role === "AESTHETICIAN" || user?.role === "RECEPTIONIST"
+          ? api.get<StaffPerformance[]>("/finance/staff/commissions").catch(() => [])
+          : Promise.resolve([]),
       ]);
 
       if (result && typeof result === "object") {
         setData({
           todayAppointments: result.todayAppointments ?? 0,
+          todayAppointmentsAttended: result.todayAppointmentsAttended ?? 0,
           todayRevenue: result.todayRevenue ?? 0,
           activePatients: result.activePatients ?? 0,
           packagesExpiringSoon: result.packagesExpiringSoon ?? 0,
           weeklyRevenue: result.weeklyRevenue ?? [],
           todayAppointmentsList: result.todayAppointmentsList ?? [],
+          branchesSummary: result.branchesSummary,
         });
       }
 
@@ -247,7 +262,7 @@ export default function DashboardScreen({
     return (
       <div className="p-6 space-y-6">
         {/* Bento KPI cards Grid Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <div>
             <div className="animate-pulse bg-card/40 rounded-2xl border border-border p-5 flex items-center gap-4 shadow-lg min-h-[96px]">
               <div className="w-12 h-12 rounded-xl bg-muted flex-shrink-0" />
@@ -337,15 +352,43 @@ export default function DashboardScreen({
     );
   }
 
+  const isOwnScopeRole = user?.role === "PHYSIO" || user?.role === "AESTHETICIAN";
+
   return (
     <div className="p-6 space-y-6">
+      <BranchTabs />
+
+      {/* Resumen por sucursal — solo Súper Admin viendo "Todas las Sucursales" */}
+      {data.branchesSummary && data.branchesSummary.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {data.branchesSummary.map((b) => (
+            <button
+              key={b.branchId}
+              onClick={() => {
+                localStorage.setItem("branchId", b.branchId);
+                window.location.reload();
+              }}
+              className="text-left bg-card border border-border rounded-2xl p-5 hover:border-primary/40 hover:shadow-lg transition-all spring-hover"
+            >
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">{b.branchName}</p>
+              <p className="text-2xl font-black text-foreground">${b.todayRevenue.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground font-semibold mt-1">Ingresos de hoy</p>
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border">
+                <span className="text-xs text-muted-foreground font-bold">{b.todayAppointments} citas hoy</span>
+                <span className="text-xs text-muted-foreground font-bold">{b.activePatients} pacientes</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Bento KPI cards Grid */}
-      <div id="tour-dashboard-kpi" data-onboarding="dashboard-kpis" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="tour-dashboard-kpi" data-onboarding="dashboard-kpis" className={`grid grid-cols-2 gap-3 sm:gap-4 ${isOwnScopeRole ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         <div>
           <KPICard
             title="Citas Hoy"
-            value={data.todayAppointments}
-            subtitle={`${today}`}
+            value={Math.max(0, data.todayAppointments - data.todayAppointmentsAttended)}
+            subtitle="Pendientes de atender"
             Icon={CalendarDays}
             colorClass="bg-primary/10 text-primary border border-primary/20"
             delay={0}
@@ -353,12 +396,34 @@ export default function DashboardScreen({
         </div>
         <div>
           <KPICard
+            title="Citas Atendidas"
+            value={data.todayAppointmentsAttended}
+            subtitle={`De ${data.todayAppointments} citas de hoy`}
+            Icon={ClipboardCheck}
+            colorClass="bg-secondary/10 text-secondary border border-secondary/20"
+            delay={80}
+          />
+        </div>
+        {!isOwnScopeRole && (
+          <div>
+            <KPICard
+              title="Paquetes por Vencer"
+              value={data.packagesExpiringSoon}
+              subtitle="Vencen pronto"
+              Icon={Package}
+              colorClass="bg-warning/10 text-warning border border-warning/20"
+              delay={120}
+            />
+          </div>
+        )}
+        <div>
+          <KPICard
             title="Ingresos del Día"
             value={`$${data.todayRevenue.toLocaleString()}`}
             subtitle="Ingresos netos facturados hoy"
             Icon={DollarSign}
             colorClass="bg-success/10 text-success border border-success/20"
-            delay={80}
+            delay={160}
           />
         </div>
         <div>
@@ -368,16 +433,6 @@ export default function DashboardScreen({
             subtitle="Fichas vigentes"
             Icon={Users}
             colorClass="bg-secondary/10 text-secondary border border-secondary/20"
-            delay={160}
-          />
-        </div>
-        <div>
-          <KPICard
-            title="Paquetes por Vencer"
-            value={data.packagesExpiringSoon}
-            subtitle="Vencen pronto"
-            Icon={Package}
-            colorClass="bg-warning/10 text-warning border border-warning/20"
             delay={240}
           />
         </div>
@@ -597,15 +652,56 @@ export default function DashboardScreen({
           </div>
         </div>
         
-        <div ref={tableRef} className="overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        {/* Vista de tarjetas apiladas: en celular una tabla de 5 columnas no entra
+            y el encabezado termina cortado feo, así que abajo de "sm" se muestra
+            cada cita como una tarjeta con sus datos etiquetados. */}
+        <div className="sm:hidden space-y-3">
+          {data.todayAppointmentsList.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted-foreground italic">
+              No hay citas registradas para el día de hoy.
+            </p>
+          ) : (
+            data.todayAppointmentsList.map((appt, i) => {
+              const sc = statusConfig[appt.status] || {
+                label: appt.status,
+                cls: "bg-muted text-muted-foreground",
+                Icon: Clock,
+              };
+              return (
+                <div key={i} className="border border-border rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className="text-sm font-black text-foreground tabular-nums tracking-wide"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {appt.time}
+                    </span>
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-xl flex-shrink-0 ${sc.cls}`}>
+                      <sc.Icon className="w-3.5 h-3.5" />
+                      {sc.label}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-foreground">{appt.patient}</p>
+                  <span className="inline-block text-xs text-muted-foreground font-semibold bg-muted px-2.5 py-1 rounded-lg border border-border">
+                    {appt.treatment}
+                  </span>
+                  <p className="text-xs text-muted-foreground font-medium">{appt.professional}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Vista de tabla: solo desde "sm" en adelante, donde sí entran las 5 columnas. */}
+        <div ref={tableRef} className="hidden sm:block overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border/85">
-                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest w-24">Hora</th>
-                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Paciente</th>
-                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tratamiento / Servicio</th>
-                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Profesional Asignado</th>
-                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest w-36">Estado de la Cita</th>
+                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest w-24 whitespace-nowrap">Hora</th>
+                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">Paciente</th>
+                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">Tratamiento / Servicio</th>
+                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">Profesional Asignado</th>
+                <th className="px-5 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest w-36 whitespace-nowrap">Estado de la Cita</th>
               </tr>
             </thead>
             <tbody>

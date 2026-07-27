@@ -1,4 +1,7 @@
-export const API_URL = "http://localhost:5000/api";
+// Usa el mismo host desde el que se cargó la página (PC o celular en la
+// misma red), en vez de "localhost" fijo — así funciona igual accediendo
+// desde localhost, desde la IP de la PC en la red WiFi, o desde el celular.
+export const API_URL = `http://${window.location.hostname}:5000/api`;
 
 interface RequestOptions extends RequestInit {
   body?: any;
@@ -40,6 +43,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch (e) {
       // No JSON payload
     }
+
+    // Si el pedido llevaba un token y el servidor lo rechazó (vencido o
+    // inválido), antes cada pantalla mostraba su propio error suelto y la
+    // app quedaba "viva" pero rota — el usuario veía el menú y el header
+    // como si siguiera logueado, sin ninguna forma clara de arreglarlo salvo
+    // recargar a mano. Ahora se cierra la sesión sola y se vuelve al login,
+    // con un aviso explicando por qué.
+    if (response.status === 401 && token) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("tenantId");
+      localStorage.removeItem("branchId");
+      sessionStorage.setItem("bloomskin_session_expired", "1");
+      window.location.reload();
+      // No se resuelve ni se rechaza: la recarga ya está en curso y no tiene
+      // sentido que el código que llamó siga ejecutando con datos rotos.
+      return new Promise<T>(() => {});
+    }
+
     const error = new Error(errorMessage) as any;
     error.status = response.status;
     error.response = response;
@@ -57,5 +78,6 @@ export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body: any, options?: RequestOptions) => request<T>(path, { ...options, method: "POST", body }),
   put: <T>(path: string, body: any, options?: RequestOptions) => request<T>(path, { ...options, method: "PUT", body }),
+  patch: <T>(path: string, body: any, options?: RequestOptions) => request<T>(path, { ...options, method: "PATCH", body }),
   delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: "DELETE" }),
 };

@@ -19,6 +19,7 @@ import {
   Gift
 } from "lucide-react";
 import { api } from "../services/api";
+import BranchTabs from "../components/BranchTabs";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 
@@ -54,12 +55,20 @@ export interface PackageTemplate {
   id: string;
   name: string;
   description?: string;
+  category: "FACIAL" | "CORPORAL" | "FISIOTERAPIA" | "ESTETICA";
   validityDays: number;
   totalPrice: number;
   isActive: boolean;
   lines: PackageTemplateLine[];
   createdAt?: string;
 }
+
+export const PACKAGE_CATEGORY_LABELS: Record<PackageTemplate["category"], string> = {
+  FISIOTERAPIA: "Fisioterapia",
+  FACIAL: "Estética - Facial",
+  CORPORAL: "Estética - Corporal",
+  ESTETICA: "Estética General",
+};
 
 export interface Campaign {
   id: string;
@@ -102,6 +111,7 @@ export interface ServiceConsumable {
     id: string;
     name: string;
     price: number;
+    costPrice?: number;
     stock: number;
     unit: string;
   };
@@ -485,6 +495,7 @@ function PackageTemplateModal({
 }) {
   const [name, setName] = useState(packageTemplate?.name || "");
   const [description, setDescription] = useState(packageTemplate?.description || "");
+  const [category, setCategory] = useState<PackageTemplate["category"] | "">(packageTemplate?.category || "");
   const [validityDays, setValidityDays] = useState(packageTemplate?.validityDays?.toString() || "90");
   const [totalPrice, setTotalPrice] = useState(packageTemplate?.totalPrice?.toString() || "");
   const [lines, setLines] = useState<PackageTemplateLine[]>(packageTemplate?.lines || []);
@@ -503,8 +514,8 @@ function PackageTemplateModal({
 
   const handleAddService = (serviceId: string) => {
     const srv = services.find((s) => s.id === serviceId);
-    if (!srv) return;
-    
+    if (!srv || !category || srv.category !== category) return;
+
     // Si ya existe en las líneas, incrementamos las sesiones
     const existingIdx = lines.findIndex((l) => l.serviceId === serviceId);
     if (existingIdx > -1) {
@@ -514,6 +525,16 @@ function PackageTemplateModal({
     } else {
       setLines([...lines, { serviceId, serviceName: srv.name, sessions: 1 }]);
     }
+  };
+
+  // Cambiar de especialidad descarta los servicios ya elegidos que no
+  // pertenezcan a la nueva categoría (un paquete es de una sola especialidad).
+  const handleCategoryChange = (next: PackageTemplate["category"]) => {
+    setCategory(next);
+    setLines((prev) => prev.filter((l) => {
+      const srv = services.find((s) => s.id === l.serviceId);
+      return srv?.category === next;
+    }));
   };
 
   const handleRemoveLine = (index: number) => {
@@ -533,12 +554,17 @@ function PackageTemplateModal({
       setError("Nombre, precio del paquete y al menos un servicio son requeridos.");
       return;
     }
+    if (!category) {
+      setError("Elegí para qué especialidad es este paquete.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
     const payload: Partial<PackageTemplate> = {
       name,
       description: description || undefined,
+      category,
       validityDays: parseInt(validityDays) || 90,
       totalPrice: parseFloat(totalPrice) || 0,
       lines,
@@ -590,6 +616,31 @@ function PackageTemplateModal({
               rows={2}
               className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background resize-none"
             />
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Especialidad
+            </label>
+            <p className="text-[10px] text-muted-foreground mb-1.5">
+              Define qué servicios se pueden agregar y para qué profesionales queda disponible este paquete.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["FISIOTERAPIA", "FACIAL", "CORPORAL", "ESTETICA"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => handleCategoryChange(cat)}
+                  className={`px-3 py-2 text-xs font-bold rounded-lg border-2 transition-all ${
+                    category === cat
+                      ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                  }`}
+                >
+                  {PACKAGE_CATEGORY_LABELS[cat]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -728,20 +779,26 @@ function PackageTemplateModal({
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 [&::-webkit-scrollbar]:hidden">
-            {services.filter(s => s.isActive).map((srv) => (
-              <button
-                key={srv.id}
-                type="button"
-                onClick={() => handleAddService(srv.id)}
-                className="w-full flex items-center justify-between text-left p-2 rounded-xl bg-card border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
-              >
-                <div className="min-w-0 pr-2">
-                  <p className="text-[11px] font-bold text-foreground truncate group-hover:text-primary transition-colors">{srv.name}</p>
-                  <p className="text-[9px] text-muted-foreground font-medium">${srv.defaultPrice} · {srv.defaultDuration} min</p>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            ))}
+            {!category ? (
+              <p className="text-[11px] text-muted-foreground italic text-center py-6">
+                Elegí primero una especialidad para ver sus servicios.
+              </p>
+            ) : (
+              services.filter(s => s.isActive && s.category === category).map((srv) => (
+                <button
+                  key={srv.id}
+                  type="button"
+                  onClick={() => handleAddService(srv.id)}
+                  className="w-full flex items-center justify-between text-left p-2 rounded-xl bg-card border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="text-[11px] font-bold text-foreground truncate group-hover:text-primary transition-colors">{srv.name}</p>
+                    <p className="text-[9px] text-muted-foreground font-medium">${srv.defaultPrice} · {srv.defaultDuration} min</p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -917,9 +974,11 @@ export default function ServicesScreen() {
         />
       )}
 
+      <BranchTabs />
+
       {/* Tabs Principales de la Pantalla */}
-      <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
-        <div id="tour-services-tabs" className="flex bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4 mb-6">
+        <div id="tour-services-tabs" className="flex bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <button
             id="tour-services-tab-services"
             data-onboarding="services-tab-services"
@@ -958,7 +1017,7 @@ export default function ServicesScreen() {
               }
             }}
             data-onboarding="services-new-service"
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 w-full sm:w-auto bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
             {activeTab === "SERVICES" ? "Nuevo Servicio" : "Nuevo Paquete"}
@@ -1103,13 +1162,13 @@ export default function ServicesScreen() {
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="text-muted-foreground font-medium">Costo Insumos:</span>
                             <span className="text-foreground font-bold">
-                              ${srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.price || 0)), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              ${srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.costPrice || 0)), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="text-muted-foreground font-medium">Margen Est.:</span>
                             {(() => {
-                              const cost = srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.price || 0)), 0);
+                              const cost = srv.consumables.reduce((sum, c) => sum + (c.quantity * (c.product?.costPrice || 0)), 0);
                               const margin = srv.defaultPrice - cost;
                               const pct = srv.defaultPrice > 0 ? (margin / srv.defaultPrice) * 100 : 0;
                               return (
@@ -1170,7 +1229,12 @@ export default function ServicesScreen() {
               >
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{pkg.name}</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{pkg.name}</h3>
+                      <span className="inline-block mt-1 text-[9px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5 uppercase tracking-wider">
+                        {PACKAGE_CATEGORY_LABELS[pkg.category]}
+                      </span>
+                    </div>
                     {isAdmin && (
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
