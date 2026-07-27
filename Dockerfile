@@ -1,12 +1,17 @@
-# Servidor web Nginx para producción (Optimizado para compilación local sin internet)
+# Etapa 1: Compilar la aplicación React/Vite
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+# Etapa 2: Servidor Nginx optimizado para servir los estáticos
 FROM nginx:1.27-alpine
-
-# Copiar compilado estático generado en el host
-COPY dist /usr/share/nginx/html
-
-# Copiar configuración personalizada de redirección SPA
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
