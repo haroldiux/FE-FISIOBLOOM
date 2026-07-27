@@ -1,7 +1,10 @@
-// Usa el mismo host desde el que se cargó la página (PC o celular en la
-// misma red), en vez de "localhost" fijo — así funciona igual accediendo
-// desde localhost, desde la IP de la PC en la red WiFi, o desde el celular.
-export const API_URL = `http://${window.location.hostname}:5000/api`;
+// En desarrollo usa el host local; en producción apunta al subdominio del backend en HTTPS.
+export const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? `http://${window.location.hostname}:5000/api`
+    : "https://fisio.claure.pro/api");
+
 
 interface RequestOptions extends RequestInit {
   body?: any;
