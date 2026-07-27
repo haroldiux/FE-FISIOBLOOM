@@ -1,6 +1,8 @@
-# Etapa 1: Compilar la aplicación React/Vite (Debian slim para compatibilidad nativa de Tailwind v4)
+# Etapa 1: Compilar la aplicación React/Vite (Debian slim + 4GB RAM limit para Vite)
 FROM node:20-slim AS builder
 WORKDIR /app
+
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
