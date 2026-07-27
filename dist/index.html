@@ -1,0 +1,40 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>BLOOM SKIN</title>
+      <meta name="description" content="Manage physiotherapy and aesthetic center operations with scheduling, patient profiles, billing, and real-time KPIs in a clean, clinical dashboard." />
+      <meta name="robots" content="noindex, nofollow" />
+      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <script>
+        // Este proyecto nunca registra un Service Worker propio. Si el navegador
+        // tiene uno de OTRO proyecto que corrió antes en este mismo puerto (localhost:3000),
+        // puede quedar interceptando las peticiones y sirviendo una versión vieja/rota
+        // de la app (pantalla en blanco) incluso después de refrescar. Lo desregistramos
+        // apenas carga la página, sin tocar el login ni datos guardados localmente.
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) { registration.unregister(); });
+          });
+        }
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) { caches.delete(key); });
+          });
+        }
+      </script>
+
+      <script type="module" crossorigin src="/assets/index-CoH84E83.js"></script>
+      <link rel="stylesheet" crossorigin href="/assets/index-CS2qoUSa.css">
+    </head>
+
+    <body>
+      
+      <div id="root"></div>
+      
+    </body>
+  </html>
+  
