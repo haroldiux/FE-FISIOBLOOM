@@ -337,7 +337,7 @@ export default function CalendarScreen({
   presetAppointmentData?: { patientId: string; patientName: string; date?: string } | null;
   clearPresetAppointmentData?: () => void;
   onNavigate?: (screen: string) => void;
-  onSelectPatient?: (patientId: string) => void;
+  onSelectPatient?: (patientId: string, tab?: string) => void;
 }) {
   const { user, shiftStatus } = useAuth();
   const isSelfServiceProfessional = user?.role === "PHYSIO" || user?.role === "AESTHETICIAN";
@@ -495,17 +495,6 @@ export default function CalendarScreen({
   };
 
   useEffect(() => { loadData(); }, []);
-
-  // Animate slide-over on open
-  useEffect(() => {
-    if (showSlideOver && slideOverRef.current) {
-      animate(slideOverRef.current, {
-        translateX: ["100%", "0%"],
-        duration: 380,
-        easing: "easeOutExpo",
-      });
-    }
-  }, [showSlideOver]);
 
   // Debounced patient search
   useEffect(() => {
@@ -759,7 +748,7 @@ export default function CalendarScreen({
       closeSlideOver();
 
       if (slideOverRef.current) {
-        animate(slideOverRef.current, { translateX: [-12, 12, -12, 12, 0], duration: 380, easing: "linear" });
+        animate(slideOverRef.current, { translateX: [-12, 12, -12, 12, 0], duration: 380, ease: "linear" });
       }
     } finally {
       setSubmitting(false);
@@ -859,7 +848,7 @@ export default function CalendarScreen({
       )}
 
       {/* ── Toolbar ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0 gap-3" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
+      <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0 gap-3" style={{ background: 'var(--popover)', backdropFilter: 'blur(16px)' }}>
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 w-full lg:w-auto">
           <div className="flex items-center gap-1 bg-muted/50 border border-border p-1 rounded-xl">
             <button
@@ -887,8 +876,8 @@ export default function CalendarScreen({
         </div>
 
         {/* View Mode Toggle */}
-        <div className="w-full lg:w-auto overflow-x-auto scrollbar-hide no-print flex justify-center py-1">
-          <div id="tour-calendar-cabins" className="flex border border-border rounded-xl p-1 bg-muted/40 flex-nowrap flex-shrink-0">
+        <div className="w-full lg:w-auto no-print flex justify-center py-1">
+          <div id="tour-calendar-cabins" className="flex flex-wrap justify-center border border-border rounded-xl p-1 bg-muted/40">
             <button
               onClick={() => setViewMode("weekly")}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
@@ -1399,8 +1388,7 @@ export default function CalendarScreen({
           />
           <div
             ref={slideOverRef}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[440px] bg-card z-50 shadow-2xl flex flex-col border-l border-border"
-            style={{ transform: "translateX(100%)" }}
+            className="fixed right-0 top-0 bottom-0 w-full sm:w-[440px] bg-card z-50 shadow-2xl flex flex-col border-l border-border animate-in slide-in-from-right duration-380"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-border flex-shrink-0 bg-gradient-to-r from-primary/5 to-transparent">
@@ -1428,9 +1416,23 @@ export default function CalendarScreen({
 
                 {/* Error */}
                 {error && (
-                  <div className="flex items-start gap-3 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>{error}</span>
+                  <div className="flex flex-col gap-2.5 p-4 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-semibold">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>{error}</span>
+                    </div>
+                    {error.includes("consentimiento informado") && selectedPatientId && onSelectPatient && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeSlideOver();
+                          onSelectPatient(selectedPatientId, "consentimiento");
+                        }}
+                        className="self-start flex items-center gap-1.5 px-3 py-1.5 bg-error text-white text-[11px] font-black rounded-lg hover:bg-error/90 transition-all cursor-pointer"
+                      >
+                        Ir a Firmar Consentimiento
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -2084,7 +2086,8 @@ export default function CalendarScreen({
                     onClick={() => {
                       if (onSelectPatient) {
                         setShowDetailModal(false);
-                        onSelectPatient(selectedAppointment.patientId);
+                        const tab = !selectedAppointment.patient?.consentSigned ? "consentimiento" : "historial";
+                        onSelectPatient(selectedAppointment.patientId, tab);
                       }
                     }}
                     className="px-4 py-2.5 text-xs font-bold bg-warning text-foreground hover:bg-warning/90 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-warning/20"

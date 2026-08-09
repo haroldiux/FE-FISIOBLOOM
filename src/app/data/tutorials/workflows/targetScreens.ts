@@ -57,7 +57,12 @@ export const WORKFLOW_TARGET_SCREENS: Record<string, string> = {
   "offline-photo-sync": "patients",
   "whatsapp-integration": "config",
   "payroll-settlement": "reports",
-  "staff-attendance": "pos",
+  // El botón de fichaje vive en la barra superior (visible en toda la app,
+  // no solo en Finanzas), por eso apunta a "dashboard" — la única pantalla
+  // que TODOS los roles no-SUPER_ADMIN tienen en su ROLE_ALLOWED_SCREENS.
+  // Antes apuntaba a "pos", lo que ocultaba este flujo para Fisios y
+  // Esteticistas (ninguno tiene acceso a esa pantalla).
+  "staff-attendance": "dashboard",
   "create-product": "inventory",
   "create-package": "services",
   "create-promotion": "pos",

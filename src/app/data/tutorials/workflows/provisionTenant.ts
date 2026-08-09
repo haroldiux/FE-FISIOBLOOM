@@ -11,7 +11,9 @@ export const provisionTenantWorkflow: TourStep[] = [
     selector: "#tour-saas-create-tenant-btn",
     title: "Paso 2: Registrar Nuevo Centro",
     content: "Haz clic en 'Provisionar Nueva Clínica' para desplegar un entorno aislado.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-saas-create-tenant-btn" }
   },
   {
     selector: "#tour-tenant-form-slug",

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { animate } from "animejs";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { TourStep } from "../../data/tutorials";
 
@@ -157,13 +156,25 @@ export function TourOrchestrator({
 
     const resolveAndPosition = () => {
       if (cancelled) return;
+      const el = document.querySelector(currentStep.selector);
+      if (!el) {
+        // El elemento de este paso no existe para este usuario/pantalla (ej.
+        // un control que solo ve un rol distinto, como el selector de
+        // sucursal que solo renderiza para SUPER_ADMIN). Antes esto dejaba
+        // el tooltip "flotando" sin ancla — a veces caía dentro de la
+        // pantalla por casualidad, a veces completamente afuera, según el
+        // layout — en vez de eso, se salta directo al siguiente paso.
+        if (tour && stepIndex < tour.length - 1) {
+          setStepIndex((prev) => Math.min(prev + 1, tour.length - 1));
+        } else {
+          onClose();
+        }
+        return;
+      }
       // Scroll the target element into view so the spotlight is visible
       // even when the element is below the fold. Matches the pattern used
       // in OnboardingOrchestrator lines 75/83.
-      const el = document.querySelector(currentStep.selector);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
       // Slight delay so the freshly-rendered target lays out before we read
       // its bounding box. Mirrors the OnboardingOrchestrator 380ms
       // post-navigation settle, but driven by a deterministic observer
@@ -179,12 +190,18 @@ export function TourOrchestrator({
       resolveAndPosition();
     };
 
-    if (
-      currentStep.targetScreen &&
-      currentStep.targetScreen !== activeScreen
-    ) {
-      onNavigate(currentStep.targetScreen);
-
+    // Waits for the selector to show up via MutationObserver instead of
+    // checking it synchronously right after a tab click. A plain
+    // `tabEl.click()` schedules a state update in the OTHER component
+    // (e.g. ConfigScreen's `setActiveTab`) that only commits to the DOM on
+    // a later render — checking `document.querySelector` in the same tick
+    // as the click reliably saw the pre-click DOM and false-skipped the
+    // step. This mirrors the targetScreen cross-navigation wait below.
+    const waitForSelector = (hardTimeoutMs: number) => {
+      if (document.querySelector(currentStep.selector)) {
+        resolveAndPosition();
+        return;
+      }
       observer = new MutationObserver(() => {
         if (cancelled) return;
         if (document.querySelector(currentStep.selector)) {
@@ -196,16 +213,47 @@ export function TourOrchestrator({
         subtree: true,
         attributes: true,
       });
-
-      // 3s hard timeout — if the selector never appears, give up and
-      // render whatever we have (the spotlight rect stays `null` and
-      // the tooltip floats over the dim overlay, which is recoverable).
       timeoutId = setTimeout(() => {
         observer?.disconnect();
         resolveAndPosition();
-      }, 3000);
+      }, hardTimeoutMs);
+    };
+
+    if (
+      currentStep.targetScreen &&
+      currentStep.targetScreen !== activeScreen
+    ) {
+      onNavigate(currentStep.targetScreen);
+      // 3s hard timeout — if the selector never appears, give up and
+      // render whatever we have (the spotlight rect stays `null` and
+      // the tooltip floats over the dim overlay, which is recoverable).
+      waitForSelector(3000);
+    } else if (currentStep.targetTab) {
+      const tabEl = document.querySelector(
+        `[data-tab="${currentStep.targetTab}"]`,
+      ) as HTMLElement | null;
+      tabEl?.click();
+      // A tab click can uncover content that itself needs a network
+      // round-trip before it mounts (e.g. switching to a patient's tab
+      // right after that patient was just created — the tab bar is gone
+      // behind a "Cargando expediente..." spinner until the detail fetch
+      // resolves). 1500ms was tuned for a pure UI tab-swap and was too
+      // short for that case, silently skipping the step. waitForSelector()
+      // resolves immediately once the element is already there, so a
+      // longer ceiling costs nothing in the fast/common path.
+      waitForSelector(4000);
     } else {
-      resolveAndPosition();
+      // Even with no explicit targetScreen/targetTab, this effect can run
+      // on the SAME tick `activeScreen` just caught up to a step's
+      // targetScreen (its own previous run started the navigation, then
+      // re-ran once the prop updated) — before the destination screen's
+      // OWN async data-load effects have painted the target element. A
+      // synchronous resolveAndPosition() here saw an empty DOM and
+      // auto-skipped every remaining step in one tick, closing the tour
+      // instantly. waitForSelector() short-circuits to the same immediate
+      // resolution when the element is already there (the common case),
+      // so this costs nothing in the steady state.
+      waitForSelector(2000);
     }
 
     return () => {
@@ -216,32 +264,24 @@ export function TourOrchestrator({
   }, [tour, stepIndex, currentStep, activeScreen, onNavigate, updatePositions]);
 
   /**
-   * Tab activation. When a step declares `targetTab`, click the
-   * matching `[data-tab="${targetTab}"]` element BEFORE positioning the
-   * spotlight, so the tab content is mounted by the time the tooltip
-   * appears.
-   */
-  useEffect(() => {
-    if (!tour || !currentStep?.targetTab) return;
-    const tabEl = document.querySelector(
-      `[data-tab="${currentStep.targetTab}"]`,
-    ) as HTMLElement | null;
-    tabEl?.click();
-  }, [tour, currentStep, stepIndex]);
-
-  /**
    * `advanceOn` event binding. When a step declares `advanceOn`, attach
-   * a one-time listener to the bound selector. When the event fires on
-   * that element, advance the step WITHOUT requiring a tooltip click.
-   * The listener is removed on unmount or step change.
+   * a listener to the bound selector. When the event fires on that
+   * element, advance the step WITHOUT requiring a tooltip click.
+   *
+   * A step with `advanceOn` commonly ALSO carries `targetScreen` (its
+   * button lives on a screen the tour just navigated to). This effect's
+   * dependencies don't include `activeScreen`, so on the very first run —
+   * while still on the OLD screen, before navigation lands — the target
+   * doesn't exist yet and the effect gave up permanently (`if (!target)
+   * return`), never re-attempting once the destination screen mounted.
+   * A MutationObserver here waits for the target the same way
+   * `waitForSelector` does in the effect above.
    */
   useEffect(() => {
     if (!tour || !currentStep?.advanceOn) return;
 
-    const target = document.querySelector(
-      currentStep.advanceOn.selector,
-    ) as HTMLElement | null;
-    if (!target) return;
+    let target: HTMLElement | null = null;
+    let observer: MutationObserver | null = null;
 
     const handler = () => {
       setStepIndex((prev) => {
@@ -249,9 +289,26 @@ export function TourOrchestrator({
         return Math.min(prev + 1, tour.length);
       });
     };
-    target.addEventListener(currentStep.advanceOn.event, handler);
+
+    const attach = () => {
+      target = document.querySelector(
+        currentStep.advanceOn!.selector,
+      ) as HTMLElement | null;
+      if (!target) return false;
+      target.addEventListener(currentStep.advanceOn!.event, handler);
+      return true;
+    };
+
+    if (!attach()) {
+      observer = new MutationObserver(() => {
+        if (attach()) observer?.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     return () => {
-      target.removeEventListener(currentStep.advanceOn.event, handler);
+      observer?.disconnect();
+      target?.removeEventListener(currentStep.advanceOn!.event, handler);
     };
   }, [tour, currentStep, stepIndex]);
 
@@ -270,17 +327,6 @@ export function TourOrchestrator({
       } as EventListenerOptions);
     };
   }, [tour, updatePositions]);
-
-  // animejs fade-in on each step change.
-  useEffect(() => {
-    if (!tour || !tooltipRef.current) return;
-    animate(tooltipRef.current, {
-      opacity: [0, 1],
-      translateY: [12, 0],
-      duration: 250,
-      easing: "spring(1, 80, 10, 0)",
-    });
-  }, [tour, stepIndex]);
 
   // Escape key dismisses the tour.
   useEffect(() => {
@@ -356,11 +402,19 @@ export function TourOrchestrator({
         <X size={18} />
       </button>
 
-      {/* Tooltip card — same glassmorphic look as OnboardingOrchestrator. */}
+      {/* Tooltip card — same glassmorphic look as OnboardingOrchestrator.
+          `key={stepIndex}` forces a remount on every step so the CSS
+          entrance animation replays. This intentionally does NOT depend on
+          an imperative animejs call: that approach left the card stuck at
+          `opacity: 0` (invisible, but still in the DOM) whenever the
+          animation effect fired before the ref was attached — a real
+          race that made the whole tour look like "does nothing" even
+          though the content was there the whole time. */}
       <div
+        key={stepIndex}
         ref={tooltipRef}
-        className="fixed z-[9100] pointer-events-auto"
-        style={{ ...tooltipPos, opacity: 0 }}
+        className="fixed z-[9100] pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-250"
+        style={tooltipPos}
       >
         <div className="bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 dark:border-zinc-700/50 overflow-hidden w-80">
           {/* Header */}

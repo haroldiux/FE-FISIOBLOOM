@@ -579,7 +579,7 @@ export default function ReportsScreen() {
 
         {/* Range Selector & PDF Export */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-muted p-1 rounded-xl flex flex-wrap gap-1 border border-border/50 no-print">
+          <div id="tour-reports-range" className="bg-muted p-1 rounded-xl flex flex-wrap gap-1 border border-border/50 no-print">
             {(["hoy", "esta_semana", "este_mes", "mes_anterior", "anio_actual", "personalizado"] as DateRange[]).map((r) => (
               <button
                 key={r}
@@ -619,6 +619,7 @@ export default function ReportsScreen() {
           )}
 
           <button
+            id="tour-reports-export"
             onClick={handleExportPdf}
             className="no-print flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/10 cursor-pointer"
           >
@@ -933,7 +934,7 @@ export default function ReportsScreen() {
         </div>
 
         {/* Payment Methods (Donut/Rosquilla chart) */}
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-sm flex flex-col justify-between">
+        <div id="tour-reports-payment-methods" className="bg-card rounded-2xl border border-border p-5 shadow-sm flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Layers className="w-4 h-4 text-secondary" />
@@ -1015,7 +1016,7 @@ export default function ReportsScreen() {
       </div>
 
       {/* Bottom Grid: Most Requested Treatments, Insumos & Sucursales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div id="tour-reports-breakdown" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Treatments Requested */}
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
           <div>

@@ -11,12 +11,14 @@ export const payrollSettlementWorkflow: TourStep[] = [
     selector: "#tour-finance-payroll-tab",
     title: "Paso 2: Módulo de Nóminas",
     content: "Selecciona la pestaña de Nóminas en el panel de control.",
-    position: "bottom"
+    position: "bottom",
+    targetTab: "payroll"
   },
   {
     selector: "#tour-pos-payroll",
     title: "Paso 3: Liquidar Comisiones",
     content: "Revisa las comisiones automáticas del 10% acumuladas por citas completadas. Selecciona el período y presiona 'Liquidar' para archivar el pago.",
-    position: "top"
+    position: "top",
+    targetTab: "payroll"
   }
 ];

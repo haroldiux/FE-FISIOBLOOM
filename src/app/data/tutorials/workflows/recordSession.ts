@@ -13,13 +13,17 @@ export const recordSessionWorkflow: TourStep[] = [
     selector: "#tour-tab-evolucion",
     title: "Paso 2: Ir a Evolución",
     content: "Haz clic en la pestaña de Evolución Clínica para ver el historial de sesiones.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-tab-evolucion" }
   },
   {
     selector: "#tour-session-modal-trigger",
     title: "Paso 3: Abrir Registro",
     content: "Haz clic en 'Registrar Sesión' para abrir la hoja evolutiva del día.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-session-modal-trigger" }
   },
   {
     selector: "#tour-session-modal-notes",

@@ -160,7 +160,7 @@ function ProductModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
+          <div id="tour-product-form-name">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
               Nombre *
             </label>
@@ -242,7 +242,7 @@ function ProductModal({
             </div>
           </div>
 
-          <div>
+          <div id="tour-product-form-min-stock">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
               Stock inicial
             </label>
@@ -272,6 +272,7 @@ function ProductModal({
               Cancelar
             </button>
             <button
+              id="tour-product-form-submit"
               type="submit"
               disabled={saving}
               className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
@@ -892,6 +893,8 @@ export default function InventoryScreen() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-border pb-4 gap-4">
         <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
           <button
+            id="tour-inventory-stock-tab"
+            data-tab="STOCK"
             onClick={() => setActiveSubTab("STOCK")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
               activeSubTab === "STOCK"
@@ -902,6 +905,8 @@ export default function InventoryScreen() {
             <Package className="w-4 h-4" /> Catálogo de Stock
           </button>
           <button
+            id="tour-inventory-movements-tab"
+            data-tab="MOVEMENTS"
             onClick={() => {
               setActiveSubTab("MOVEMENTS");
               loadMovements();
@@ -919,6 +924,7 @@ export default function InventoryScreen() {
         {isAdmin && activeSubTab === "STOCK" && (
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
+              id="tour-inventory-add-product-btn"
               type="button"
               data-onboarding="inventory-new-product"
               onClick={() => {
@@ -1002,7 +1008,7 @@ export default function InventoryScreen() {
 
       {/* Financial Valuation Bento Cards */}
       {activeSubTab === "STOCK" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div id="tour-inventory-valuation" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Valor en Costo (Inversión) */}
           <div className="bg-card rounded-2xl border border-border overflow-hidden p-5 flex items-center justify-between shadow-sm">
             <div className="space-y-1">
@@ -1098,7 +1104,7 @@ export default function InventoryScreen() {
               />
             </div>
 
-            <div className="flex gap-1.5 w-full sm:w-auto overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
               {["ALL", ...CATEGORIES].map((cat) => (
                 <button
                   key={cat}
@@ -1165,7 +1171,7 @@ export default function InventoryScreen() {
               />
             </div>
 
-            <div className="flex gap-1.5 w-full sm:w-auto overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
               {[
                 { val: "ALL", lbl: "Todos" },
                 { val: "STOCK_IN", lbl: "Entradas (+)" },

@@ -1,4 +1,5 @@
 import { TourStep } from "../types";
+import { WORKFLOW_TARGET_SCREENS } from "./targetScreens";
 import { createAppointmentWorkflow } from "./createAppointment";
 import { registerPatientWorkflow } from "./registerPatient";
 import { recordSessionWorkflow } from "./recordSession";
@@ -21,7 +22,7 @@ import { updateProfileWorkflow } from "./updateProfile";
 import { manualSyncOfflineWorkflow } from "./manualSyncOffline";
 import { helpcenterTourWorkflow } from "./helpcenterTour";
 
-export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
+const RAW_WORKFLOW_TOURS: Record<string, TourStep[]> = {
   "create-appointment": createAppointmentWorkflow,
   "register-patient": registerPatientWorkflow,
   "record-session": recordSessionWorkflow,
@@ -33,7 +34,7 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
   "offline-photo-sync": offlinePhotoSyncWorkflow,
   "whatsapp-integration": whatsappIntegrationWorkflow,
   "payroll-settlement": payrollSettlementWorkflow,
-  
+
   // New workflows mapping
   "staff-attendance": staffAttendanceWorkflow,
   "create-product": createProductWorkflow,
@@ -44,3 +45,18 @@ export const WORKFLOW_TOURS: Record<string, TourStep[]> = {
   "manual-sync-offline": manualSyncOfflineWorkflow,
   "helpcenter-tour": helpcenterTourWorkflow,
 };
+
+// Un flujo puede lanzarse desde el Centro de Ayuda estando en CUALQUIER
+// pantalla (el modal es global), pero sus selectores viven todos en la
+// pantalla "dueña" del flujo (ver WORKFLOW_TARGET_SCREENS). Sin esto, un
+// flujo lanzado desde una pantalla distinta a la suya no encontraba ningún
+// elemento y se auto-saltaba paso a paso hasta cerrarse solo.
+export const WORKFLOW_TOURS: Record<string, TourStep[]> = Object.fromEntries(
+  Object.entries(RAW_WORKFLOW_TOURS).map(([key, steps]) => {
+    const targetScreen = WORKFLOW_TARGET_SCREENS[key];
+    if (!targetScreen || steps.length === 0 || steps[0].targetScreen) {
+      return [key, steps];
+    }
+    return [key, [{ ...steps[0], targetScreen }, ...steps.slice(1)]];
+  }),
+);

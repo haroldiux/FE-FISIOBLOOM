@@ -5,7 +5,9 @@ export const offlinePhotoSyncWorkflow: TourStep[] = [
     selector: "#tour-tab-galeria",
     title: "Paso 1: Muro de Evolución",
     content: "Dirígete a la pestaña de Galería de Fotos dentro de la ficha del paciente.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-tab-galeria" }
   },
   {
     selector: "#tour-patients-gallery-sync-banner",

@@ -1394,7 +1394,7 @@ export default function ConfigScreen() {
       )}
 
       {/* Tabs */}
-      <div id="tour-config-tabs" className="flex gap-1 bg-input-background p-1 rounded-xl mb-6 w-full max-w-full overflow-x-auto scrollbar-hide border border-border shadow-inner flex-nowrap flex-shrink-0">
+      <div id="tour-config-tabs" className="flex flex-wrap gap-1 bg-input-background p-1 rounded-xl mb-6 w-full max-w-full border border-border shadow-inner">
         {([
           ...(isSuperAdmin ? [] : [
             { id: "professionals" as const, label: "Profesionales", Icon: Users },
@@ -1408,6 +1408,7 @@ export default function ConfigScreen() {
           <button
             key={id}
             id={`tour-config-${id}-tab`}
+            data-tab={id}
             data-onboarding={`config-tab-${id}`}
             onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${

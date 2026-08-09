@@ -592,7 +592,7 @@ function PackageTemplateModal({
             </h2>
           </div>
 
-          <div>
+          <div id="tour-package-form-name">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
               Nombre del Paquete
             </label>
@@ -751,6 +751,7 @@ function PackageTemplateModal({
               Cancelar
             </button>
             <button
+              id="tour-package-form-submit"
               type="submit"
               disabled={saving || lines.length === 0}
               className="flex-1 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/20"
@@ -762,7 +763,7 @@ function PackageTemplateModal({
         </form>
 
         {/* Lado Derecho: Buscador/Selector de Servicios para el Paquete */}
-        <div className="w-full md:w-80 bg-muted/40 p-6 flex flex-col max-h-[40vh] md:max-h-full border-t md:border-t-0 md:border-l border-border">
+        <div id="tour-package-form-services" className="w-full md:w-80 bg-muted/40 p-6 flex flex-col max-h-[40vh] md:max-h-full border-t md:border-t-0 md:border-l border-border">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
             <h3 className="text-xs font-bold text-foreground">Agregar Servicios</h3>
             <button onClick={onClose} className="p-1 md:hidden">
@@ -978,9 +979,10 @@ export default function ServicesScreen() {
 
       {/* Tabs Principales de la Pantalla */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4 mb-6">
-        <div id="tour-services-tabs" className="flex bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div id="tour-services-tabs" className="flex flex-wrap bg-muted backdrop-blur-md p-1 rounded-xl gap-1 border border-border shadow-inner shadow-foreground/10">
           <button
             id="tour-services-tab-services"
+            data-tab="SERVICES"
             data-onboarding="services-tab-services"
             onClick={() => setActiveTab("SERVICES")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -993,6 +995,7 @@ export default function ServicesScreen() {
           </button>
           <button
             id="tour-services-tab-packages"
+            data-tab="PACKAGES"
             data-onboarding="services-tab-packages"
             onClick={() => setActiveTab("PACKAGES")}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -1007,6 +1010,7 @@ export default function ServicesScreen() {
 
         {isAdmin && (
           <button
+            id="tour-catalog-create-btn"
             onClick={() => {
               if (activeTab === "SERVICES") {
                 setEditService(null);

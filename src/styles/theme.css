@@ -129,13 +129,13 @@
   --chart-5: #34d399;
   
   /* Sidebar Dark floating capsule */
-  --sidebar: rgba(15, 14, 20, 0.75);
+  --sidebar: rgba(24, 22, 30, 0.92);
   --sidebar-foreground: #f5eff9;
   --sidebar-primary: #d946ef;
   --sidebar-primary-foreground: #0b0a0f;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent: rgba(255, 255, 255, 0.10);
   --sidebar-accent-foreground: #f5eff9;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-border: rgba(255, 255, 255, 0.10);
   --sidebar-ring: #d946ef;
 
   --glass-border: rgba(255, 255, 255, 0.12); /* Extremely thin Z-separation border */

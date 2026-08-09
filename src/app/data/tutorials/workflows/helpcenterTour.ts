@@ -3,9 +3,11 @@ import { TourStep } from "../types";
 export const helpcenterTourWorkflow: TourStep[] = [
   {
     selector: "#tour-topbar-helpcenter",
-    title: "Paso 1: Registrar Asistencia", // Matching selector's step description title
+    title: "Paso 1: Centro de Ayuda",
     content: "Haz clic en el botón de interrogación en la barra superior derecha para abrir el panel modal.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-topbar-helpcenter" }
   },
   {
     selector: "#tour-helpcenter-guides-tab",

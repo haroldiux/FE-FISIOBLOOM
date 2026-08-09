@@ -2,10 +2,12 @@ import { TourStep } from "../types";
 
 export const createServiceWorkflow: TourStep[] = [
   {
-    selector: "#tour-services-supplies",
+    selector: "#tour-catalog-create-btn",
     title: "Paso 1: Nuevo Servicio",
     content: "Haz clic en 'Nuevo Servicio' dentro del catálogo de tratamientos.",
-    position: "top"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-catalog-create-btn" }
   },
   {
     selector: "#tour-service-form-name",

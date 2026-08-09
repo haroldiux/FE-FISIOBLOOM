@@ -279,7 +279,7 @@ export default function SuperAdminScreen() {
                 />
               </div>
 
-              <div>
+              <div id="tour-tenant-form-slug">
                 <label className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Identificador Slug (Único)
                 </label>
@@ -293,7 +293,7 @@ export default function SuperAdminScreen() {
                 />
               </div>
 
-              <div>
+              <div id="tour-tenant-form-plan">
                 <label className="text-2xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Plan Inicial
                 </label>
@@ -316,6 +316,7 @@ export default function SuperAdminScreen() {
                   Cancelar
                 </button>
                 <button
+                  id="tour-tenant-form-submit"
                   type="submit"
                   disabled={submitting}
                   className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 disabled:opacity-50 cursor-pointer"

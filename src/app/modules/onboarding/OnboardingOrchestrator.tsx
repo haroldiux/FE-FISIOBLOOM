@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { animate } from 'animejs';
 import { useOnboarding } from './OnboardingContext';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -101,17 +100,6 @@ export function OnboardingOrchestrator() {
     };
   }, [updatePositions]);
 
-  // Animate tooltip in on each step change
-  useEffect(() => {
-    if (!isVisible || !tooltipRef.current) return;
-    animate(tooltipRef.current, {
-      opacity: [0, 1],
-      translateY: [12, 0],
-      duration: 250,
-      easing: 'spring(1, 80, 10, 0)',
-    });
-  }, [isVisible, currentStep]);
-
   if (!isVisible || !currentStep || !currentPhase) return null;
 
   const totalSteps  = flow.reduce((acc, p) => acc + p.steps.length, 0);
@@ -159,11 +147,15 @@ export function OnboardingOrchestrator() {
         <X size={18} />
       </button>
 
-      {/* Tooltip card with glassmorphism */}
+      {/* Tooltip card with glassmorphism. `key` forces a remount on every
+          step so the CSS entrance animation replays — see TourOrchestrator
+          for why this replaces the old animejs-driven fade-in (a ref-timing
+          race could leave the card stuck at opacity: 0 forever). */}
       <div
+        key={`${currentPhaseIndex}-${currentStepIndex}`}
         ref={tooltipRef}
-        className="fixed z-[9100] pointer-events-auto"
-        style={{ ...tooltipPos, opacity: 0 }}
+        className="fixed z-[9100] pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-250"
+        style={tooltipPos}
       >
         <div className="bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 dark:border-zinc-700/50 overflow-hidden w-80">
           {/* Header */}

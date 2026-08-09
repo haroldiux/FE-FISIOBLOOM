@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { animate } from "animejs";
 import { useAuth } from "./context/AuthContext";
 import { api } from "./services/api";
 import LoginScreen from "./components/LoginScreen";
@@ -29,6 +28,7 @@ import { VIEW_TOURS } from "./data/tutorials";
 import type { TourStep } from "./data/tutorials";
 import { useTenantSettings } from "./context/TenantSettingsContext";
 import { useSyncManager, SyncState } from "./hooks/useSyncManager";
+import { useIsDesktop } from "./hooks/useIsDesktop";
 import { applyPalette } from "./lib/palettes";
 import { toast } from "sonner";
 import {
@@ -61,6 +61,7 @@ import {
   FileText,
   Save,
   LogOut,
+  Menu,
 } from "lucide-react";
 
 // ── Notification Types ────────────────────────────────────────────────────────
@@ -205,6 +206,8 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
   const { user } = useAuth();
   const { settings } = useTenantSettings();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isDesktop = useIsDesktop();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const mainNav: { id: Screen; label: string; Icon: React.ComponentType<any> }[] = [
     { id: "dashboard", label: "Inicio", Icon: LayoutDashboard },
@@ -225,6 +228,20 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
   const allowedScreens = user ? SCREEN_PERMISSIONS[user.role] || ["dashboard"] : ["dashboard"];
   const filteredMainNav = mainNav.filter(item => allowedScreens.includes(item.id));
   const filteredSystemNav = systemNav.filter(item => allowedScreens.includes(item.id));
+
+  // Roles con pocas secciones (Fisio/Estética: 4, Recepción: 5) entran
+  // enteros abajo, sin cajón. Admin/Súper Admin (9-10 secciones) no entran,
+  // así que solo lo más usado (Inicio/Citas/Pacientes) queda fijo abajo y el
+  // resto se mueve al cajón lateral izquierdo que abre el botón "Más".
+  const totalNavCount = filteredMainNav.length + filteredSystemNav.length;
+  const allFitsInBottomBar = totalNavCount <= 5;
+  const bottomBarIds: Screen[] = ["dashboard", "calendar", "patients"];
+  const bottomBarItems = allFitsInBottomBar
+    ? filteredMainNav
+    : filteredMainNav.filter(item => bottomBarIds.includes(item.id));
+  const bottomBarSystemItems = allFitsInBottomBar ? filteredSystemNav : [];
+  const drawerMainItems = allFitsInBottomBar ? [] : filteredMainNav.filter(item => !bottomBarIds.includes(item.id));
+  const showMoreButton = !allFitsInBottomBar;
 
   const NavButton = ({ id, label, Icon }: { id: Screen; label: string; Icon: React.ComponentType<any> }) => {
     const isActive = active === id;
@@ -255,40 +272,157 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
     );
   };
 
-  return (
-    <aside id="tour-sidebar" className="fixed z-50 select-none md:left-6 md:top-1/2 md:-translate-y-1/2 md:h-fit md:max-h-[95vh] md:w-20 md:flex-col md:py-6 md:px-0 md:gap-4 md:rounded-3xl glass-capsule bottom-0 left-0 right-0 h-16 w-full flex flex-row items-center justify-between px-4 gap-1 rounded-none border-t border-border bg-card/95 md:bg-transparent backdrop-blur-md">
-      {/* Brand Logo */}
-      <div className="hidden md:flex w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0 spring-hover mb-1">
-        <Sparkles className="w-5 h-5 text-primary-foreground" />
-      </div>
-
-      {/* Branch Selector Capsule Button */}
-      <div className="hidden md:block">
-        <BranchSelectorButton />
-      </div>
-
-      <div className="hidden md:block w-8 h-[1px] bg-border flex-shrink-0" />
-
-      {/* Nav */}
-      <nav className="flex flex-row md:flex-col items-center gap-1 md:gap-3 overflow-x-auto md:overflow-y-auto [&::-webkit-scrollbar]:hidden py-1 w-full justify-around md:justify-start">
-        {filteredMainNav.map((item) => <NavButton key={item.id} {...item} />)}
-        {filteredSystemNav.length > 0 && (
-          <>
-            <div className="hidden md:block w-8 h-[1px] bg-border my-1 self-center flex-shrink-0" />
-            {filteredSystemNav.map((item) => <NavButton key={item.id} {...item} />)}
-          </>
+  // Botón de la barra inferior del celular: la sección activa "flota" como
+  // un círculo con degradé por encima de la barra (con anillo del color de
+  // fondo separándolo, como una app social) — las inactivas quedan chatas,
+  // solo ícono + label en gris.
+  const MobileNavButton = ({ id, label, Icon }: { id: Screen; label: string; Icon: React.ComponentType<any> }) => {
+    const isActive = active === id;
+    return (
+      <button
+        onClick={() => setActive(id)}
+        id={`tour-sidebar-${id}`}
+        className="flex flex-col items-center justify-center gap-1 flex-1 min-w-0 cursor-pointer"
+      >
+        {isActive ? (
+          <div className="-mt-8 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/40 ring-[5px] ring-card transition-all duration-300 spring-hover">
+            <Icon className="w-6 h-6 text-white flex-shrink-0" />
+          </div>
+        ) : (
+          <Icon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
         )}
-      </nav>
+        <span className={`text-[9px] font-bold uppercase tracking-wide truncate max-w-full transition-colors duration-300 ${
+          isActive ? "text-primary font-black" : "text-muted-foreground"
+        }`}>
+          {label}
+        </span>
+      </button>
+    );
+  };
 
-      {/* User footer avatar button */}
-      <div className="hidden md:block">
+  const DrawerNavButton = ({ id, label, Icon }: { id: Screen; label: string; Icon: React.ComponentType<any> }) => {
+    const isActive = active === id;
+    return (
+      <button
+        onClick={() => {
+          setActive(id);
+          setMobileMenuOpen(false);
+        }}
+        id={`tour-sidebar-${id}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all cursor-pointer ${
+          isActive
+            ? "bg-primary/20 text-primary border border-primary/30"
+            : "text-foreground/70 border border-transparent hover:bg-accent hover:text-foreground"
+        }`}
+      >
+        <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+        {label}
+      </button>
+    );
+  };
+
+  if (isDesktop) {
+    return (
+      <aside id="tour-sidebar" className="fixed z-50 select-none left-6 top-1/2 -translate-y-1/2 h-fit max-h-[95vh] w-20 flex flex-col items-center py-6 px-0 gap-4 rounded-3xl glass-capsule">
+        {/* Brand Logo */}
+        <div className="flex w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0 spring-hover mb-1">
+          <Sparkles className="w-5 h-5 text-primary-foreground" />
+        </div>
+
+        {/* Branch Selector Capsule Button */}
+        <BranchSelectorButton />
+
+        <div className="w-8 h-[1px] bg-border flex-shrink-0" />
+
+        {/* Nav */}
+        <nav className="flex flex-col items-center gap-3 overflow-y-auto [&::-webkit-scrollbar]:hidden py-1 w-full">
+          {filteredMainNav.map((item) => <NavButton key={item.id} {...item} />)}
+          {filteredSystemNav.length > 0 && (
+            <>
+              <div className="w-8 h-[1px] bg-border my-1 self-center flex-shrink-0" />
+              {filteredSystemNav.map((item) => <NavButton key={item.id} {...item} />)}
+            </>
+          )}
+        </nav>
+
+        {/* User footer avatar button */}
         <UserFooterButton setActive={setActive} />
-      </div>
-    </aside>
+      </aside>
+    );
+  }
+
+  return (
+    <>
+      {/* Barra inferior: la sección activa flota como círculo con degradé */}
+      <aside id="tour-sidebar" className="fixed z-50 select-none bottom-0 left-0 right-0 h-16 w-full flex flex-row items-center justify-around px-2 gap-1 rounded-t-3xl border-t border-border bg-card/95 backdrop-blur-md shadow-[0_-6px_24px_rgba(0,0,0,0.10)]">
+        {bottomBarItems.map((item) => <MobileNavButton key={item.id} {...item} />)}
+        {bottomBarSystemItems.map((item) => <MobileNavButton key={item.id} {...item} />)}
+        {showMoreButton && (
+          <button
+            data-tab="mobile-menu"
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 flex-1 min-w-0 cursor-pointer"
+          >
+            <Menu className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground truncate max-w-full">
+              Más
+            </span>
+          </button>
+        )}
+      </aside>
+
+      {/* Cajón lateral izquierdo: el resto de las secciones */}
+      <div
+        className={`fixed inset-0 bg-foreground/40 backdrop-blur-sm z-[60] transition-opacity duration-200 ${
+          mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      <aside
+        className={`fixed z-[61] left-0 top-0 bottom-0 w-72 max-w-[80vw] bg-card border-r border-border flex flex-col p-4 gap-1 shadow-2xl transition-transform duration-300 ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0">
+              <Sparkles className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="text-sm font-black text-foreground tracking-tight">BLOOM SKIN</span>
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {isSuperAdmin && (
+          <div className="mb-2 flex-shrink-0">
+            <BranchSelectorButton />
+          </div>
+        )}
+
+        <nav className="flex flex-col gap-1 overflow-y-auto [&::-webkit-scrollbar]:hidden flex-1">
+          {drawerMainItems.map((item) => <DrawerNavButton key={item.id} {...item} />)}
+          {!allFitsInBottomBar && filteredSystemNav.length > 0 && (
+            <>
+              <div className="w-full h-[1px] bg-border my-2 flex-shrink-0" />
+              {filteredSystemNav.map((item) => <DrawerNavButton key={item.id} {...item} />)}
+            </>
+          )}
+        </nav>
+
+        <div className="pt-2 border-t border-border flex-shrink-0">
+          <UserFooterButton setActive={setActive} onNavigate={() => setMobileMenuOpen(false)} />
+        </div>
+      </aside>
+    </>
   );
 }
 
-function UserFooterButton({ setActive }: { setActive: (s: Screen) => void }) {
+function UserFooterButton({ setActive, onNavigate }: { setActive: (s: Screen) => void; onNavigate?: () => void }) {
   const { user } = useAuth();
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -302,6 +436,7 @@ function UserFooterButton({ setActive }: { setActive: (s: Screen) => void }) {
           if (hasConfigAccess) {
             setActive("config");
           }
+          onNavigate?.();
         }}
         className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground text-xs font-black shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
       >
@@ -477,6 +612,7 @@ function Topbar({
         </div>
         {user && user.role !== "SUPER_ADMIN" && (
           <button
+            id="tour-topbar-attendance"
             onClick={handleToggleAttendance}
             disabled={attendanceLoading}
             title={hasCheckedIn ? "Fichar Salida" : "Fichar Entrada"}
@@ -694,6 +830,7 @@ function Topbar({
               <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
               <div className="absolute right-0 top-11 w-48 glass-panel rounded-2xl p-2 z-50 border border-border shadow-2xl flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                 <button
+                  id="tour-profile-edit-btn"
                   onClick={() => {
                     setProfileMenuOpen(false);
                     onOpenProfileModal();
@@ -742,22 +879,9 @@ function Topbar({
 // ── Error 404 ─────────────────────────────────────────────────────────────────
 
 function Error404Screen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
-  const numberRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (numberRef.current) {
-      animate(numberRef.current, {
-        opacity: [0, 1],
-        scale: [0.5, 1.1, 1],
-        duration: 800,
-        easing: "easeOutElastic(1, .5)",
-      });
-    }
-  }, []);
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-      <div ref={numberRef} className="text-8xl font-black text-primary" style={{ fontFamily: "'Outfit', sans-serif", opacity: 0 }}>
+      <div className="text-8xl font-black text-primary animate-in fade-in zoom-in-50 duration-500" style={{ fontFamily: "'Outfit', sans-serif" }}>
         404
       </div>
       <h2 className="text-2xl font-bold mt-4 text-foreground">Página No Encontrada</h2>
@@ -780,23 +904,9 @@ function Error404Screen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
 // ── Error 500 ─────────────────────────────────────────────────────────────────
 
 function Error500Screen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
-  const iconRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (iconRef.current) {
-      animate(iconRef.current, {
-        scale: [0.8, 1.1, 1],
-        rotate: "1turn",
-        opacity: [0, 1],
-        duration: 1500,
-        easing: "easeOutElastic(1, .5)",
-      });
-    }
-  }, []);
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-      <div ref={iconRef} className="text-destructive flex items-center justify-center" style={{ opacity: 0 }}>
+      <div className="text-destructive flex items-center justify-center animate-in fade-in zoom-in-75 spin-in-180 duration-700">
         <AlertTriangle className="w-24 h-24" />
       </div>
       <div className="text-8xl font-black text-destructive mt-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -903,7 +1013,7 @@ function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
             </div>
           )}
 
-          <div>
+          <div id="tour-profile-form-phone">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
               Nombre *
             </label>
@@ -966,6 +1076,7 @@ function ProfileSettingsModal({ onClose }: ProfileSettingsModalProps) {
               Cancelar
             </button>
             <button
+              id="tour-profile-form-submit"
               type="submit"
               disabled={saving}
               className="flex-1 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
@@ -995,8 +1106,6 @@ function AppContent() {
       }
     }
   }, [screen, user]);
-  const mainRef = useRef<HTMLElement>(null);
-
   // Theme state and toggle initialization
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
@@ -1037,6 +1146,11 @@ function AppContent() {
   });
 
   const [searchSelectedPatientId, setSearchSelectedPatientId] = useState<string | null>(null);
+  // Pestaña a abrir junto con searchSelectedPatientId (ej. "consentimiento"
+  // cuando Calendario redirige acá porque falta un consentimiento firmado).
+  // Sigue el mismo ciclo de vida que searchSelectedPatientId: PatientScreen
+  // la consume y limpia apenas la usa.
+  const [searchSelectedPatientTab, setSearchSelectedPatientTab] = useState<string | null>(null);
   const [presetAppointmentData, setPresetAppointmentData] = useState<{ patientId: string; patientName: string; date?: string } | null>(null);
 
   // Help Center modal + active tour state. Lives in AppContent so both
@@ -1100,17 +1214,6 @@ function AppContent() {
     }
   }, [isAuthenticated, forceSync]);
 
-  useEffect(() => {
-    if (mainRef.current) {
-      animate(mainRef.current, {
-        opacity: [0, 1],
-        translateY: [15, 0],
-        duration: 400,
-        easing: "easeOutCubic",
-      });
-    }
-  }, [screen]);
-
   // Memoized callbacks for TourOrchestrator to prevent effect re-runs
   const handleTourNavigate = useCallback((s: string) => {
     setScreen(s as Screen);
@@ -1134,6 +1237,7 @@ function AppContent() {
     dashboard: { title: "Dashboard", subtitle: todayCapital },
     calendar: { title: "Calendario de Citas", subtitle: "Vista semanal" },
     patients: { title: "Pacientes", subtitle: "Historial y evolución clínica" },
+    consents: { title: "Firmas", subtitle: "Consentimientos informados" },
     pos: { title: "Facturación y Caja", subtitle: "Terminal POS" },
     inventory: { title: "Inventario", subtitle: "Catálogo de productos y tratamientos" },
     services: { title: "Servicios", subtitle: "Catálogo y administración de combos" },
@@ -1170,13 +1274,14 @@ function AppContent() {
       <AppShell
         screen={screen}
         setScreen={setScreen}
-        mainRef={mainRef}
         syncState={syncState}
         notifications={notifications}
         notifPanelOpen={notifPanelOpen}
         setNotifPanelOpen={setNotifPanelOpen}
         searchSelectedPatientId={searchSelectedPatientId}
         setSearchSelectedPatientId={setSearchSelectedPatientId}
+        searchSelectedPatientTab={searchSelectedPatientTab}
+        setSearchSelectedPatientTab={setSearchSelectedPatientTab}
         presetAppointmentData={presetAppointmentData}
         setPresetAppointmentData={setPresetAppointmentData}
         theme={theme}
@@ -1213,20 +1318,22 @@ function AppContent() {
 
 // Extracted inner shell so OnboardingProvider can wrap it
 function AppShell({
-  screen, setScreen, mainRef, syncState, notifications, notifPanelOpen, setNotifPanelOpen,
-  searchSelectedPatientId, setSearchSelectedPatientId, presetAppointmentData, setPresetAppointmentData,
+  screen, setScreen, syncState, notifications, notifPanelOpen, setNotifPanelOpen,
+  searchSelectedPatientId, setSearchSelectedPatientId, searchSelectedPatientTab, setSearchSelectedPatientTab,
+  presetAppointmentData, setPresetAppointmentData,
   theme, toggleTheme, meta, profileModalOpen, setProfileModalOpen,
   helpCenterOpen, setHelpCenterOpen, activeTour, setActiveTour,
 }: {
   screen: Screen;
   setScreen: (s: Screen) => void;
-  mainRef: React.RefObject<HTMLElement | null>;
   syncState: SyncState;
   notifications: SystemNotification[];
   notifPanelOpen: boolean;
   setNotifPanelOpen: (v: boolean | ((p: boolean) => boolean)) => void;
   searchSelectedPatientId: string | null;
   setSearchSelectedPatientId: (id: string | null) => void;
+  searchSelectedPatientTab: string | null;
+  setSearchSelectedPatientTab: (tab: string | null) => void;
   presetAppointmentData: any;
   setPresetAppointmentData: (d: any) => void;
   theme: 'light' | 'dark';
@@ -1275,8 +1382,8 @@ function AppShell({
           onOpenHelpCenter={handleOpenHelpCenter}
           onOpenProfileModal={() => setProfileModalOpen(true)}
         />
-        <main ref={mainRef} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-2xl md:rounded-3xl p-3 md:p-6 border border-border relative">
-          <ErrorBoundary key={screen} onGoHome={() => setScreen("dashboard")}>
+        <main key={screen} className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden glass-panel rounded-2xl md:rounded-3xl p-3 md:p-6 border border-border relative animate-in fade-in slide-in-from-bottom-2 duration-400">
+          <ErrorBoundary onGoHome={() => setScreen("dashboard")}>
           {screen === "dashboard" && (
             <DashboardScreen 
               onNavigate={(s) => setScreen(s as Screen)}
@@ -1287,20 +1394,23 @@ function AppShell({
             />
           )}
           {screen === "calendar" && (
-            <CalendarScreen 
+            <CalendarScreen
               presetAppointmentData={presetAppointmentData}
               clearPresetAppointmentData={() => setPresetAppointmentData(null)}
               onNavigate={(s) => setScreen(s as Screen)}
-              onSelectPatient={(patientId) => {
+              onSelectPatient={(patientId, tab) => {
                 setSearchSelectedPatientId(patientId);
+                setSearchSelectedPatientTab(tab || null);
                 setScreen("patients");
               }}
             />
           )}
           {screen === "patients" && (
-            <PatientScreen 
-              searchSelectedPatientId={searchSelectedPatientId} 
-              clearSearchSelectedPatientId={() => setSearchSelectedPatientId(null)} 
+            <PatientScreen
+              searchSelectedPatientId={searchSelectedPatientId}
+              clearSearchSelectedPatientId={() => setSearchSelectedPatientId(null)}
+              searchSelectedPatientTab={searchSelectedPatientTab}
+              clearSearchSelectedPatientTab={() => setSearchSelectedPatientTab(null)}
             />
           )}
           {screen === "consents" && <ConsentScreen />}

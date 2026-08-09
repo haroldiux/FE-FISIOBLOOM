@@ -5,7 +5,9 @@ export const registerPatientWorkflow: TourStep[] = [
     selector: "#tour-patients-register-btn",
     title: "Paso 1: Alta de Paciente",
     content: "Presiona 'Nuevo Paciente' para abrir la ficha de alta.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-patients-register-btn" }
   },
   {
     selector: "#tour-patient-form-name",

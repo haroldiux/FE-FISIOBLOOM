@@ -11,27 +11,8 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (cardRef.current) {
-      animate(cardRef.current, {
-        translateY: [40, 0],
-        opacity: [0, 1],
-        duration: 1000,
-        easing: "easeOutExpo",
-      });
-    }
-    if (logoRef.current) {
-      animate(logoRef.current, {
-        scale: [0.6, 1],
-        opacity: [0, 1],
-        delay: 200,
-        duration: 1200,
-        easing: "easeOutElastic(1, .5)",
-      });
-    }
-
     // Si api.ts nos mandó de vuelta acá porque el token venció o dejó de ser
     // válido, se avisa explícitamente en vez de mostrar el login "pelado"
     // como si nada — así no queda la duda de si se perdieron datos.
@@ -54,7 +35,7 @@ export default function LoginScreen() {
         animate(cardRef.current, {
           translateX: [-10, 10, -10, 10, 0],
           duration: 400,
-          easing: "linear",
+          ease: "linear",
         });
       }
     } finally {
@@ -87,12 +68,12 @@ export default function LoginScreen() {
       <div className="absolute w-[600px] h-[600px] rounded-full bg-success/10 blur-[130px] -bottom-60 -right-60 animate-float-2 pointer-events-none" />
       <div className="absolute w-[450px] h-[450px] rounded-full bg-primary/10 blur-[110px] top-1/2 left-1/3 pointer-events-none" />
 
-      <div 
-        ref={cardRef} 
-        className="w-full max-w-md glass-panel rounded-[2rem] p-8 border border-border shadow-[0_25px_60px_rgba(0,0,0,0.6)] flex flex-col items-center z-10"
+      <div
+        ref={cardRef}
+        className="w-full max-w-md glass-panel rounded-[2rem] p-8 border border-border shadow-[0_25px_60px_rgba(0,0,0,0.6)] flex flex-col items-center z-10 animate-in fade-in slide-in-from-bottom-4 duration-1000"
       >
         {/* Brand/Logo */}
-        <div ref={logoRef} className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-8 animate-in fade-in zoom-in-75 duration-1000 delay-200 fill-mode-both">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 mb-3 spring-hover"
             style={{ background: "var(--gradient-login)" }}

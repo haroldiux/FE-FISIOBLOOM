@@ -5,13 +5,17 @@ export const createPackageWorkflow: TourStep[] = [
     selector: "#tour-services-tab-packages",
     title: "Paso 1: Pestaña de Bonos/Paquetes",
     content: "Selecciona la pestaña de Paquetes dentro del catálogo de Servicios.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-services-tab-packages" }
   },
   {
-    selector: "#tour-packages-create-btn",
+    selector: "#tour-catalog-create-btn",
     title: "Paso 2: Crear Paquete",
     content: "Presiona este botón para iniciar la creación de un nuevo bono multisesión.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-catalog-create-btn" }
   },
   {
     selector: "#tour-package-form-name",

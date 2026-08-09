@@ -5,7 +5,9 @@ export const createProductWorkflow: TourStep[] = [
     selector: "#tour-inventory-add-product-btn",
     title: "Paso 1: Nuevo Producto",
     content: "Haz clic en 'Nuevo Producto' para registrar un insumo o producto de venta comercial.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-inventory-add-product-btn" }
   },
   {
     selector: "#tour-product-form-name",
@@ -15,8 +17,8 @@ export const createProductWorkflow: TourStep[] = [
   },
   {
     selector: "#tour-product-form-min-stock",
-    title: "Paso 3: Umbral de Stock Mínimo",
-    content: "Establece el nivel mínimo de stock para activar alertas visuales cuando el insumo esté próximo a agotarse.",
+    title: "Paso 3: Stock Inicial",
+    content: "Indica cuántas unidades tenés disponibles ahora mismo. El sistema te avisará automáticamente cuando el stock caiga por debajo de 5 unidades.",
     position: "top"
   },
   {

@@ -33,9 +33,9 @@ import {
 import { api, API_URL } from "../services/api";
 import { toast } from "sonner";
 const SERVER_URL = API_URL.replace(/\/api$/, "");
-import { animate } from "animejs";
 import { useAuth } from "../context/AuthContext";
 import BranchTabs from "../components/BranchTabs";
+import { getConsentText as getConsentTextShared } from "../utils/consentText";
 
 type PatientTab = "historial" | "evolucion" | "consentimiento" | "galeria" | "facturacion";
 
@@ -175,10 +175,14 @@ type TimelineItem =
 
 export default function PatientScreen({
   searchSelectedPatientId,
-  clearSearchSelectedPatientId
+  clearSearchSelectedPatientId,
+  searchSelectedPatientTab,
+  clearSearchSelectedPatientTab
 }: {
   searchSelectedPatientId?: string | null;
   clearSearchSelectedPatientId?: () => void;
+  searchSelectedPatientTab?: string | null;
+  clearSearchSelectedPatientTab?: () => void;
 }) {
   const { user, shiftStatus } = useAuth();
 
@@ -215,6 +219,18 @@ export default function PatientScreen({
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<PatientTab>("evolucion");
+
+  // Deep-link de pestaña: cuando Calendario redirige acá porque falta un
+  // consentimiento firmado (o el historial médico), abre directo en esa
+  // pestaña en vez de dejar al usuario en "Evolución" por defecto.
+  useEffect(() => {
+    if (searchSelectedPatientTab) {
+      setActiveTab(searchSelectedPatientTab as PatientTab);
+      if (clearSearchSelectedPatientTab) {
+        clearSearchSelectedPatientTab();
+      }
+    }
+  }, [searchSelectedPatientTab]);
   // Si se dispara más de un loadPatient() en paralelo (ej. dos "Registrar
   // Sesión" casi al mismo tiempo), las respuestas del servidor pueden llegar
   // en otro orden del que salieron — la más lenta puede pisar los datos ya
@@ -356,8 +372,6 @@ export default function PatientScreen({
   const [sliderPhotoAfter, setSliderPhotoAfter] = useState<PatientPhoto | null>(null);
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonPos, setComparisonPos] = useState(50);
-
-  const modalRef = useRef<HTMLDivElement>(null);
 
   // ── Load patient list ──────────────────────────────────────────────────────
 
@@ -845,19 +859,6 @@ export default function PatientScreen({
     }
   };
 
-  // ── Modal animation ────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (showModal && modalRef.current) {
-      animate(modalRef.current, {
-        scale: [0.95, 1],
-        opacity: [0, 1],
-        duration: 400,
-        easing: "easeOutElastic(1, .8)",
-      });
-    }
-  }, [showModal]);
-
   // ── Register session ────────────────────────────────────────────────────────
 
   // Si la cita elegida combina 2+ servicios que coinciden todos con líneas
@@ -1082,13 +1083,12 @@ export default function PatientScreen({
 
     let signatureBase64 = "";
     if (signMethod === "digital") {
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        setConsentError("El lienzo de firma no está listo.");
+      if (!signatureDataUrl) {
+        setConsentError("Tocá 'Firmar en Pantalla Completa' y estampá la firma antes de guardar.");
         setIsSigning(false);
         return;
       }
-      signatureBase64 = canvas.toDataURL("image/png");
+      signatureBase64 = signatureDataUrl;
     } else {
       if (!uploadedFileBase64) {
         setConsentError("Debes cargar un archivo de consentimiento escaneado.");
@@ -1112,6 +1112,7 @@ export default function PatientScreen({
       setSignMethod("digital");
       setUploadedFileBase64(null);
       setUploadedFileName("");
+      setSignatureDataUrl(null);
     } catch (err: any) {
       // Si el servidor respondió (aunque sea con un error), NO es una falla de
       // red: es un rechazo válido (ej. no tenés turno hoy, servicio inválido,
@@ -1163,43 +1164,11 @@ export default function PatientScreen({
       setSignMethod("digital");
       setUploadedFileBase64(null);
       setUploadedFileName("");
+      setSignatureDataUrl(null);
     }
   };
 
-  const getConsentText = (serviceName: string) => {
-    const name = (serviceName || "").toLowerCase();
-    if (name === "general" || name.includes("general")) {
-      return `CONSENTIMIENTO INFORMADO GENERAL - REGISTRO CLÍNICO Y TRATAMIENTOS
-Yo, ${patient?.fullName || "el paciente"}, en pleno uso de mis facultades, autorizo el registro de mi historial clínico, evolución física y la realización de tratamientos generales de fisioterapia y estética en BLOOM SKIN.
-He sido informado de manera comprensible sobre las normas del centro, el manejo confidencial de mis datos clínicos y la necesidad de declarar con veracidad cualquier condición médica, antecedente o contraindicación.
-Doy mi consentimiento para que se registren mediciones antropométricas y fotografías evolutivas únicamente con fines de seguimiento profesional y control de mi tratamiento.`;
-    }
-    if (name.includes("laser") || name.includes("láser") || name.includes("depila") || name.includes("soprano")) {
-      return `CONSENTIMIENTO INFORMADO PARA TRATAMIENTO DE DEPILACIÓN LÁSER
-Yo, ${patient?.fullName}, en pleno uso de mis facultades, autorizo la realización del tratamiento de Depilación Láser en BLOOM SKIN.
-He sido informado de que el procedimiento utiliza energía lumínica para calentar y destruir el folículo piloso. Comprendo que puede provocar eritema transitorio, leve inflamación o sensibilidad y que existe un riesgo menor de hiper/hipopigmentación temporal.
-Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no haber tomado sol en la zona a tratar en los últimos 15 días. Me comprometo a seguir las pautas post-tratamiento indicadas.`;
-    }
-    
-    if (name.includes("cavitacion") || name.includes("cavitación") || name.includes("corporal") || name.includes("reductor") || name.includes("criolipolisis")) {
-      return `CONSENTIMIENTO INFORMADO PARA TRATAMIENTOS CORPORALES REDUCTORES
-Yo, ${patient?.fullName}, autorizo los tratamientos corporales indicados orientados a la reducción de grasa localizada y modelado corporal.
-Entiendo que técnicas como cavitación, criolipólisis o radiofrecuencia actúan sobre el tejido subcutáneo. Se me ha explicado detalladamente la necesidad de mantener una hidratación abundante y hábitos alimenticios saludables para optimizar el drenaje linfático.
-Declaro no portar marcapasos ni prótesis metálicas en la zona, ni padecer insuficiencia hepática o renal grave.`;
-    }
-    
-    if (name.includes("facial") || name.includes("peeling") || name.includes("anti-edad")) {
-      return `CONSENTIMIENTO INFORMADO PARA TRATAMIENTOS FACIALES Y ESTÉTICOS
-Yo, ${patient?.fullName}, autorizo la realización del tratamiento facial y rejuvenecimiento en BLOOM SKIN.
-Comprendo que la aplicación de principios activos, peelings químicos o aparatología facial busca la renovación del tejido dérmico. Entiendo los riesgos de descamación leve, eritema y la obligatoriedad del uso diario de fotoprotección FPS 50+.
-Declaro no padecer herpes labial activo ni sensibilidad extrema a los ácidos estéticos indicados.`;
-    }
-
-    return `CONSENTIMIENTO INFORMADO GENERAL DE TRATAMIENTO ESTÉTICO
-Yo, ${patient?.fullName}, autorizo la realización del tratamiento de ${serviceName} en BLOOM SKIN.
-He recibido explicaciones claras del procedimiento, sus beneficios esperados y sus efectos secundarios comunes. Confirmo que he resuelto todas mis dudas y que los datos declarados en mi ficha clínica son verídicos.
-Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por el profesional.`;
-  };
+  const getConsentText = (serviceName: string) => getConsentTextShared(serviceName, patient?.fullName || "");
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -1434,14 +1403,15 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
               </div>
             </div>
 
-            <div className="flex border-b border-border bg-card px-4 md:px-6 gap-1 flex-shrink-0 overflow-x-auto [&::-webkit-scrollbar]:hidden whitespace-nowrap">
+            <div className="flex flex-wrap border-b border-border bg-card px-4 md:px-6 gap-1 flex-shrink-0">
               {tabs.map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   id={`tour-tab-${id}`}
+                  data-tab={id}
                   data-onboarding={`patient-tab-${id}`}
                   onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-1.5 py-3.5 px-3 text-xs font-bold border-b-2 uppercase tracking-wider transition-all whitespace-nowrap flex-shrink-0 ${
+                  className={`flex items-center gap-1.5 py-3.5 px-3 text-xs font-bold border-b-2 uppercase tracking-wider transition-all whitespace-nowrap ${
                     activeTab === id
                       ? "border-primary text-primary"
                       : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1869,26 +1839,28 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block">
                               Firma del Paciente
                             </label>
-                            <span className="text-[10px] text-muted-foreground font-semibold italic">
-                              Estampe la firma con el mouse o lápiz táctil
-                            </span>
+                            <button
+                              type="button"
+                              id="tour-patients-consent-canvas"
+                              onClick={openFullscreenSignature}
+                              className="text-[10px] text-primary font-black hover:underline"
+                            >
+                              {signatureDataUrl ? "Editar Firma" : "Firmar en Pantalla Completa"}
+                            </button>
                           </div>
 
-                          <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-2 relative overflow-hidden flex justify-center items-center">
-                            <canvas
-                              ref={canvasRef}
-                              id="tour-patients-consent-canvas"
-                              width={600}
-                              height={200}
-                              onMouseDown={startDrawing}
-                              onMouseMove={draw}
-                              onMouseUp={stopDrawing}
-                              onMouseLeave={stopDrawing}
-                              onTouchStart={startDrawing}
-                              onTouchMove={draw}
-                              onTouchEnd={stopDrawing}
-                              className="bg-card rounded-xl shadow-inner cursor-crosshair max-w-full"
-                            />
+                          <div className="border-2 border-dashed border-border rounded-2xl bg-muted p-2 relative overflow-hidden flex justify-center items-center h-[160px]">
+                            {signatureDataUrl ? (
+                              <img src={signatureDataUrl} alt="Firma del paciente" className="max-w-full max-h-full" />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={openFullscreenSignature}
+                                className="text-xs text-muted-foreground italic"
+                              >
+                                Toque aquí para firmar — en el celular, girá la pantalla para más espacio.
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -2338,9 +2310,8 @@ Me comprometo a seguir rigurosamente las pautas post-tratamiento indicadas por e
       {showModal && (
         <div className="fixed inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            ref={modalRef}
             id="tour-session-modal"
-            className="w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden"
+            className="w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-400"
             style={{ opacity: 0 }}
           >
             <div className="flex items-center justify-between px-6 py-5 border-b border-border flex-shrink-0">

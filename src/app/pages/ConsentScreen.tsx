@@ -17,6 +17,7 @@ import { api } from "../services/api";
 import { toast } from "sonner";
 import BranchTabs from "../components/BranchTabs";
 import { useAuth } from "../context/AuthContext";
+import { getConsentText as getConsentTextShared } from "../utils/consentText";
 
 interface ConsentDocument {
   id: string;
@@ -58,6 +59,7 @@ export default function ConsentScreen() {
   const [isSigning, setIsSigning] = useState(false);
   const [searchPatientQuery, setSearchPatientQuery] = useState("");
   const [loadingPatients, setLoadingPatients] = useState(false);
+  const [requiredConsentServices, setRequiredConsentServices] = useState<{ id: string; name: string }[]>([]);
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -84,6 +86,17 @@ export default function ConsentScreen() {
 
   useEffect(() => {
     loadConsents();
+  }, []);
+
+  // Catálogo real de servicios que requieren consentimiento firmado, usado
+  // para armar el selector de "Firma Rápida" con IDs reales — antes era un
+  // <select> con solo 2 opciones fijas ("General" y "Depilación Láser") que
+  // ni siquiera coincidían con un servicio real en la base de datos, así que
+  // firmar cualquier otra cosa fallaba con "Servicio no encontrado".
+  useEffect(() => {
+    api.get<{ id: string; name: string; requiresConsent: boolean }[]>("/services")
+      .then((services) => setRequiredConsentServices((services || []).filter((s) => s.requiresConsent)))
+      .catch(() => {});
   }, []);
 
   // Search patients dynamically in the sign modal
@@ -168,16 +181,8 @@ export default function ConsentScreen() {
   };
 
   const getConsentText = (serviceId: string, patientName: string) => {
-    if (serviceId === "general") {
-      return `CONSENTIMIENTO INFORMADO GENERAL - REGISTRO CLÍNICO Y TRATAMIENTOS
-Yo, ${patientName || "el paciente"}, en pleno uso de mis facultades, autorizo el registro de mi historial clínico, evolución física y la realización de tratamientos generales de fisioterapia y estética en BLOOM SKIN.
-He sido informado de manera comprensible sobre las normas del centro, el manejo confidencial de mis datos clínicos y la necesidad de declarar con veracidad cualquier condición médica, antecedente o contraindicación.
-Doy mi consentimiento para que se registren mediciones antropométricas y fotografías evolutivas únicamente con fines de seguimiento profesional y control de mi tratamiento.`;
-    }
-    return `CONSENTIMIENTO INFORMADO PARA TRATAMIENTO DE DEPILACIÓN LÁSER
-Yo, ${patientName || "el paciente"}, en pleno uso de mis facultades, autorizo la realización del tratamiento de Depilación Láser en BLOOM SKIN.
-He sido informado de que el procedimiento utiliza energía lumínica para calentar y destruir el folículo piloso. Comprendo que puede provocar eritema transitorio, leve inflamación o sensibilidad y que existe un riesgo menor de hiper/hipopigmentación temporal.
-Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no haber tomado sol en la zona a tratar en los últimos 15 días. Me comprometo a seguir las pautas post-tratamiento indicadas.`;
+    const serviceName = serviceId === "general" ? "general" : (requiredConsentServices.find((s) => s.id === serviceId)?.name || "");
+    return getConsentTextShared(serviceName, patientName);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -590,7 +595,9 @@ Declaro no estar embarazada, no tomar medicamentos fotosensibilizantes y no habe
                   className="w-full text-xs font-bold bg-muted border border-border rounded-xl p-2.5 focus:outline-none text-foreground"
                 >
                   <option value="general">Consentimiento Informado General (Clínica)</option>
-                  <option value="fallback-laser">Consentimiento de Depilación Láser</option>
+                  {requiredConsentServices.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
                 </select>
               </div>
               {/* Método de Registro (Firma Digital o Subir Archivo) */}

@@ -10,7 +10,6 @@ import { configTour } from "./config";
 import { saasTour } from "./saas";
 import { loginTour } from "./login";
 import { portalTour } from "./portal";
-import { financeTour } from "./finance";
 import { consentTour } from "./consents";
 
 export const VIEW_TOURS: Record<string, TourStep[]> = {
@@ -25,6 +24,5 @@ export const VIEW_TOURS: Record<string, TourStep[]> = {
   saas: saasTour,
   login: loginTour,
   portal: portalTour,
-  finance: financeTour,
   consents: consentTour,
 };

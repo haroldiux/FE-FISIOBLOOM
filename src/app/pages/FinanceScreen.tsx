@@ -1191,11 +1191,12 @@ export default function FinanceScreen() {
         </div>
 
         {/* Tab Selector */}
-        <div className="relative w-full sm:w-auto">
-        <div id="tour-finance-tabs" className="flex bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 overflow-x-auto max-w-full scrollbar-hide flex-nowrap flex-shrink-0">
+        <div className="relative w-full md:w-auto">
+        <div id="tour-finance-tabs" className="flex flex-wrap bg-muted p-1 rounded-xl border border-border shadow-sm gap-1 max-w-full">
           <button
             id="tour-finance-pos-tab"
             data-onboarding="pos-tab-pos"
+            data-tab="pos"
             onClick={() => setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "pos"
@@ -1208,6 +1209,7 @@ export default function FinanceScreen() {
           <button
             id="tour-finance-caja-tab"
             data-onboarding="pos-tab-cash"
+            data-tab="caja"
             onClick={() => setActiveTab("caja")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "caja"
@@ -1219,6 +1221,7 @@ export default function FinanceScreen() {
           </button>
           <button
             id="tour-finance-schedules-tab"
+            data-tab="schedules"
             onClick={() => setActiveTab("schedules")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
               activeTab === "schedules"
@@ -1231,6 +1234,7 @@ export default function FinanceScreen() {
           {user?.role !== "RECEPTIONIST" && (
             <button
               id="tour-finance-performance-tab"
+              data-tab="performance"
               onClick={() => setActiveTab("performance")}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
                 activeTab === "performance"
@@ -1244,6 +1248,7 @@ export default function FinanceScreen() {
           {user?.role !== "RECEPTIONIST" && (
             <button
               id="tour-finance-payroll-tab"
+              data-tab="payroll"
               onClick={() => setActiveTab("payroll")}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
                 activeTab === "payroll"
@@ -1257,6 +1262,7 @@ export default function FinanceScreen() {
           {user?.role !== "RECEPTIONIST" && (
             <button
               id="tour-finance-attendance-tab"
+              data-tab="attendance"
               onClick={() => setActiveTab("attendance")}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
                 activeTab === "attendance"
@@ -1270,6 +1276,7 @@ export default function FinanceScreen() {
           {user?.role !== "RECEPTIONIST" && (
             <button
               id="tour-finance-promotions-tab"
+              data-tab="promotions"
               onClick={() => setActiveTab("promotions")}
               className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
                 activeTab === "promotions"
@@ -2088,7 +2095,7 @@ export default function FinanceScreen() {
 
       {/* ── SECCIÓN HORARIOS DE STAFF ── */}
       {activeTab === "schedules" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in">
+        <div id="tour-pos-schedules" className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in">
           <div className="lg:col-span-1 bg-card rounded-2xl border border-border p-5 space-y-4">
             <div>
               <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
@@ -2219,7 +2226,7 @@ export default function FinanceScreen() {
 
       {/* ── SECCIÓN DESEMPEÑO Y METAS ── */}
       {activeTab === "performance" && user?.role !== "RECEPTIONIST" && (
-        <div className="space-y-6 animate-fade-in">
+        <div id="tour-pos-performance" className="space-y-6 animate-fade-in">
           {/* KPI Dashboard */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
@@ -2488,7 +2495,7 @@ export default function FinanceScreen() {
 
       {/* ── SECCIÓN PROMOCIONES, CAMPAÑAS Y CUPONES ── */}
       {activeTab === "promotions" && user?.role !== "RECEPTIONIST" && (
-        <div className="space-y-6 animate-fade-in">
+        <div id="tour-pos-promotions" className="space-y-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5">
             <div>
               <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
@@ -2501,6 +2508,7 @@ export default function FinanceScreen() {
             </div>
             <div className="flex gap-2 self-start sm:self-center">
               <button
+                id="tour-promotions-create-btn"
                 onClick={() => setShowCampaignModal(true)}
                 className="flex items-center gap-2 bg-primary text-primary-foreground text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-primary/95 transition-all shadow-md shadow-primary/10"
               >
@@ -2606,7 +2614,7 @@ export default function FinanceScreen() {
       )}
 
       {activeTab === "attendance" && user?.role !== "RECEPTIONIST" && (
-        <div className="space-y-6 animate-fade-in">
+        <div id="tour-pos-attendance" className="space-y-6 animate-fade-in">
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
@@ -2813,7 +2821,7 @@ export default function FinanceScreen() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div id="tour-promotion-form-discount" className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Tipo Descuento</label>
                   <select
@@ -2838,7 +2846,7 @@ export default function FinanceScreen() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div id="tour-promotion-form-rules" className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Fecha Inicio *</label>
                   <input
@@ -2868,6 +2876,7 @@ export default function FinanceScreen() {
                 Cancelar
               </button>
               <button
+                id="tour-promotion-form-submit"
                 onClick={handleCreateCampaign}
                 className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 shadow-sm shadow-primary/10"
               >

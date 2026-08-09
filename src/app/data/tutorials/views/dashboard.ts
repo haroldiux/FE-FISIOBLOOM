@@ -4,7 +4,7 @@ export const dashboardTour: TourStep[] = [
   {
     selector: "#tour-dashboard-branch",
     title: "Selector de Sucursal",
-    content: "Si tienes el rol de Administrador, puedes alternar entre las sucursales de tu clínica. Todas las estadísticas y agendas se filtrarán al instante.",
+    content: "Si tienes el rol de Súper Administrador, podés alternar entre las sucursales de tu clínica. Todas las estadísticas y agendas se filtran al instante (los demás roles quedan atados a su propia sucursal).",
     position: "bottom"
   },
   {

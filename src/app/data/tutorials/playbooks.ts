@@ -12,7 +12,7 @@ export const ROLE_GUIDES: RoleGuide[] = [
       "Cálculo automatizado de nóminas del personal y comisiones fijas del 10%.",
       "Auditoría global de arqueos de caja y exportaciones contables consolidadas.",
     ],
-    example: "Usa el selector de sucursal activa en la barra lateral para analizar los KPIs individuales de cada clínica, y ve al módulo de Analíticas para exportar los reportes en CSV para tu contador.",
+    example: "Usa el selector de sucursal activa en la barra lateral para analizar los KPIs individuales de cada clínica, y ve al módulo de Analíticas para exportar los reportes en PDF para tu contador.",
   },
   {
     roleName: "Fisioterapeuta (PHYSIO)",
@@ -331,7 +331,7 @@ export function getRoleScenariosForSelector(selector: string): { role: string; t
   }
   if (selector.includes("reports") || selector.includes("chart") || selector.includes("kpi")) {
     return [
-      { role: "ADMIN", text: "Visualiza curvas evolutivas de ingresos, evalúa comisiones del mes y descarga reportes de auditoría contable en formato CSV." }
+      { role: "ADMIN", text: "Visualiza curvas evolutivas de ingresos, evalúa comisiones del mes y descarga reportes de auditoría contable en formato PDF." }
     ];
   }
   return [

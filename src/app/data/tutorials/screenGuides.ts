@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   LogIn,
   Globe,
+  FileText,
 } from "lucide-react";
 import { ScreenGuide } from "./types";
 
@@ -37,6 +38,12 @@ export const SCREEN_GUIDES: ScreenGuide[] = [
     title: "Caja y Terminal POS",
     description: "Venta de servicios y productos, control de arqueo y liquidación de nóminas/comisiones.",
     icon: Receipt,
+  },
+  {
+    key: "consents",
+    title: "Firmas y Consentimientos",
+    description: "Registro de consentimientos informados: firma en pantalla o carga de documentos escaneados.",
+    icon: FileText,
   },
   {
     key: "inventory",

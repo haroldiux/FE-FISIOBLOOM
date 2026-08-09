@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import { animate, stagger } from "animejs";
+import { useState, useEffect } from "react";
 import {
   CalendarDays,
   DollarSign,
@@ -130,23 +129,15 @@ function KPICard({
   colorClass: string;
   delay: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    animate(ref.current, {
-      opacity: [0, 1],
-      translateY: [12, 0],
-      delay: delay * 0.4,
-      duration: 280,
-      easing: "easeOutQuad",
-    });
-  }, [delay]);
-
+  // CSS-driven entrance (not animejs): an imperative animate() call here
+  // depended on the ref being attached exactly when the effect fired: if
+  // that race lost even once, the card stayed at `opacity: 0` forever
+  // since `delay` never changes again to re-trigger the effect. A CSS
+  // animation always plays regardless of JS timing.
   return (
     <div
-      ref={ref}
-      className="glass-panel spring-hover rounded-2xl border border-border p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 shadow-lg"
-      style={{ opacity: 0 }}
+      className="glass-panel spring-hover rounded-2xl border border-border p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
+      style={{ animationDelay: `${delay}ms` }}
     >
       <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
         <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -181,24 +172,10 @@ export default function DashboardScreen({
   const [retouchToDismiss, setRetouchToDismiss] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [performances, setPerformances] = useState<StaffPerformance[]>([]);
-  const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadDashboard();
   }, []);
-
-  useEffect(() => {
-    if (!loading && tableRef.current) {
-      const rows = tableRef.current.querySelectorAll("tr.appt-row");
-      animate(Array.from(rows), {
-        opacity: [0, 1],
-        translateX: [-10, 0],
-        delay: stagger(25),
-        duration: 260,
-        easing: "easeOutQuad",
-      });
-    }
-  }, [loading]);
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -693,7 +670,7 @@ export default function DashboardScreen({
         </div>
 
         {/* Vista de tabla: solo desde "sm" en adelante, donde sí entran las 5 columnas. */}
-        <div ref={tableRef} className="hidden sm:block overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div className="hidden sm:block overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border/85">
@@ -721,8 +698,8 @@ export default function DashboardScreen({
                   return (
                     <tr
                       key={i}
-                      className="appt-row border-b border-border/40 hover:bg-muted transition-colors"
-                      style={{ opacity: 0 }}
+                      className="appt-row border-b border-border/40 hover:bg-muted transition-colors animate-in fade-in slide-in-from-left-2 duration-260 fill-mode-both"
+                      style={{ animationDelay: `${i * 25}ms` }}
                     >
                       <td className="px-5 py-4">
                         <span

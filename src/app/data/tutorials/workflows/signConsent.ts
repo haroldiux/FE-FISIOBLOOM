@@ -4,10 +4,11 @@ export const signConsentWorkflow: TourStep[] = [
   {
     selector: "#tour-sidebar-consents",
     title: "Paso 1: Módulo de Firmas",
-    content: "Haz clic en el menú 'Firmas' del panel lateral para abrir la vista dedicada.",
+    content: "Haz clic en el menú 'Firmas' del panel lateral para abrir la vista dedicada. En el celular, primero tocá 'Más' para desplegar el resto del menú.",
     position: "right",
     mode: "interactive",
-    advanceOn: { event: "click", selector: "#tour-sidebar-consents" }
+    advanceOn: { event: "click", selector: "#tour-sidebar-consents" },
+    targetTab: "mobile-menu"
   },
   {
     selector: "#tour-consent-quick-sign",

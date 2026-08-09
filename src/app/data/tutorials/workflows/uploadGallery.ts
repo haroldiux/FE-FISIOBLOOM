@@ -13,7 +13,9 @@ export const uploadGalleryWorkflow: TourStep[] = [
     selector: "#tour-tab-galeria",
     title: "Paso 2: Galería Fotográfica",
     content: "Abre la pestaña de fotos dentro de la ficha del paciente.",
-    position: "bottom"
+    position: "bottom",
+    mode: "interactive",
+    advanceOn: { event: "click", selector: "#tour-tab-galeria" }
   },
   {
     selector: "#tour-gallery-file-input",
