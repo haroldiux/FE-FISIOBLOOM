@@ -8,16 +8,11 @@ export const CATEGORIES_BY_ROLE: Record<string, string[]> = {
   AESTHETICIAN: ["FACIAL", "CORPORAL", "ESTETICA"],
 };
 
-// El Administrador y roles no clínicos pueden elegir cualquier cabina (se les
-// muestran todas).
-export const CABINS_BY_ROLE: Record<string, string[]> = {
-  PHYSIO: ["Box Fisioterapia"],
-  AESTHETICIAN: ["Cabina Facial 1", "Cabina Corporal 2"],
-};
-
 // Duraciones rápidas disponibles como chips en los formularios de citas.
 export const DURATION_PRESETS = [30, 45, 60, 90, 120];
 
-// Todas las cabinas/box del centro, para cuando no hay un rol específico que
-// las restrinja (ej. Administrador armando una cita).
-export const ALL_CABINS = ["Cabina Facial 1", "Cabina Corporal 2", "Box Fisioterapia", "Ninguna"];
+// Las cabinas/box ya no son una constante fija: el Administrador las crea y
+// activa/desactiva desde Configuración > Cabinas (modelo Cabin en la base de
+// datos, endpoint /api/cabins). CalendarScreen.tsx las trae en vivo y las
+// filtra por categoría usando CATEGORIES_BY_ROLE de acá arriba — ver
+// cabinNamesForRole() en ese archivo.

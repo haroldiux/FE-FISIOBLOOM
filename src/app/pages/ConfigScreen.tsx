@@ -29,6 +29,7 @@ import {
   Lock,
   Unlock,
   Key,
+  DoorOpen,
 } from "lucide-react";
 import { api } from "../services/api";
 import { toast } from "sonner";
@@ -868,6 +869,136 @@ function BranchModal({
   );
 }
 
+// ── Cabins Types & Modal ─────────────────────────────────────────────────────
+
+const CABIN_CATEGORIES = ["FACIAL", "CORPORAL", "FISIOTERAPIA", "ESTETICA"] as const;
+type CabinCategory = (typeof CABIN_CATEGORIES)[number];
+const CABIN_CATEGORY_LABELS: Record<CabinCategory, string> = {
+  FACIAL: "Facial",
+  CORPORAL: "Corporal",
+  FISIOTERAPIA: "Fisioterapia",
+  ESTETICA: "Estética",
+};
+
+interface Cabin {
+  id: string;
+  name: string;
+  category: CabinCategory;
+  isActive: boolean;
+  branchId: string;
+}
+
+interface CabinForm {
+  name: string;
+  category: CabinCategory;
+}
+
+function CabinModal({
+  cabin,
+  onSave,
+  onClose,
+}: {
+  cabin?: Cabin | null;
+  onSave: (data: CabinForm) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<CabinForm>({
+    name: cabin?.name || "",
+    category: cabin?.category || "FACIAL",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      setError("El nombre de la cabina es obligatorio.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(form);
+    } catch (e: any) {
+      setError(e.message || "Error al guardar la cabina.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-bold text-foreground">
+            {cabin ? "Editar Cabina" : "Nueva Cabina"}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Nombre de la Cabina *</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ej: Cabina Facial 3"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-background text-foreground"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Especialidad *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CABIN_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setForm({ ...form, category: cat })}
+                  className={`px-3 py-2.5 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
+                    form.category === cat
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {CABIN_CATEGORY_LABELS[cat]}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              Define cuántas citas de esta especialidad pueden pasar al mismo tiempo.
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 text-xs font-bold border border-border rounded-xl hover:bg-muted/50 text-foreground transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {cabin ? "Guardar Cambios" : "Crear Cabina"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── New Professional Modal ─────────────────────────────────────────────────────
 
 function ProfessionalModal({
@@ -1094,9 +1225,10 @@ export default function ConfigScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"professionals" | "clinic" | "whatsapp" | "branches">("professionals");
+  const [activeTab, setActiveTab] = useState<"professionals" | "clinic" | "whatsapp" | "branches" | "cabins">("professionals");
   const [userToToggle, setUserToToggle] = useState<Professional | null>(null);
   const [branchToToggle, setBranchToToggle] = useState<Branch | null>(null);
+  const [cabinToToggle, setCabinToToggle] = useState<Cabin | null>(null);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const [resetPasswordFor, setResetPasswordFor] = useState<Professional | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState("");
@@ -1131,6 +1263,12 @@ export default function ConfigScreen() {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [showBranchModal, setShowBranchModal] = useState(false);
+
+  // Cabins State
+  const [cabins, setCabins] = useState<Cabin[]>([]);
+  const [cabinsLoading, setCabinsLoading] = useState(false);
+  const [editingCabin, setEditingCabin] = useState<Cabin | null>(null);
+  const [showCabinModal, setShowCabinModal] = useState(false);
 
   useEffect(() => {
     setActivePalette(resolvePaletteKey(tenantSettings.branding.palette));
@@ -1207,8 +1345,10 @@ export default function ConfigScreen() {
       }).finally(() => setWaLoading(false));
     } else if (activeTab === "branches" && isSuperAdmin) {
       loadBranches();
+    } else if (activeTab === "cabins" && (isAdmin || isSuperAdmin)) {
+      loadCabins();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, isSuperAdmin]);
 
   const handleSaveWaSettings = async () => {
     setWaLoading(true);
@@ -1270,6 +1410,44 @@ export default function ConfigScreen() {
       await loadBranches();
     } catch (e: any) {
       setError(e.message || "Error al cambiar estado de la sucursal.");
+    }
+  };
+
+  const loadCabins = async () => {
+    setCabinsLoading(true);
+    setError(null);
+    try {
+      const data = await api.get<Cabin[]>("/cabins");
+      setCabins(data);
+    } catch (e: any) {
+      setError(e.message || "Error al cargar cabinas.");
+    } finally {
+      setCabinsLoading(false);
+    }
+  };
+
+  const handleCreateOrUpdateCabin = async (form: CabinForm) => {
+    try {
+      if (editingCabin) {
+        await api.put(`/cabins/${editingCabin.id}`, form);
+      } else {
+        await api.post("/cabins", form);
+      }
+      setShowCabinModal(false);
+      setEditingCabin(null);
+      await loadCabins();
+    } catch (e: any) {
+      setError(e.message || "Error al guardar cabina.");
+      throw e;
+    }
+  };
+
+  const handleToggleCabinActive = async (cabin: Cabin) => {
+    try {
+      await api.put(`/cabins/${cabin.id}`, { isActive: !cabin.isActive });
+      await loadCabins();
+    } catch (e: any) {
+      setError(e.message || "Error al cambiar estado de la cabina.");
     }
   };
 
@@ -1404,7 +1582,9 @@ export default function ConfigScreen() {
           // Sucursales: exclusivo del Súper Admin. Un Admin de sucursal ya no
           // puede crear ni ver otras sucursales desde acá.
           ...(isSuperAdmin ? [{ id: "branches" as const, label: "Sucursales", Icon: MapPin }] : []),
-        ] as { id: "professionals" | "clinic" | "whatsapp" | "branches"; label: string; Icon: React.ComponentType<any> }[]).map(({ id, label, Icon }) => (
+          // Cabinas: Admin de sucursal (solo las suyas) o Súper Admin.
+          ...((isAdmin || isSuperAdmin) ? [{ id: "cabins" as const, label: "Cabinas", Icon: DoorOpen }] : []),
+        ] as { id: "professionals" | "clinic" | "whatsapp" | "branches" | "cabins"; label: string; Icon: React.ComponentType<any> }[]).map(({ id, label, Icon }) => (
           <button
             key={id}
             id={`tour-config-${id}-tab`}
@@ -2143,6 +2323,103 @@ export default function ConfigScreen() {
         </div>
       )}
 
+      {/* Cabins tab — Admin (su sucursal) o Súper Admin */}
+      {activeTab === "cabins" && (isAdmin || isSuperAdmin) && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Cabinas / Box</h2>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5 font-sans">
+                La cantidad de cabinas activas de cada especialidad define cuántas citas
+                pueden pasar al mismo tiempo. Desactivá una si está en reparación — su
+                historial de citas pasadas no se pierde.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingCabin(null);
+                setShowCabinModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 cursor-pointer flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Cabina
+            </button>
+          </div>
+
+          {cabinsLoading ? (
+            <div className="flex items-center justify-center h-40 gap-3">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Cargando cabinas...</span>
+            </div>
+          ) : cabins.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-card border border-border border-dashed rounded-2xl">
+              <DoorOpen className="w-8 h-8 text-muted-foreground/60 mb-2" />
+              <p className="text-sm font-semibold text-muted-foreground">No hay cabinas registradas.</p>
+              <p className="text-xs text-muted-foreground mt-1">Creá la primera para poder agendar citas de esa especialidad.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {CABIN_CATEGORIES.map((cat) => {
+                const cabinsOfCategory = cabins.filter((c) => c.category === cat);
+                if (cabinsOfCategory.length === 0) return null;
+                const activeCount = cabinsOfCategory.filter((c) => c.isActive).length;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-black text-foreground uppercase tracking-wider">
+                        {CABIN_CATEGORY_LABELS[cat]}
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {activeCount} {activeCount === 1 ? "cabina activa" : "cabinas activas"} · hasta {activeCount} {activeCount === 1 ? "cita" : "citas"} en simultáneo
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {cabinsOfCategory.map((cabin) => (
+                        <div
+                          key={cabin.id}
+                          className="bg-card border border-border rounded-2xl p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 hover:border-primary/30 group"
+                        >
+                          <div className="flex items-start justify-between">
+                            <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                              {cabin.name}
+                            </h4>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              cabin.isActive
+                                ? "bg-success/10 text-success"
+                                : "bg-error/10 text-error"
+                            }`}>
+                              {cabin.isActive ? "Activa" : "Inactiva"}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2 justify-end mt-5 pt-3 border-t border-border/50">
+                            <button
+                              onClick={() => {
+                                setEditingCabin(cabin);
+                                setShowCabinModal(true);
+                              }}
+                              className="p-2 text-muted-foreground hover:text-foreground rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="flex items-center gap-2 px-2 py-1 border border-border rounded-lg bg-card text-foreground ml-2">
+                              <span className="text-xs font-bold">{cabin.isActive ? "Activa" : "Inactiva"}</span>
+                              <Switch checked={cabin.isActive} onCheckedChange={() => setCabinToToggle(cabin)} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {showBranchModal && (
         <BranchModal
           branch={editingBranch}
@@ -2150,6 +2427,17 @@ export default function ConfigScreen() {
           onClose={() => {
             setShowBranchModal(false);
             setEditingBranch(null);
+          }}
+        />
+      )}
+
+      {showCabinModal && (
+        <CabinModal
+          cabin={editingCabin}
+          onSave={handleCreateOrUpdateCabin}
+          onClose={() => {
+            setShowCabinModal(false);
+            setEditingCabin(null);
           }}
         />
       )}
@@ -2213,6 +2501,34 @@ export default function ConfigScreen() {
               className={branchToToggle?.isActive ? "bg-error text-white hover:bg-error/90" : "bg-success text-white hover:bg-success/90"}
             >
               {branchToToggle?.isActive ? "Desactivar" : "Activar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cabinToToggle} onOpenChange={(open) => !open && setCabinToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {cabinToToggle?.isActive ? "¿Desactivar cabina?" : "¿Activar cabina?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {cabinToToggle?.isActive ? (
+                <>Estás a punto de desactivar <strong className="text-foreground">{cabinToToggle.name}</strong>. Ya no va a aparecer como opción para citas nuevas, pero las citas que ya la usaron siguen viéndose igual.</>
+              ) : (
+                <>Estás a punto de activar <strong className="text-foreground">{cabinToToggle?.name}</strong>. Va a volver a aparecer como opción para agendar citas nuevas.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (cabinToToggle) handleToggleCabinActive(cabinToToggle);
+              }}
+              className={cabinToToggle?.isActive ? "bg-error text-white hover:bg-error/90" : "bg-success text-white hover:bg-success/90"}
+            >
+              {cabinToToggle?.isActive ? "Desactivar" : "Activar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

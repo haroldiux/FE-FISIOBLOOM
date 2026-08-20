@@ -20,7 +20,7 @@ import { animate } from "animejs";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import BranchTabs from "../components/BranchTabs";
-import { CATEGORIES_BY_ROLE, CABINS_BY_ROLE, DURATION_PRESETS, ALL_CABINS } from "../constants/staffAssignment";
+import { CATEGORIES_BY_ROLE, DURATION_PRESETS } from "../constants/staffAssignment";
 import type { PackageTemplate } from "./ServicesScreen";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -28,7 +28,20 @@ import type { PackageTemplate } from "./ServicesScreen";
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 const CELL_H = 80;
 const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const CABINS = ALL_CABINS;
+
+// Nombres de las cabinas ACTIVAS que puede usar un rol dado, según su(s)
+// categoría(s) permitida(s) (CATEGORIES_BY_ROLE) — reemplaza al viejo
+// CABINS_BY_ROLE hardcodeado: ahora las cabinas vienen de la base de datos
+// (Configuración > Cabinas) y su cantidad por especialidad es controlada
+// por el Administrador.
+function cabinNamesForRole(role: string | undefined, cabinsList: Cabin[]): string[] {
+  if (!role) return [];
+  const allowedCategories = CATEGORIES_BY_ROLE[role];
+  if (!allowedCategories) return [];
+  return cabinsList
+    .filter((c) => c.isActive && allowedCategories.includes(c.category))
+    .map((c) => c.name);
+}
 
 const LOCAL_STORAGE_KEY_APPTS = "bloom_skin_local_appointments";
 const LOCAL_STORAGE_KEY_PROFS = "bloom_skin_local_professionals";
@@ -147,9 +160,18 @@ interface Service {
   defaultPrice: number;
 }
 
-// CATEGORIES_BY_ROLE / CABINS_BY_ROLE / DURATION_PRESETS ahora viven en
-// ../constants/staffAssignment (también las usa la venta de paquetes desde
-// la ficha del paciente, para no duplicar esta lógica en dos pantallas).
+interface Cabin {
+  id: string;
+  name: string;
+  category: string;
+  isActive: boolean;
+}
+
+// CATEGORIES_BY_ROLE / DURATION_PRESETS viven en ../constants/staffAssignment
+// (también las usa la venta de paquetes desde la ficha del paciente, para no
+// duplicar esta lógica en dos pantallas). Las cabinas ya no son una
+// constante fija — se administran en Configuración > Cabinas y se traen
+// desde /api/cabins (ver cabinNamesForRole más arriba).
 
 interface Patient {
   id: string;
@@ -341,12 +363,16 @@ export default function CalendarScreen({
 }) {
   const { user, shiftStatus } = useAuth();
   const isSelfServiceProfessional = user?.role === "PHYSIO" || user?.role === "AESTHETICIAN";
+  const [cabins, setCabins] = useState<Cabin[]>([]);
   // Si el propio profesional agenda para sí mismo y solo tiene una cabina/box posible
   // (ej. Fisio -> Box Fisioterapia), se la autocompletamos en vez de dejarla en "Ninguna".
   const defaultCabinForSelf = (() => {
-    const allowed = user?.role ? CABINS_BY_ROLE[user.role] : undefined;
-    return allowed?.length === 1 ? allowed[0] : "Ninguna";
+    const allowed = cabinNamesForRole(user?.role, cabins);
+    return allowed.length === 1 ? allowed[0] : "Ninguna";
   })();
+  // Nombres de todas las cabinas activas (para Admin/roles sin restricción de
+  // categoría, y para la vista "por Cabinas" del calendario) + "Ninguna".
+  const activeCabinNames = [...cabins.filter((c) => c.isActive).map((c) => c.name), "Ninguna"];
   const [currentDate, setCurrentDate] = useState(() => new Date());
   // En celular, la grilla semanal de 7 columnas queda muy apretada y fea; la
   // vista "Agenda (Lista)" es de una sola columna y se ve mucho mejor ahí, así
@@ -479,6 +505,13 @@ export default function CalendarScreen({
         setServices(svcData);
       } catch (err) {
         console.warn("Error al cargar servicios de la API:", err);
+      }
+
+      try {
+        const cabinsData = await api.get<Cabin[]>("/cabins");
+        setCabins(cabinsData);
+      } catch (err) {
+        console.warn("Error al cargar cabinas de la API:", err);
       }
 
       try {
@@ -1106,10 +1139,10 @@ export default function CalendarScreen({
             // Cabin headers
             <div
               className="grid sticky top-0 bg-card z-20 border-b-2 border-border shadow-sm"
-              style={{ gridTemplateColumns: "64px repeat(4, 1fr)" }}
+              style={{ gridTemplateColumns: `64px repeat(${activeCabinNames.length}, 1fr)` }}
             >
               <div className="border-r border-border/50" />
-              {CABINS.map((cabinName, i) => {
+              {activeCabinNames.map((cabinName, i) => {
                 const cabinAppts = appointments.filter((a) => {
                   const isSame = isSameDay(new Date(a.dateTime), currentDate);
                   const isCabin = (a.cabin || "Ninguna") === cabinName;
@@ -1137,7 +1170,7 @@ export default function CalendarScreen({
             {/* Background grid */}
             <div
               className="absolute inset-0 grid"
-              style={{ gridTemplateColumns: viewMode === "weekly" ? "64px repeat(7, 1fr)" : "64px repeat(4, 1fr)" }}
+              style={{ gridTemplateColumns: viewMode === "weekly" ? "64px repeat(7, 1fr)" : `64px repeat(${activeCabinNames.length}, 1fr)` }}
             >
               {HOURS.map((hour) => (
                 <div key={`row-${hour}`} className="contents">
@@ -1199,7 +1232,7 @@ export default function CalendarScreen({
                     })
                   ) : (
                     // Cabins cells
-                    CABINS.map((cabinName, ci) => {
+                    activeCabinNames.map((cabinName, ci) => {
                       const isHovered = hoveredSlot?.day === ci && hoveredSlot?.hour === hour;
                       return (
                         <div
@@ -1245,7 +1278,7 @@ export default function CalendarScreen({
                     dayGroups.forEach((v, k) => overlapMap.set(k, v));
                   }
                 } else if (viewMode === "cabins") {
-                  CABINS.forEach((cabinName) => {
+                  activeCabinNames.forEach((cabinName) => {
                     const cabinGroups = computeCabinOverlapColumns(appointments, currentDate, cabinName);
                     cabinGroups.forEach((v, k) => overlapMap.set(k, v));
                   });
@@ -1319,7 +1352,7 @@ export default function CalendarScreen({
                     if (!isSameDay(new Date(appt.dateTime), currentDate)) return null;
 
                     const cabinName = appt.cabin || "Ninguna";
-                    const cabinIndex = CABINS.indexOf(cabinName);
+                    const cabinIndex = activeCabinNames.indexOf(cabinName);
                     if (cabinIndex === -1) return null;
 
                     const overlap = overlapMap.get(appt.id);
@@ -1531,8 +1564,8 @@ export default function CalendarScreen({
                               setDuration(computeAutoDuration(filteredIds));
                             }
                           }
-                          const allowedCabins = prof.role ? CABINS_BY_ROLE[prof.role] : undefined;
-                          if (allowedCabins) {
+                          const allowedCabins = cabinNamesForRole(prof.role, cabins);
+                          if (allowedCabins.length > 0) {
                             // Si solo tiene una cabina posible, se autocompleta. Si tiene varias
                             // (ej. Estética con Facial/Corporal), se resetea para que elija.
                             setCabin(allowedCabins.length === 1 ? allowedCabins[0] : "Ninguna");
@@ -1733,8 +1766,8 @@ export default function CalendarScreen({
                   </label>
                   {(() => {
                     const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
-                    const allowedCabins = selectedProf?.role ? CABINS_BY_ROLE[selectedProf.role] : undefined;
-                    const availableCabins = allowedCabins ? [...allowedCabins, "Ninguna"] : CABINS;
+                    const allowedCabins = cabinNamesForRole(selectedProf?.role, cabins);
+                    const availableCabins = allowedCabins.length > 0 ? [...allowedCabins, "Ninguna"] : activeCabinNames;
                     return (
                       <div className="flex flex-wrap gap-2">
                         {availableCabins.map((c) => (
